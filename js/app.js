@@ -1185,9 +1185,9 @@
             var canvas = document.getElementById('cvFreezingGraph');
             canvas.width = 600;
             canvas.height = 400;
-            if (!this.hasOwnProperty("NotesInitialized")) // set only on first execution
+            if (!DrawFreezingGraph.NotesInitialized) // set only on first execution
             {
-                this.NotesInitialized = true;
+                DrawFreezingGraph.NotesInitialized = true;
                 document.getElementById('taRecipeNotes').style = "width: " + (canvas.width - 2 * offX) + "px; margin-top: " + (offY - 1) + "px;";
             }
 
@@ -2100,7 +2100,7 @@
                 var cells = [...nGenerator(4, () => { return document.createElement('td'); })];
                 cells[0].innerText = sugar;
 
-                input = document.createElement('input');
+                var input = document.createElement('input');
                 input.name = 'Percentage';
                 input.placeholder = '%';
                 input.type = 'number';
