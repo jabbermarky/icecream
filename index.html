@@ -1,0 +1,378 @@
+<!-- 
+Ice Ed – The friendly Ice Cream Editor
+© 2020 J. Müller
+
+Some notes to developers:
+- This tool was designed with the goal in mind to work and being distributed as a single file without requiring any further dependencies, resources or even internet access. Any requests for external resources are considered optional and should not break the usability of the tool in case of failure. I recommend to maintain this guideline to ensure this tool can be used, passed on and extended without being dependent of any additional infrastructure.
+- The decision to implement this tool in html/javascript was primarily motivated by the reasoning to lower the barriers for changes and additions as much as possible and having a platform independent GUI available without any externals while I´m personally coming from C++ with rather little experience in web development. So if any portions of the code might look somewhat C-ish or do not meet established best-practices for JS this is the reason why. Please feel free to improve or to rise an issue on GitHub.
+
+Please read carefully the following terms and conditions before you download and/or use this software.
+The authors hereby grant you a non-exclusive, non-transferable, free of charge right to copy, modify, merge, publish, distribute, and sublicense the software for the sole purpose of non-commercial usage.
+Any use for commercial purposes is prohibited. This includes, without limitation, the production of other artifacts for commercial purposes, incorporation in a commercial product or use in a commercial service.
+The software is provided "as is", without warranty of any kind, express or implied, including, but not limited to the warranties of merchantability, fitness for a particular purpose and noninfringement. In no event shall the authors or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+You understand and agree that the authors are under no obligation to provide either maintenance services, update services, notices of latent defects or corrections of defects with regard to the software. The authors nevertheless reserve the right to update, modify or discontinue the software at any time.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the software.
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Ice Ed – The friendly Ice Cream Editor</title>
+    <meta charset="utf-8">
+    <meta name="author" content="J. Mueller">
+    <meta name="description"
+        content="A user friendly editor to create ice cream recipes and calculate the ideal mixture.">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="tab" id="tabbar">
+        <button class="tablink" data-tabgrp="main" data-tabid="Recipe">Recipe</button>
+        <button class="tablink" data-tabgrp="main" data-tabid="Ingredients List">Ingredients List</button>
+        <button class="tablink" data-tabgrp="main" data-tabid="Tools">Tools</button>
+        <button class="tablink" data-tabgrp="main" data-tabid="Links">Links</button>
+        <button class="tabbutton" id="btnDownload"
+            title="Save a copy of Ice Ed including all current ingredient data.">Download</button>
+        <button class="tablink" data-tabgrp="main" data-tabid="About">Info &amp; FAQ</button>
+    </div>
+
+    <div id="JavscriptWarning" style="font-size: 300%; color:red;">Please enable Javascript to run Ice Ed</div>
+
+    <div id="Recipe" class="tabcontent" data-tabgrp="main">
+        <p>
+            <button type="button" id="btnNewRecipe"
+                title="Starts the creatio of a new recipe. The current recipe is stored in the recent recipes list as long as the page is not closed.">⭐
+                New</button>
+            <button type="button" id="btnStoreAsIngredient"
+                title="Store this mixture with its result values to the ingredients list. Use this feature for bases, preparations and semi-products.">💾
+                Store as ingredient</button>
+            <button type="button" id="btnSaveRecipe" title="Stores the current recipe to a file.">💾 Save to file
+                ...</button>
+            <input type="file" id="inputLoadRecipe" accept=".ier" style="display: none;">
+            <button type="button" id="btnLoadRecipe"
+                title="Loads a recipe from a file. The current recipe is stored in the recent recipes list as long as the page is not closed.">📁
+                Load from file ...</button>
+            <button type="button" id="btnPrintRecipe" title="Opens the browsers print dialog.">🖨️ Print ...</button>
+        </p>
+        <h2>
+            <input type="text" id="edRecipeName" placeholder="Ice Cream Name">
+            <span id="ModifiedIndicator" class="ModifiedIndicator"
+                title="Recipe contains unsaved modifications."></span>
+        </h2>
+        <p>
+        </p>
+        <table class="layout" id="tblInfo">
+            <tbody>
+                <tr>
+                    <td>
+                        <label for="tgtSelection">Type</label>
+                    </td>
+                    <td>
+                        <select id="tgtSelection"
+                            title="Select an ice cream type to set the target parameters for the mixture"></select>
+                        <button type="button" id="btnCategorizeRecipe"
+                            title="Finds the type of ice cream that matches the current mixture best.">Categorize
+                            Recipe</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td> <label for="slServingTemperature">Serving Temperature </label></td>
+                    <td> <input id="slServingTemperature" class="slider" min="-35" max="-5" type="range" value="-18"
+                            title="The temperature the ice cream is stored at before serving."> <span
+                            id="lbServingTemperature"></span> </td>
+                </tr>
+                <tr>
+                    <td> <label for="slHardness">Hardness </label></td>
+                    <td> <input id="slHardness" class="slider" min="0" max="90" type="range" value="75"
+                            title="The hardness of the mixture at serving temperature is determined by the ratio of frozen water.">
+                        <span id="lbHardness"></span>
+                    </td>
+                </tr>
+                <tr>
+                    <td> <label for="slOverrun">Overrun </label></td>
+                    <td> <input id="slOverrun" class="slider" min="0" max="150" step="1" type="range" value="0.3"
+                            title="Overrun describes the percentage of air incorporated during the churning in relation to the unfrozen mixture.">
+                        <span id="lbOverrun"></span>
+                    </td>
+                </tr>
+                <tr class="noprint" hidden>
+                    <td> <label for="slScoopSize">Scooper Size </label></td>
+                    <td> <input id="slScoopSize" class="slider" min="0" max="1" step="1" type="range" value="1"
+                            title="Standard scooper sizes are defined by the volume of the bowl. So the scoops volume doubles this size.">
+                        <span id="lbScoopSize"></span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <p></p>
+        <table class="layout" id="RecipeData">
+            <tbody>
+                <tr>
+                    <td>
+                        <table id="tblRecipe">
+                            <tfoot></tfoot>
+                        </table>
+                    </td>
+                    <td>
+                        <p id="RecipeInfo"></p>
+                        <p id="RecipeHints"></p>
+                        <p class="noprint">
+                            <b>Scale</b><br>
+                            <input name="Amount" placeholder="New Amount" pattern="^[0-9]+([.,][0-9]+)?$" step="any"
+                                id="edTargetWeight" style="width: 6em;">
+                            <select id="selTargetWeightMode">
+                                <option>L</option>
+                                <option>g</option>
+                                <option>Scoops</option>
+                            </select><br>
+                            <label style="font-weight: normal;"> <input type="checkbox" id="cbxScaleByIngredient"
+                                    onclick="ToggleIngredientScale(event);"> by Ingredient</label><br>
+                            <button id="btnScale"
+                                title="Adjust the recipes yield by weight, volume, scoops or by the amount of an ingredient.">Scale</button>
+                        </p>
+                        <p class="noprint">
+                            <b>Optimize</b><br>
+                            <button title="Optimize for the center of the target interval for each parameter"
+                                id="btnOptimizeMean">Mean</button>
+                            <button title="Optimize to hit the target range somewhere for all parameters"
+                                id="btnOptimizeRange">Range</button>
+                            <button title="Recover the recipe state as it was before the previous optimization"
+                                id="btnRestoreRecipe">Restore</button>
+                        </p>
+                        <p id="RecipeStack" class="noprint"></p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <div id="NotesGraph">
+            <div>
+                <div id="taRecipeNotes" data-text="Notes" contenteditable="true"></div>
+            </div>
+            <div><canvas id="cvFreezingGraph"></canvas></div>
+        </div>
+    </div>
+
+    <div id="Ingredients List" class="tabcontent" data-tabgrp="main">
+        <p>
+            <button type="button" id="btnSaveIngredients" title="Saves the current ingredient list to a file">💾
+                Export</button>
+            <input type="file" id="inputLoadIngredients" accept=".iei" style="display: none;">
+            <button type="button" id="btnLoadIngredients"
+                title="Loads additional ingredient data from a file. Duplicate ingredients are merged. Conflicting data needs to be resolved manually.">📁
+                Import</button>
+            <input type="checkbox" id="cbxOverrideIngredients" class="noprint" checked=""
+                title="Duplicate conflicting ingredients are replaced with imported data, manual conflict resolution is skipped.">
+            <label for="cbxOverrideIngredients" class="noprint"
+                title="Duplicate conflicting ingredients are replaced with imported data, manual conflict resolution is skipped.">Override
+                existing</label>
+        </p>
+        <p>
+            <input type="text" id="edIngredientFilter" placeholder="Filter" class="noprint">
+            <button type="button" id="btnClearIngredientsFilter" title="Resets the filter">❌ Clear</button>
+        </p>
+        <table id="tblIngredientsList"></table>
+    </div>
+
+    <div id="Tools" class="tabcontent" data-tabgrp="main">
+
+        <div class="tab" id="ToolTabBar">
+            <button class="tablink" data-tabgrp="tools" data-tabid="PAC/POD">PAC &amp; POD</button>
+            <button class="tablink" data-tabgrp="tools" data-tabid="PacFromMol">PAC from g/mol</button>
+            <button class="tablink" data-tabgrp="tools" data-tabid="Yolk">Yolk</button>
+        </div>
+
+        <div id="PAC/POD" class="tabcontent" data-tabgrp="tools">
+            <h3>Calculate PAC &amp; POD</h3>
+            <div id="PacPodCalculator"></div>
+        </div>
+        <div id="PacFromMol" class="tabcontent" data-tabgrp="tools">
+            <h3>Calculate PAC from g/mol</h3>
+            <div>
+                <input id="edGMolCalculator" placeholder="g/mol" type="number" min="0" step="any"
+                    pattern="[0-9]+([\.,][0-9]+)?"><br>
+                <span id="GMolResult"></span>
+            </div>
+        </div>
+        <div id="Yolk" class="tabcontent" data-tabgrp="tools">
+            <h3>Yolk Calculator</h3>
+            <div id="YolkCalculator"></div>
+        </div>
+    </div>
+
+    <div id="Links" class="tabcontent" data-tabgrp="main">
+        <h2>Links</h2>
+    </div>
+
+    <div id="About" class="tabcontent" data-tabgrp="main">
+        <div>
+
+            <h2>Ice Ed – The friendly Ice Cream Editor</h2>
+            <p>
+                <span id="Version"></span><br>
+                <button type="button" id="btnCheckUpdate">Check for Updates</button><br>
+                <span id="VersionInfo"></span>
+            </p>
+
+            <b>
+                <p id="AboutContent"></p>
+            </b>
+
+            <h3>Acknowledgments</h3>
+            <p>Special thanks go to <i>Robert Kneschke</i> from the <a href="https://www.eis-machen.de" target="_blank"
+                    rel="external noopener">Eis machen</a>-Blog for his sound expert advice and valuable recommendations
+                on the UI.</p>
+            <p>Also <a href="https://github.com/eckes" target="_blank" rel="external noopener">Eckes</a> contribution to
+                the browser compatibility deserve to be credited.</p>
+
+            <h3>FAQ</h3>
+            <p><b>What is the meaning of the beta status?</b><br>This tool is not yet in a final state, so you should be
+                aware of two things. </p>
+            <ul>
+                <li>Expect to find some bugs or glitches. If you do, please report them back to me so I can fix them for
+                    the first regular release version.</li>
+                <li>Do <b>not</b> expect compatibility between this version and its file formats and t's successors.
+                    Though I will try not to break the backwards compatibility or to provide a conversion feature by all
+                    reasonable means, I can not guarantee that the recipe and ingredient data stored with this version
+                    will be readable by the next one.</li>
+            </ul>
+            <p></p>
+            <p><b>What do I have to consider when creating a recipe?</b><br>Actually not much, just set the desired
+                target type, serving temperature and hardness to configure the target parameters. Then add the
+                ingredients in their required amounts and adjust the mixture according to your wishes. There is only one
+                caveat. Only account ingredients that are actually soluted in the mixture, as only they contribute to
+                the mixtures properties. So for example if you are going to add some chocolate chips to your ice cream
+                you should exclude them from the calculation.</p>
+            <p><b>The calculation results I get seem to be odd or differ from the results I get using another tool. What
+                    should I do?</b><br>This is most likely caused by some erroneous ingredient data. The best way to
+                address this is to trace back the ingredients that are affecting the wrong result values most and double
+                check the data stored for them in the ingredients list.</p>
+            <p><b>How should the optimization feature be used?</b><br>You need to be aware that the optimization
+                algorithm can only aim for the technical parameters, but does not know anything about taste. In some
+                cases this can mean it could choose to add lots of salt to decrease the freezing point or to remove any
+                stabilizers as it is not aware of their contribution to the texture. So the best way to use the
+                automatic optimization is to use the optimization to get an idea of the proportions of ingredients
+                needed to fulfill the technical requirements and use this as a basis to tweak the parameters the
+                algorithm missed.<br>The optimization comes in two flavors:</p>
+            <ul>
+                <li><i>Mean</i> is the more aggressive approach, trying to adjust the mixture to hit the center of each
+                    target parameter range. I recommend to use this algorithm as the first choice.</li>
+                <li><i>Range</i> is doing a more relaxed optimization, considering it as sufficient if the recipes sums
+                    all fall into the targeted parameter range. So it's results are not as spot on as Mean, but in some
+                    cases it still yields a better overall result. Use this as a fallback option or in case you prefer
+                    to keep the changes on the mixture as small as possible.</li>
+            </ul>
+            <p></p>
+            <p><b>What is the meaning of the error value?</b><br>The internal calculation is not done for a target value
+                but for a valid range for each value, but all this numbers are hidden from the UI for the sake of
+                simplicity. The error value describes how much the current mixture fails to met the desired range. For
+                example if the target value should be between 90 and 110, this would be a range of 20. If the current
+                value then is 120, meaning it is 10 off the target range, the error value would be 50% (10/20). This
+                approach ensures that the error for missing a large range a little is smaller than missing a small range
+                by the same amount.</p>
+            <p><b>What are all these abbreviations about?</b><br>
+                <i>PAC</i> stands for potere anticongelante. It describes the freezing point depression relative to the
+                one of sucrose, which has the value of 100. It is also known as (relative) freezing point depression
+                factor or anti-freezing power.<br>
+                <i>POD</i> means potere edulcorante and is used to measure the sweetness in relation to sucrose, which
+                is again defined as a value of 100. This value is also known as relative sweetness, sweetening power or
+                sucrose equivalent (SE).<br>
+                <i>MSNF</i> abbreviates the term milk-solids non-fat and describes the stuff that remains when removing
+                water and fat from dairy products. For ice cream making the lactose and salt contents are the fractions
+                of primary interest in MSNF.<br>
+            </p>
+            <p><b>I created a recipe with custom ingredients and would like to share it with someone else. Do I have to
+                    pass on my inredients collection as well?</b><br>No, this is not required. All ingredients used are
+                stored as a backup in the recipe file and automatically imported on loading. When the ingredients are
+                already present their values are compared to ensure the calculation relies on the data matching the
+                ingredients acually used for the mixture.</p>
+            <p><b>What do I have to take care of when I add ingredients?</b><br>The field <i>Solids</i> describes the
+                total solids, including the MSNF part. So basically everything except water and alcohol needs to be
+                considered here.<br>
+                <i>PAC</i> includes all anti-freezing effects of an ingredient created by sugars, salt or alcohol, with
+                one exception: the salt contained in the MSNF of dairy products is calculated separately for reasons of
+                the algorithm and therefore should not be included in the PAC value.<br>
+                When importing ingredient data from the FoodData Central database do not forget to complete the missing
+                data. Although Ice Ed is able to load the complete attributes of an ingredient, most records lack some
+                data fields, so you will have to add them manually.<br>
+                As a last step for creating new ingredients it is recommended to do a sanity check by comparing their
+                values with those of one or two similar items to track any obvious deviations.
+            </p>
+            <p><b>How can I keep my added ingredients best?</b><br>You can either use the import/export buttons or you
+                can use the Download link to create a local copy of the tool containing the ingredients list with all
+                current changes.</p>
+            <p><b>Why can´t I use this tool for commercial purposes?</b><br>I made this tool for a target audience of
+                hobbyists and enthusiasts that love making ice cream but do not make a living out of it. In general I
+                would not mind the tool being used by professional gelatieri as well. But please be aware that the
+                development did not only cost me a good amount of time, but also required me to spend some money for
+                research and testing. So before allowing others to earn money with this tool I would like at least to
+                reimburse my expenses. As soon as I break even I will happily alter the license to a more permissive
+                model (Probably it's going to be GPLv3 or MIT license.) and also might consider adding some features for
+                professional use like price per scoop calculation or batch planning.</p>
+            <p><b>Which upcoming features are currently planned?</b><br>There are some…</p>
+            <p><b>Will there be any translations available, soon?</b><br>Currently this has no priority for development.
+                However, if there should be a merge request of reasonable quality I surely will not reject it.</p>
+
+
+            <h3>Support &amp; Feedback</h3>
+            For any feature requests, bug reports or contributions, please visit the project page on <a target="_blank"
+                rel="noopener noreferrer" href="https://github.com/JoernMueller/Ice-Ed">GitHub</a> or leave me a note
+            via <a target="_blank" rel="noopener noreferrer" href="https://forms.gle/YuNispk4LXSiks8B9">Google Forms</a>
+            (no login required).
+
+            <h3>Donations</h3>
+            <p>
+                If you would like to support the development and maintenance of Ice Ed with a donation please use this
+                button.<br>
+            </p>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+                <input type="hidden" name="cmd" value="_s-xclick">
+                <input type="hidden" name="hosted_button_id" value="YZSJ4FV9LT2NU">
+                <input type="image" src="https://www.paypalobjects.com/en_US/DK/i/btn/btn_donateCC_LG.gif" name="submit"
+                    title="PayPal - The safer, easier way to pay online!" alt="Donate with PayPal button" border="0">
+                <!--<img alt="" border="0" src="https://www.paypal.com/en_DE/i/scr/pixel.gif" width="1" height="1" />-->
+            </form>
+            <p></p>
+
+            <h3>License &amp; Copyright</h3>
+            <p>© 2020 J. Müller</p>
+            <p>
+                Please read carefully the following terms and conditions before you download and/or use this
+                software.<br>
+                The authors hereby grant you a non-exclusive, non-transferable, free of charge right to copy, modify,
+                merge, publish, distribute, and sublicense the software for the sole purpose of non-commercial
+                usage.<br>
+                <i>Any use for commercial purposes is prohibited.</i> This includes, without limitation, the production
+                of other artifacts for commercial purposes, incorporation in a commercial product or use in a commercial
+                service.<br>
+                The software is provided "as is", without warranty of any kind, express or implied, including, but not
+                limited to the warranties of merchantability, fitness for a particular purpose and noninfringement. In
+                no event shall the authors or copyright holders be liable for any claim, damages or other liability,
+                whether in an action of contract, tort or otherwise, arising from, out of or in connection with the
+                software or the use or other dealings in the software.<br>
+                You understand and agree that the authors are under no obligation to provide either maintenance
+                services, update services, notices of latent defects or corrections of defects with regard to the
+                software. The authors nevertheless reserve the right to update, modify or discontinue the software at
+                any time.<br>
+                The above copyright notice and this permission notice shall be included in all copies or substantial
+                portions of the software.<br>
+            </p>
+        </div>
+    </div>
+
+    <div id="Modal" class="modal">
+        <div class="modal-content">
+            <div id="ModalContent">
+            </div>
+            <p id="ModalButtons"></p>
+        </div>
+    </div>
+
+    <p style="margin-bottom: 2em;"></p>
+    <!-- adds some space at the bottom to ensure the footer is not hiding any content -->
+    <footer id="statusBar" class="footer"></footer>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>
