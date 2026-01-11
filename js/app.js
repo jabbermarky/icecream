@@ -1,4 +1,7 @@
         //=====================================================================================================================================================================
+        // Step 1: Import helper utilities
+        import { toFloat, clickOn, getHtmlContent, decimalSeparator } from './utils/helpers.js';
+
         const VERSION = "0.4.0 beta";
 
 
@@ -8,7 +11,6 @@
 
         const docBackup = getHtmlContent(); // Backup of the document needs to be done first before any modifications are applied to the DOM so it can be used to modify and download the file later on
 
-        const decimalSeparator = (1.1).toLocaleString().substring(1, 2);
         const RecipeDataColumns = ["Water", "Sugar", "Fat", "MSNF", "Solids", "PAC", "POD", "Stabilizer"];
         const RecipeColumns = ["Name", "Amount", "Scale to", ""].concat(RecipeDataColumns);
         const IngredientDataFields = ["Water", "Sugar", "Fat", "MSNF", "Solids", "PAC", "POD", "Stabilizer", "kcal"];
@@ -2491,12 +2493,6 @@
             clickOn(link);
         }
 
-        function clickOn(element) {
-            var event = document.createEvent('MouseEvents');
-            event.initMouseEvent('click', true, true, window, 1, 0, 0, 0, 0, false, false, false, false, 0, null);
-            element.dispatchEvent(event);
-        }
-
         function filterPosNumberInput(event) {
             const acceptSeparator = !this.value.includes(decimalSeparator) && !this.value.includes('.');
             const ASCIICode = event.which ? event.which : event.keyCode;
@@ -2578,13 +2574,6 @@
 
         }
 
-        function toFloat(string) {
-            string = string.replaceAll(decimalSeparator, '.');
-            if (string.match("-?[0-9]+(\.[0-9]+)?"))
-                return Number(string);
-            return NaN;
-        }
-
         function round(value) {
             if (value == 0)
                 return 0;
@@ -2629,46 +2618,6 @@
                         (i && j && a[i] == b[j - 1] && a[i - 1] == b[j]) ? d[(i - 1) + (j - 1) * (m + 1)] + 1 : Number.MAX_SAFE_INTEGER // transposition
                     );
             return d[m + n * (m + 1)];
-        }
-
-        // Based on the answer of Gerben on 
-        // https://stackoverflow.com/questions/817218/how-to-get-the-entire-document-html-as-a-string
-        // s.a. https://www.npmjs.com/package/document-outerhtml
-        function getHtmlContent() {
-            function nodeToString(node) {
-                function doctypeToString(doctype) {
-                    if (doctype === null)
-                        return '';
-                    // Checking with instanceof DocumentType might be neater, but how to get a
-                    // reference to DocumentType without assuming it to be available globally?
-                    // To play nice with custom DOM implementations, we resort to duck-typing.
-                    if (!doctype
-                        || doctype.nodeType !== doctype.DOCUMENT_TYPE_NODE
-                        || typeof doctype.name !== 'string'
-                        || typeof doctype.publicId !== 'string'
-                        || typeof doctype.systemId !== 'string') {
-                        throw new TypeError('Expected a DocumentType');
-                    }
-                    return `<!DOCTYPE ${doctype.name}`
-                        + (doctype.publicId ? ` PUBLIC "${doctype.publicId}"` : '')
-                        + (doctype.systemId ? (doctype.publicId ? `` : ` SYSTEM`) + ` "${doctype.systemId}"` : ``) + `>`;
-                }
-
-                switch (node.nodeType) {
-                    case node.ELEMENT_NODE:
-                        return node.outerHTML;
-                    case node.TEXT_NODE:
-                        // Text nodes should probably never be encountered, but handling them anyway.
-                        return node.textContent;
-                    case node.COMMENT_NODE:
-                        return `<!--${node.textContent}-->`;
-                    case node.DOCUMENT_TYPE_NODE:
-                        return doctypeToString(node);
-                    default:
-                        throw new TypeError(`Unexpected node type: ${node.nodeType}`);
-                }
-            }
-            return [...document.childNodes].map(node => nodeToString(node)).join('\n'); // could use '' instead, but whitespace should not matter.
         }
 
         const pickerOpts = {
