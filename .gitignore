@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Test outputs
+.playwright-mcp/
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
