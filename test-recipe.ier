@@ -1,34 +1,153 @@
 {
-	"id": "IceEdRecipe",
-	"version": "0.4.0 beta",
+	"id": "IER",
+	"version": 1,
 	"data": {
-		"Name": "Test Vanilla Ice Cream",
-		"ServingTemperature": -18,
-		"Hardness": 0.75,
-		"Overrun": 0.3,
-		"Target": "Premium",
-		"Ingredients": [
-			{
-				"Name": "Whole Milk 3.5%",
-				"Amount": 500
+		"Recipe": {
+			"Name": "Test-Recipe",
+			"Notes": "",
+			"Type": "Gelato",
+			"ServingTemperature": -15,
+			"Hardness": 0.75,
+			"Overrun": 0.23206666666666664,
+			"Ingredients": [
+				{
+					"Name": "Whole Milk 3.3%",
+					"Amount": 794
+				},
+				{
+					"Name": "Cream, heavy",
+					"Amount": 175
+				},
+				{
+					"Name": "Sucrose",
+					"Amount": 98
+				},
+				{
+					"Name": "Dextrose",
+					"Amount": 80
+				},
+				{
+					"Name": "Fructose",
+					"Amount": 0
+				},
+				{
+					"Name": "Dried Skimmed Milk Powder",
+					"Amount": 68
+				},
+				{
+					"Name": "Vanilla Extract",
+					"Amount": 5
+				},
+				{
+					"Name": "Asian Pear, freeze dried",
+					"Amount": 60
+				},
+				{
+					"Name": "Stabilizer Mix 4421",
+					"Amount": 8.8
+				},
+				{
+					"Name": "goat cheese",
+					"Amount": 100
+				},
+				{
+					"Name": "Asian Pear",
+					"Amount": 1173
+				}
+			]
+		},
+		"Ingredients": {
+			"Whole Milk 3.3%": {
+				"Water": 0.8809999999999999,
+				"Sugar": 0.0481,
+				"Fat": 0.032,
+				"Solids": 0.1190000000000001,
+				"MSNF": 0.087,
+				"PAC": 0.0481,
+				"kcal": 0.61,
+				"POD": 0.0077
 			},
-			{
-				"Name": "Cream, heavy",
-				"Amount": 250
+			"Cream, heavy": {
+				"Water": 0.5771000000000001,
+				"Fat": 0.3608,
+				"Sugar": 0.0292,
+				"kcal": 3.4,
+				"PAC": 0.02922561403508772,
+				"POD": 0.004672,
+				"Solids": 0.42289999999999994,
+				"MSNF": 0.06209999999999993
 			},
-			{
-				"Name": "Sucrose",
-				"Amount": 150
+			"Sucrose": {
+				"Sugar": 1,
+				"Solids": 1,
+				"PAC": 1,
+				"POD": 1,
+				"kcal": 3.85
 			},
-			{
-				"Name": "Egg Yolk",
-				"Amount": 80
+			"Dextrose": {
+				"Sugar": 0.875,
+				"Solids": 1,
+				"PAC": 1.66,
+				"POD": 0.61,
+				"kcal": 3.66
 			},
-			{
-				"Name": "Vanilla Extract",
-				"Amount": 5
+			"Fructose": {
+				"Sugar": 1,
+				"Solids": 1,
+				"PAC": 1.9,
+				"POD": 1.7,
+				"kcal": 3.98
+			},
+			"Dried Skimmed Milk Powder": {
+				"Water": 0.02,
+				"Sugar": 0.515,
+				"Fat": 0.009,
+				"Solids": 0.96,
+				"MSNF": 0.954,
+				"PAC": 0.52,
+				"POD": 0.0835,
+				"kcal": 3.55
+			},
+			"Vanilla Extract": {
+				"Water": 0.5257999999999999,
+				"Fat": 0.0006,
+				"Sugar": 0.1265,
+				"kcal": 2.88,
+				"Solids": 0.1302000000000001,
+				"PAC": 0.127,
+				"POD": 0.127
+			},
+			"Asian Pear, freeze dried": {
+				"Sugar": 0.442,
+				"Fat": 0.004,
+				"Solids": 1,
+				"PAC": 0.8320000000000001,
+				"POD": 0.43700000000000006,
+				"kcal": 3.33
+			},
+			"Stabilizer Mix 4421": {
+				"Water": 0.0818,
+				"Fat": 0.0027,
+				"Solids": 0.9181999999999999,
+				"POD": 0.0091,
+				"Stabilizer": 0.5545,
+				"kcal": 5.127000000000001
+			},
+			"goat cheese": {
+				"Water": 0.45520000000000005,
+				"Fat": 0.2984,
+				"kcal": 3.64,
+				"Solids": 0.5448
+			},
+			"Asian Pear": {
+				"Water": 0.867,
+				"Sugar": 0.106,
+				"Fat": 0.001,
+				"Solids": 0.133,
+				"PAC": 0.1996,
+				"POD": 0.1048,
+				"kcal": 0.5
 			}
-		],
-		"Notes": "Test recipe for automated testing"
+		}
 	}
 }

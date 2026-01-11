@@ -198,6 +198,68 @@ const tests = {
            overrun && recipeTable && freezingGraph;
   },
 
+  // Recipe Loading Tests (load from file)
+  async testRecipeLoading() {
+    logSection('Recipe Loading Tests');
+
+    await page.click('button:has-text("Recipe")');
+    await page.waitForTimeout(200);
+
+    // Set up file chooser handler
+    const [fileChooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.click('#btnLoadRecipe')
+    ]);
+
+    // Load the test recipe file
+    await fileChooser.setFiles('test recipe.ier');
+    await page.waitForTimeout(1500); // Wait for recipe to load and render
+
+    // Check recipe name was loaded
+    const recipeName = await page.$eval('#edRecipeName', el => el.value);
+    logTest('Recipe name loaded', recipeName === 'Test Recipe V1',
+      `Found: "${recipeName}"`);
+
+    // Check recipe type was set
+    const recipeType = await page.$eval('#tgtSelection', el => el.value);
+    logTest('Recipe type loaded', recipeType === 'Gelato',
+      `Found: "${recipeType}"`);
+
+    // Check serving temperature was set
+    const servingTemp = await page.$eval('#slServingTemperature', el => el.value);
+    logTest('Serving temperature loaded', servingTemp === '-15',
+      `Found: ${servingTemp}°C`);
+
+    // Check ingredients were loaded (should have 11 ingredients from file)
+    const ingredientRows = await page.$$eval(
+      '#tblRecipe tbody:not(tfoot) tr',
+      rows => rows.filter(row => {
+        const select = row.querySelector('select');
+        return select && select.value !== '';
+      }).length
+    );
+    logTest('Recipe ingredients loaded', ingredientRows >= 10,
+      `Found ${ingredientRows} ingredient rows`);
+
+    // Check that recipe calculations updated (sum values should not be all zeros)
+    const sumValues = await page.$$eval(
+      '#tblRecipe tfoot tr:first-child th',
+      cells => cells.map(c => c.textContent.trim())
+    );
+    const hasNonZeroSums = sumValues.some(val => {
+      const num = parseFloat(val);
+      return !isNaN(num) && num > 0;
+    });
+    logTest('Recipe calculations updated', hasNonZeroSums,
+      `Calculations ran after loading`);
+
+    return recipeName === 'Test Recipe V1' &&
+           recipeType === 'Gelato' &&
+           servingTemp === '-15' &&
+           ingredientRows >= 10 &&
+           hasNonZeroSums;
+  },
+
   // Recipe Building Tests (add ingredients and verify calculations)
   async testRecipeBuilding() {
     logSection('Recipe Building Tests');

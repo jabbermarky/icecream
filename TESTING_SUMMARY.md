@@ -3,10 +3,10 @@
 ## ✅ Completed
 
 ### Test Infrastructure Created
-1. **test-app.js** (11 KB)
+1. **test-app.js** (13 KB)
    - Automated Playwright test suite
-   - 32 tests across 8 categories
-   - ~7-8 second runtime
+   - 37 tests across 9 categories
+   - ~8-9 second runtime
    - Exit code: 0 (pass) or 1 (fail)
 
 2. **package.json** (408 bytes)
@@ -32,7 +32,7 @@
 
 ## 🎯 Test Coverage
 
-All 32 tests currently passing ✓
+All 37 tests currently passing ✓
 
 ### Basic Loading (3 tests)
 - ✓ Page loads successfully
@@ -54,6 +54,13 @@ All 32 tests currently passing ✓
 - ✓ Overrun slider visible
 - ✓ Recipe table visible
 - ✓ Freezing graph canvas visible
+
+### Recipe Loading (5 tests)
+- ✓ Recipe name loaded correctly
+- ✓ Recipe type loaded correctly
+- ✓ Serving temperature loaded correctly
+- ✓ Recipe ingredients loaded (11 items)
+- ✓ Recipe calculations updated after loading
 
 ### Recipe Building (6 tests)
 - ✓ Can set recipe name
@@ -158,8 +165,8 @@ This catches issues in seconds, not minutes/hours.
 
 ## 📊 Metrics
 
-- **32 tests** covering all major features
-- **7-8 seconds** total runtime
+- **37 tests** covering all major features
+- **8-9 seconds** total runtime
 - **100% pass rate** on current code
 - **0 false positives** (all tests are meaningful)
 
@@ -195,7 +202,8 @@ Revised [MODULARIZATION_PLAN.md](MODULARIZATION_PLAN.md) now includes:
 ## 🎯 Success Metrics
 
 - [x] Test suite created
-- [x] All 26 tests passing
+- [x] All 37 tests passing
+- [x] Recipe loading test added
 - [x] Documentation complete
 - [x] Workflow documented
 - [x] Integration with plan
