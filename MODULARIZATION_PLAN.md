@@ -3,13 +3,30 @@
 ## Current State
 ✅ HTML: 377 lines (clean structure)
 ✅ CSS: 455 lines in `css/styles.css`
-✅ JavaScript: 2,694 lines in `js/app.js` (single monolithic file)
+✅ **Step 1 COMPLETE:** Helper functions extracted to `js/utils/helpers.js` (72 lines)
+- JavaScript: 2,643 lines in `js/app.js` (down from 2,694)
+- ⚠️ **Lesson learned:** ES6 modules enable strict mode - need to test for strict mode bugs BEFORE extraction
 
 ## Goal
 Extract JavaScript functionality into focused modules **ONE AT A TIME**, testing after each extraction to ensure the app still works.
 
-## Strategy: Incremental Extraction with Testing
-Extract modules in order from least risky to most risky, testing thoroughly after each step.
+## Strategy: Test-First Incremental Extraction
+For each extraction:
+1. **Write/identify tests FIRST** - Establish baseline that current code passes
+2. **Extract code** - Move functions to new module
+3. **Run tests** - Verify no regression
+4. **Commit** - Save progress with working state
+
+This prevents breaking changes and catches issues immediately.
+
+### Test Automation Script
+Before starting Step 2, create `test-app.js` that:
+- Uses Playwright to run automated tests
+- Tests each major feature (tabs, recipe operations, ingredient operations)
+- Can be run before/after each extraction step
+- Exits with code 0 (success) or 1 (failure)
+
+Usage: `node test-app.js` or `npm test`
 
 ---
 
@@ -26,12 +43,23 @@ Extract modules in order from least risky to most risky, testing thoroughly afte
 
 **Lines:** Scattered throughout (~50-100 lines total)
 
+**⚠️ PRE-EXTRACTION CHECKS (do BEFORE extracting):**
+1. Run full test suite to establish baseline
+2. Check browser console - should have ZERO errors on Recipe tab
+3. Verify strict mode compatibility - scan for `this` usage in functions to be extracted
+4. Document any existing bugs separately (don't fix during extraction)
+
 **Exports:**
 \`\`\`javascript
 export { toFloat, clickOn, getHtmlContent, decimalSeparator };
 \`\`\`
 
-**Testing after:** Verify page loads, try editing recipe amounts
+**POST-EXTRACTION TESTS (verify after extracting):**
+1. ✅ Page loads without NEW console errors
+2. ✅ Recipe tab displays
+3. ✅ Download button works (uses `getHtmlContent` and `clickOn`)
+4. ✅ Number inputs work with locale decimals (uses `toFloat` and `decimalSeparator`)
+5. ✅ All tabs switch correctly
 
 ---
 
