@@ -196,6 +196,78 @@ const tests = {
            overrun && recipeTable && freezingGraph;
   },
 
+  // Recipe Building Tests (add ingredients and verify calculations)
+  async testRecipeBuilding() {
+    logSection('Recipe Building Tests');
+
+    await page.click('button:has-text("Recipe")');
+    await page.waitForTimeout(200);
+
+    // Set recipe name
+    await page.fill('#edRecipeName', 'Test Recipe');
+    const recipeName = await page.$eval('#edRecipeName', el => el.value);
+    logTest('Can set recipe name', recipeName === 'Test Recipe');
+
+    // Set recipe type
+    await page.selectOption('#tgtSelection', 'Premium');
+    const recipeType = await page.$eval('#tgtSelection', el => el.value);
+    logTest('Can set recipe type', recipeType === 'Premium');
+
+    // Add first ingredient (Whole Milk)
+    const ingredientSelect = await page.$('#tblRecipe tbody:not(tfoot) tr:first-child select');
+    if (ingredientSelect) {
+      await page.selectOption('#tblRecipe tbody:not(tfoot) tr:first-child select', 'Whole Milk 3.5%');
+      await page.waitForTimeout(200);
+
+      // Set amount
+      await page.fill('#tblRecipe tbody:not(tfoot) tr:first-child input[type="number"]', '500');
+      await page.waitForTimeout(500); // Wait for calculations
+
+      // Check if ingredient was added
+      const selectedIngredient = await page.$eval(
+        '#tblRecipe tbody:not(tfoot) tr:first-child select',
+        el => el.value
+      );
+      logTest('Can add ingredient', selectedIngredient === 'Whole Milk 3.5%');
+
+      // Check if amount was set
+      const amount = await page.$eval(
+        '#tblRecipe tbody:not(tfoot) tr:first-child input[type="number"]',
+        el => el.value
+      );
+      logTest('Can set ingredient amount', amount === '500',
+        `Amount: ${amount}`);
+
+      // Check that recipe calculations updated (sum values should not be all zeros)
+      const sumValues = await page.$$eval(
+        '#tblRecipe tfoot tr:first-child th',
+        cells => cells.map(c => c.textContent.trim())
+      );
+      const hasNonZeroSums = sumValues.some(val => {
+        const num = parseFloat(val);
+        return !isNaN(num) && num > 0;
+      });
+      logTest('Recipe calculations work', hasNonZeroSums,
+        `Sums updated after adding ingredient`);
+
+      // Test recipe notes
+      await page.fill('#taRecipeNotes', 'Test notes for recipe');
+      const notes = await page.$eval('#taRecipeNotes', el => el.textContent);
+      logTest('Can set recipe notes', notes.includes('Test notes'),
+        `Notes: "${notes}"`);
+
+      return recipeName === 'Test Recipe' &&
+             recipeType === 'Premium' &&
+             selectedIngredient === 'Whole Milk 3.5%' &&
+             amount === '500' &&
+             hasNonZeroSums &&
+             notes.includes('Test notes');
+    } else {
+      logTest('Ingredient select found', false, 'Could not find ingredient selector');
+      return false;
+    }
+  },
+
   // Ingredients List Tests
   async testIngredientsList() {
     logSection('Ingredients List Tests');

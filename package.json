@@ -12,7 +12,7 @@
     "recipe",
     "calculator"
   ],
-  "author": "J. Müller",
+  "author": "Mark Lummus & J. Müller",
   "license": "SEE LICENSE IN README",
   "devDependencies": {
     "playwright": "^1.57.0"
