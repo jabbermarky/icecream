@@ -1252,6 +1252,8 @@
             ctx.strokeStyle =
                 ctx.fillStyle = getCSS(canvas, '--accent');
             line(0, hardnessPoint, 1, hardnessPoint);
+            // vertical line at hardness percentage on X-axis
+            line(Recipe.Hardness, 0, Recipe.Hardness, 1);
             ctx.textBaseline = hardnessPoint > servingTemp ? "top" : "bottom";
             ctx.fillText("Hardness " + Math.round(Recipe.Hardness * 100) + "%", tx(1), ty(hardnessPoint) + (hardnessPoint > servingTemp ? 4 : -4));
 
