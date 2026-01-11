@@ -983,7 +983,7 @@
             const sums = Candidate.Sums;
             const pac_value = GetIdealPAC(Recipe, tgtType, sums) / sums.Amount; // adjust required PAC to current recipe
             tgtType.PAC = new cTargetValue(pac_value * 0.95, pac_value * 1.05); // +/- 5%
-            for (columnName of fitnessFields) {
+            for (const columnName of fitnessFields) {
                 const currValue = sums[columnName];
                 const tgtValue = sums.Amount * tgtType[columnName].Mean;
                 if (currValue == 0.0 || tgtValue == 0)
@@ -1027,7 +1027,7 @@
             var recipeFitness = originalFitness;
 
             var step = 0.1;
-            outerImproved = 0;
+            var outerImproved = 0;
             do {
                 var improved = 0;
 
