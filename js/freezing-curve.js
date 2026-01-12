@@ -70,6 +70,7 @@ export function DrawFreezingGraph(Water, PAC, MSNF, Recipe, getCSS) {
     if (!DrawFreezingGraph.NotesInitialized) // set only on first execution
     {
         DrawFreezingGraph.NotesInitialized = true;
+        // adjust recipe notes width and margin to fit canvas size so that resizing the canvas also resizes the notes area and keeps it aligned
         document.getElementById('taRecipeNotes').style = "width: " + (canvas.width - 2 * offX) + "px; margin-top: " + (offY - 1) + "px;";
     }
 
