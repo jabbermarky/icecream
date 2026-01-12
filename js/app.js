@@ -1,6 +1,6 @@
         //=====================================================================================================================================================================
         // Step 1: Import helper utilities
-        import { toFloat, clickOn, getHtmlContent, decimalSeparator } from './utils/helpers.js';
+        import { toFloat, clickOn, decimalSeparator } from './utils/helpers.js';
         import { GetIdealPAC, DrawFreezingGraph } from './freezing-curve.js';
         import { saveToFile, saveIngredientsToFile, parseRecipeFile, parseIngredientsFile } from './utils/file-io.js';
 
@@ -10,8 +10,6 @@
 
 
 
-
-        const docBackup = getHtmlContent(); // Backup of the document needs to be done first before any modifications are applied to the DOM so it can be used to modify and download the file later on
 
         const RecipeDataColumns = ["Water", "Sugar", "Fat", "MSNF", "Solids", "PAC", "POD", "Stabilizer"];
         const RecipeColumns = ["Name", "Amount", "Scale to", ""].concat(RecipeDataColumns);
@@ -272,32 +270,6 @@
         Targets["Frozen Yogurt: Regular"] = new cTarget(0.03, 0.06, 0.09, 0.13, 0.15, 0.17, 0.004, 0.005, 0.3, 0.36);
         Targets["Sorbet"] = new cTarget(0.0, 0.01, 0.0, 0.0, 0.22, 0.28, 0.004, 0.005, 0.28, 0.34);
         Targets["Sherbet"] = new cTarget(0.01, 0.02, 0.01, 0.03, 0.22, 0.28, 0.004, 0.005, 0.28, 0.34);
-
-
-
-        // This method must be located below the ingredient markers to ensure they are located properly with the string search
-        document.getElementById("btnDownload").onclick = () => {
-
-            const start_marker = "/*INGREDIENTS_START_MARKER*/";
-            const end_marker = "/*INGREDIENTS_END_MARKER*/";
-
-            const pos_start = docBackup.indexOf(start_marker);
-            const pos_end = docBackup.indexOf(end_marker);
-            if (pos_start < 0 || pos_end < 0 || pos_start >= pos_end) {
-                ErrorMsg("Failed to locate ingredient markers in document. Download aborted.");
-                return;
-            }
-
-            const string = docBackup.slice(0, pos_start + start_marker.length)
-                + "\nIngredients = JSON.parse('\\\n" + JSON.stringify(Ingredients, (key, value) => { return value == 0.0 ? undefined : value; }).replaceAll('},', "},\\\n") + "');\n"
-                + docBackup.slice(pos_end);
-            var link = document.createElement('a');
-            link.setAttribute('href', URL.createObjectURL(new Blob([string], { type: 'text/html' })));
-            link.setAttribute('download', "IceEd.html");
-            clickOn(link);
-        };
-
-
 
 
 

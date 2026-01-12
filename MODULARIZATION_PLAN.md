@@ -38,7 +38,6 @@ Usage: `node test-app.js` or `npm test`
 **What to extract:**
 - `toFloat()` - Parse float with locale support
 - `clickOn()` - Programmatic click helper
-- `getHtmlContent()` - Get HTML source
 - `decimalSeparator` - Locale decimal separator constant
 
 **Lines:** Scattered throughout (~50-100 lines total)
@@ -51,15 +50,14 @@ Usage: `node test-app.js` or `npm test`
 
 **Exports:**
 \`\`\`javascript
-export { toFloat, clickOn, getHtmlContent, decimalSeparator };
+export { toFloat, clickOn, decimalSeparator };
 \`\`\`
 
 **POST-EXTRACTION TESTS (verify after extracting):**
 1. ✅ Page loads without NEW console errors
 2. ✅ Recipe tab displays
-3. ✅ Download button works (uses `getHtmlContent` and `clickOn`)
-4. ✅ Number inputs work with locale decimals (uses `toFloat` and `decimalSeparator`)
-5. ✅ All tabs switch correctly
+3. ✅ Number inputs work with locale decimals (uses `toFloat` and `decimalSeparator`)
+4. ✅ All tabs switch correctly
 
 ---
 
@@ -266,7 +264,6 @@ export let RecipeStack = {};
 **What remains:**
 - Import all modules
 - Global constants (VERSION, RecipeDataColumns)
-- \`docBackup\` initialization
 - Event listener setup
 - Hide JavaScript warning
 - Initialize tabs and display initial data
