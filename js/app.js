@@ -2,6 +2,7 @@
         // Step 1: Import helper utilities
         import { toFloat, clickOn, getHtmlContent, decimalSeparator } from './utils/helpers.js';
         import { GetIdealPAC, DrawFreezingGraph } from './freezing-curve.js';
+        import { saveToFile, saveIngredientsToFile, parseRecipeFile, parseIngredientsFile } from './utils/file-io.js';
 
         const VERSION = "0.4.0 beta";
 
@@ -1224,10 +1225,9 @@
         document.getElementById('inputLoadRecipe').onchange = (event) => {
             var reader = new FileReader();
             reader.onload = function () {
-                var dataObj = JSON.parse(reader.result);
+                var dataObj = parseRecipeFile(reader.result);
 
-                if (!dataObj.hasOwnProperty('id') || !dataObj.hasOwnProperty('version') || !dataObj.hasOwnProperty('data')
-                    || dataObj.id != 'IER' || dataObj.version != 1) {
+                if (!dataObj) {
                     ErrorMsg("Invalid file format in: " + event.target.files[0].name);
                     return;
                 }
@@ -1311,28 +1311,14 @@
         // --- Ingredients -----------------------------------------------------------
 
         document.getElementById('btnSaveIngredients').onclick = () => {
-            const headerObj = {
-                id: "IEI",
-                version: 1,
-                data: "$DATA$"
-            };
-            const content = JSON.stringify(Ingredients, (key, value) => { return value == 0.0 ? undefined : value; }, " ").replaceAll('\n', '').replaceAll('},', "},\n");
-            var link = document.createElement('a');
-            link.setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(headerObj, null, '\t').replace("\"$DATA$\"", '\n' + content)], {
-                type: 'application/octet-stream'
-            })));
-            link.setAttribute('download', 'Ingredients.iei');
-            clickOn(link);
-
+            saveIngredientsToFile(Ingredients);
         };
         document.getElementById('btnLoadIngredients').onclick = (event) => { clickOn(document.getElementById("inputLoadIngredients")); };
         document.getElementById('inputLoadIngredients').onchange = (event) => {
             var reader = new FileReader();
             reader.onload = function () {
-                const overrideExisting = document.getElementById('cbxOverrideIngredients').value == "on";
-                var dataObj = JSON.parse(reader.result);
-                if (dataObj.hasOwnProperty('id') && dataObj.hasOwnProperty('version') && dataObj.hasOwnProperty('data')
-                    && dataObj.id == 'IEI' && dataObj.version == 1) {
+                var dataObj = parseIngredientsFile(reader.result);
+                if (dataObj) {
                     importIngredients(dataObj.data);
                     DisplayIngredients();
                 } else {
@@ -2338,16 +2324,6 @@
         function gToL(value) { return value / 1100.; }
         function LToG(value) { return 1100. * value; }
 
-        function saveToFile(jsObject, fileName, fileId, fileVersion, replacerFunction = null) {
-            var link = document.createElement('a');
-            const obj = { id: fileId, version: fileVersion, data: jsObject };
-            link.setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(obj, replacerFunction, '\t')], {
-                type: 'application/octet-stream'
-            })));
-            link.setAttribute('download', fileName);
-
-            clickOn(link);
-        }
 
         function filterPosNumberInput(event) {
             const acceptSeparator = !this.value.includes(decimalSeparator) && !this.value.includes('.');
