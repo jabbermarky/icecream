@@ -211,6 +211,7 @@
         #taRecipeNotes {
             border: var(--light-line);
             margin: 0px;
+            padding: 2px 5px;
         }
 
         [contentEditable=true]:empty:not(:focus):before {
