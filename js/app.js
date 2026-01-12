@@ -973,10 +973,11 @@
         }
 
         function ToggleIngredientScale(event) {
-            document.getElementById('edTargetWeight').disabled = event.srcElement.checked;
-            document.getElementById('selTargetWeightMode').disabled = event.srcElement.checked;
+            const checked = event.target.checked;
+            document.getElementById('edTargetWeight').disabled = checked;
+            document.getElementById('selTargetWeightMode').disabled = checked;
             document.getElementById('RecipeData').querySelectorAll('tr>*:nth-child(3)').forEach(cell => {
-                cell.hidden = !event.srcElement.checked;
+                cell.hidden = !checked;
             });
         }
 
@@ -1304,6 +1305,7 @@
         document.getElementById('btnOptimizeRange').onclick = () => { OptimizeRecipe(false) };
         document.getElementById('btnRestoreRecipe').onclick = RestoreRecipe;
         document.getElementById('btnRestoreRecipe').disabled = true;
+        document.getElementById('cbxScaleByIngredient').addEventListener('change', ToggleIngredientScale);
 
 
 
