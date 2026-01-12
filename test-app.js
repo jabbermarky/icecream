@@ -212,12 +212,12 @@ const tests = {
     ]);
 
     // Load the test recipe file
-    await fileChooser.setFiles('test recipe.ier');
+    await fileChooser.setFiles('test-recipe.ier');
     await page.waitForTimeout(1500); // Wait for recipe to load and render
 
     // Check recipe name was loaded
     const recipeName = await page.$eval('#edRecipeName', el => el.value);
-    logTest('Recipe name loaded', recipeName === 'Test Recipe V1',
+    logTest('Recipe name loaded', recipeName === 'Test-Recipe',
       `Found: "${recipeName}"`);
 
     // Check recipe type was set
@@ -253,11 +253,113 @@ const tests = {
     logTest('Recipe calculations updated', hasNonZeroSums,
       `Calculations ran after loading`);
 
-    return recipeName === 'Test Recipe V1' &&
+    return recipeName === 'Test-Recipe' &&
            recipeType === 'Gelato' &&
            servingTemp === '-15' &&
            ingredientRows >= 10 &&
            hasNonZeroSums;
+  },
+
+  // Recipe Saving Tests (save to file)
+  async testRecipeSaving() {
+    logSection('Recipe Saving Tests');
+
+    await page.click('button:has-text("Recipe")');
+    await page.waitForTimeout(200);
+
+    // First ensure we have a recipe with a name
+    await page.fill('#edRecipeName', 'Test Save Recipe');
+    await page.waitForTimeout(200);
+
+    // Set up download handler and click save
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.click('#btnSaveRecipe')
+    ]);
+
+    // Verify download was triggered
+    const fileName = download.suggestedFilename();
+    logTest('Recipe file download triggered', fileName !== null,
+      `Filename: "${fileName}"`);
+
+    // Verify filename format
+    const correctExtension = fileName.endsWith('.ier');
+    logTest('Recipe file has .ier extension', correctExtension);
+
+    const correctName = fileName === 'Test Save Recipe.ier';
+    logTest('Recipe filename matches recipe name', correctName,
+      `Expected: "Test Save Recipe.ier"`);
+
+    // Read and verify file content
+    const filePath = await download.path();
+    const fs = await import('fs');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const parsed = JSON.parse(content);
+
+    // Verify file structure
+    const hasId = parsed.id === 'IER';
+    logTest('Recipe file has correct ID', hasId,
+      `Found: "${parsed.id}"`);
+
+    const hasVersion = typeof parsed.version === 'number';
+    logTest('Recipe file has version number', hasVersion);
+
+    const hasRecipeData = parsed.data && parsed.data.Recipe;
+    logTest('Recipe file contains recipe data', hasRecipeData);
+
+    const hasIngredients = parsed.data && parsed.data.Ingredients;
+    logTest('Recipe file contains ingredient definitions', hasIngredients);
+
+    return correctExtension && correctName && hasId && hasVersion &&
+           hasRecipeData && hasIngredients;
+  },
+
+  // Ingredient Saving Tests (save to file)
+  async testIngredientSaving() {
+    logSection('Ingredient Saving Tests');
+
+    await page.click('button:has-text("Ingredients")');
+    await page.waitForTimeout(200);
+
+    // Set up download handler and click save
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.click('#btnSaveIngredients')
+    ]);
+
+    // Verify download was triggered
+    const fileName = download.suggestedFilename();
+    logTest('Ingredient file download triggered', fileName !== null,
+      `Filename: "${fileName}"`);
+
+    // Verify filename
+    const correctFilename = fileName === 'Ingredients.iei';
+    logTest('Ingredient file has correct name', correctFilename);
+
+    // Read and verify file content
+    const filePath = await download.path();
+    const fs = await import('fs');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const parsed = JSON.parse(content);
+
+    // Verify file structure
+    const hasId = parsed.id === 'IEI';
+    logTest('Ingredient file has correct ID', hasId,
+      `Found: "${parsed.id}"`);
+
+    const hasVersion = typeof parsed.version === 'number';
+    logTest('Ingredient file has version number', hasVersion);
+
+    const hasData = parsed.data && typeof parsed.data === 'object';
+    logTest('Ingredient file contains data', hasData);
+
+    // Check that ingredients are present
+    const ingredientCount = hasData ? Object.keys(parsed.data).length : 0;
+    const hasIngredients = ingredientCount > 0;
+    logTest('Ingredient file has ingredients', hasIngredients,
+      `Found ${ingredientCount} ingredients`);
+
+    return correctFilename && hasId && hasVersion && hasIngredients;
   },
 
   // Recipe Building Tests (add ingredients and verify calculations)

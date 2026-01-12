@@ -3,10 +3,10 @@
 ## ✅ Completed
 
 ### Test Infrastructure Created
-1. **test-app.js** (13 KB)
+1. **test-app.js** (15 KB)
    - Automated Playwright test suite
-   - 37 tests across 9 categories
-   - ~8-9 second runtime
+   - 49 tests across 11 categories
+   - ~9 second runtime
    - Exit code: 0 (pass) or 1 (fail)
 
 2. **package.json** (408 bytes)
@@ -32,7 +32,7 @@
 
 ## 🎯 Test Coverage
 
-All 37 tests currently passing ✓
+All 49 tests currently passing ✓
 
 ### Basic Loading (3 tests)
 - ✓ Page loads successfully
@@ -61,6 +61,23 @@ All 37 tests currently passing ✓
 - ✓ Serving temperature loaded correctly
 - ✓ Recipe ingredients loaded (11 items)
 - ✓ Recipe calculations updated after loading
+
+### Recipe Saving (7 tests)
+- ✓ Recipe file download triggered
+- ✓ Recipe file has .ier extension
+- ✓ Recipe filename matches recipe name
+- ✓ Recipe file has correct ID (IER)
+- ✓ Recipe file has version number
+- ✓ Recipe file contains recipe data
+- ✓ Recipe file contains ingredient definitions
+
+### Ingredient Saving (6 tests)
+- ✓ Ingredient file download triggered
+- ✓ Ingredient file has correct name (Ingredients.iei)
+- ✓ Ingredient file has correct ID (IEI)
+- ✓ Ingredient file has version number
+- ✓ Ingredient file contains data
+- ✓ Ingredient file has ingredients
 
 ### Recipe Building (6 tests)
 - ✓ Can set recipe name
@@ -165,8 +182,8 @@ This catches issues in seconds, not minutes/hours.
 
 ## 📊 Metrics
 
-- **37 tests** covering all major features
-- **8-9 seconds** total runtime
+- **49 tests** covering all major features
+- **~9 seconds** total runtime
 - **100% pass rate** on current code
 - **0 false positives** (all tests are meaningful)
 
@@ -202,8 +219,9 @@ Revised [MODULARIZATION_PLAN.md](MODULARIZATION_PLAN.md) now includes:
 ## 🎯 Success Metrics
 
 - [x] Test suite created
-- [x] All 37 tests passing
+- [x] All 49 tests passing
 - [x] Recipe loading test added
+- [x] File saving tests added (recipe & ingredients)
 - [x] Documentation complete
 - [x] Workflow documented
 - [x] Integration with plan
