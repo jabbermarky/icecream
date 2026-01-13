@@ -1,13 +1,9 @@
         //=====================================================================================================================================================================
         // Import modules
-        import { toFloat, clickOn, decimalSeparator, round, nGenerator, objIsEmpty, filterPosNumberInput, filterNumberInput, DamerauLevenshteinDistance } from './utils/helpers.js';
-        import { GetIdealPAC, Fitness } from './features/calculations.js';
-        import { DrawFreezingGraph } from './ui/graph.js';
-        import { saveToFile, saveIngredientsToFile, parseRecipeFile, parseIngredientsFile } from './utils/file-io.js';
+        import { toFloat, clickOn, decimalSeparator, round, objIsEmpty, filterPosNumberInput, filterNumberInput, DamerauLevenshteinDistance } from './utils/helpers.js';
+        import { saveIngredientsToFile, parseIngredientsFile } from './utils/file-io.js';
         import {
-            cIngredient,
             Ingredients,
-            IngredientDataFields,
             loadIngredients,
             IngredientNames,
             SortIngredients,
@@ -30,33 +26,20 @@
             hideModal,
             Info,
             Warning,
-            ErrorMsg,
-            getCSS
+            ErrorMsg
         } from './ui/components.js';
         import { initTools, initPACPODCalculator, initGMolCalculator, initYolkCalculator, Sugars, eggTypes, cEgg } from './utils/tools.js';
-        import { initModels, cTargetValue, cTarget, Targets, cRecipe } from './models/core.js';
+        import { initModels, Targets, cRecipe } from './models/core.js';
         import {
             initRecipeManager,
+            initRecipeButtons,
             SetRecipeModified,
-            IsRecipeModified,
             DisplayRecipe,
-            CreateRecipeRow,
-            UpdateRecipeRow,
             DisplayBackupList,
-            SortRecipe,
-            BackupCurrentRecipe,
-            BackupRecipe,
-            RestoreBackup,
             getRecipeBackup,
-            setRecipeBackup,
             getRecipeStack,
-            clearSortBy,
             UpdateRecipeSums,
-            UpdateRecipeInfo,
-            onRecipeScaled,
-            ToggleIngredientScale,
-            gToL,
-            LToG
+            UpdateRecipeInfo
         } from './features/recipe-manager.js';
 
         const VERSION = "0.4.0 beta";
@@ -236,305 +219,30 @@
         // SetRecipeModified, IsRecipeModified, BackupCurrentRecipe, BackupRecipe,
         // DisplayBackupList, RestoreBackup, SortRecipe, CreateRecipeRow, DisplayRecipe,
         // UpdateRecipeRow, onIngredientChanged, onIngredientAmountEdited, onRecipeIngredientDeleted,
-        // UpdateRecipeSums, UpdateRecipeInfo, onRecipeScaled, ToggleIngredientScale, gToL, LToG
+        // UpdateRecipeSums, UpdateRecipeInfo, onRecipeScaled, ToggleIngredientScale, gToL, LToG,
+        // OptimizeRecipe, RestoreRecipe, CategorizeRecipe, initRecipeButtons
         // are now imported from features/recipe-manager.js
 
-        // Fitness function is now imported from calculations.js
+        // Initialize recipe button handlers
+        initRecipeButtons({
+            btnNewRecipe: document.getElementById('btnNewRecipe'),
+            btnStoreAsIngredient: document.getElementById('btnStoreAsIngredient'),
+            btnSaveRecipe: document.getElementById('btnSaveRecipe'),
+            btnLoadRecipe: document.getElementById('btnLoadRecipe'),
+            inputLoadRecipe: document.getElementById('inputLoadRecipe'),
+            btnPrintRecipe: document.getElementById('btnPrintRecipe'),
+            btnCategorizeRecipe: document.getElementById('btnCategorizeRecipe'),
+            btnOptimizeMean: document.getElementById('btnOptimizeMean'),
+            btnOptimizeRange: document.getElementById('btnOptimizeRange'),
+            btnRestoreRecipe: document.getElementById('btnRestoreRecipe'),
+            btnScale: document.getElementById('btnScale'),
+            cbxScaleByIngredient: document.getElementById('cbxScaleByIngredient'),
+            edTargetWeight: document.getElementById('edTargetWeight'),
+            selTargetWeightMode: document.getElementById('selTargetWeightMode'),
+            edRecipeName: document.getElementById('edRecipeName')
+        });
 
-        function OptimizeRecipe(OptimizeForMean = true) {
-            const localBackup = cRecipe.copyFrom(Recipe);
-
-
-
-            var tgtType = Targets[tgtSelection.value];
-
-            const fitnessFields = IngredientDataFields.filter(col => tgtType.hasOwnProperty(col));
-
-            // Get the indices of ingredients that directly affect the target parameters.
-            // This is required to avoid adjustment of ingredients that affect the fitness of the recipie only
-            // indirect by changing the effect of other ingredients by changing their ratio of the volume.
-            // Also ingnore ingredients that make up less than 1.5% of the mixture, as they are typically things that primarily contribute to other things than the target parameters.
-            const adjustmentIndizes = [...function* () {
-                const totalAmount = Recipe.Amount;
-                for (var i = 0; i < Recipe.Ingredients.length; ++i) {
-                    var ingredient = Recipe.Ingredients[i];
-                    if (Ingredients.hasOwnProperty(ingredient.Name)
-                        && fitnessFields.some(field => {
-                            return Ingredients[ingredient.Name].hasOwnProperty(field) && Ingredients[ingredient.Name][field] > 0.0;
-                        })
-                        && ingredient.Amount / totalAmount >= 0.015)
-                        yield i;
-                }
-            }()];
-
-            const originalFitness = Fitness(localBackup, Recipe, tgtType, fitnessFields, cTargetValue, OptimizeForMean);
-
-            var recipeFitness = originalFitness;
-
-            var step = 0.1;
-            var outerImproved = 0;
-            do {
-                var improved = 0;
-
-                // test variations and apply the ones that gain improvement
-                for (const i of adjustmentIndizes) {
-                    for (const factor of [1.0 + step, 1.0 - step]) {
-                        var candidate = cRecipe.copyFrom(Recipe);
-                        candidate.Ingredients[i].Amount *= factor;
-                        const candidateFitness = Fitness(candidate, Recipe, tgtType, fitnessFields, cTargetValue, OptimizeForMean);
-                        if (candidateFitness < recipeFitness) {
-                            Recipe = cRecipe.copyFrom(candidate);
-                            recipeFitness = candidateFitness;
-                            ++improved;
-                            break; // break the inner loop to skip second iteration in case the first succeeded
-                        }
-                    }
-                }
-
-                if (improved == 0)
-                    step *= 0.5; // if no improvement was possible reduce the amount of variance
-            } while (step > 0.0005);
-
-
-            // scale to original volume
-            var scaledAmount = 0;
-            for (const i of adjustmentIndizes)
-                scaledAmount += Recipe.Ingredients[i].Amount;
-            const unscaledAmount = Recipe.Amount - scaledAmount;
-            const targetAmount = localBackup.Amount - unscaledAmount;
-            const factor = targetAmount / scaledAmount;
-            var changedIndizes = [];
-            for (const i of adjustmentIndizes) {
-                Recipe.Ingredients[i].Amount *= factor;
-
-                if (Math.abs(localBackup.Ingredients[i].Amount - Recipe.Ingredients[i].Amount) > Number.EPSILON)
-                    changedIndizes.push(i)
-            }
-            const rowCount = changedIndizes.length;
-
-
-            if (rowCount > 0)
-                getRecipeBackup().push(cRecipe.copyFrom(localBackup));
-
-            document.getElementById("btnRestoreRecipe").disabled = getRecipeBackup().length == 0;
-
-
-            // display comparision table
-            if (rowCount > 0) {
-                SetRecipeModified();
-
-                var table = document.createElement("table");
-                var th = document.createElement("thead");
-                var tr = document.createElement('tr');
-                for (name of ["Name", "Original", "Optimized"]) {
-                    var cell = document.createElement('th');
-                    cell.innerText = name;
-                    tr.appendChild(cell);
-                }
-                th.appendChild(tr);
-                table.appendChild(th);
-                var tbody = document.createElement("tbody");
-                for (const i of changedIndizes) {
-                    const old = localBackup.Ingredients[i].Amount;
-                    const changed = Recipe.Ingredients[i].Amount;
-
-                    tr = document.createElement('tr');
-                    var cells = [...nGenerator(3, () => { return document.createElement('td'); })];
-                    cells[0].innerText = Recipe.Ingredients[i].Name;
-                    cells[1].innerText = round(old);
-                    cells[2].innerText = round(changed);
-                    cells[changed > old ? 2 : 1].style = "font-size: " + (Math.sqrt(Math.min((Math.max(changed / old, old / changed) - 1.0) / 3.0, 2.0)) + 1.0) * 125.0 + "%;";
-
-                    for (const cell of cells)
-                        tr.appendChild(cell);
-                    tbody.appendChild(tr);
-                }
-                table.appendChild(tbody);
-
-                var buttonBar = document.createElement("div");
-                var button = document.createElement('button');
-                button.innerText = "Close";
-                button.onclick = function () {
-                    SortRecipe();
-                    hideModal();
-                };
-                buttonBar.appendChild(button);
-                showModal(table, buttonBar);
-            } else
-                SortRecipe();
-
-        }
-
-        function RestoreRecipe() {
-            const RecipeBackup = getRecipeBackup();
-            if (!RecipeBackup.length)
-                return;
-            Recipe = cRecipe.copyFrom(RecipeBackup.pop());
-            DisplayRecipe();
-            document.getElementById("btnRestoreRecipe").disabled = RecipeBackup.length == 0;
-        }
-
-        function CategorizeRecipe() {
-            var bestFitness = Number.MAX_VALUE;
-            var bestKey = "";
-            for (const key in Targets) {
-                const value = Targets[key];
-                const fitnessFields = IngredientDataFields.filter(col => value.hasOwnProperty(col));
-                const score = Fitness(Recipe, value, fitnessFields, false);
-                if (score < bestFitness) {
-                    bestFitness = score;
-                    bestKey = key;
-                }
-            }
-            Recipe.Type = bestKey;
-            tgtSelection.value = bestKey;
-            UpdateRecipeSums();
-        }
-
-        document.getElementById('btnNewRecipe').onclick = () => {
-            BackupCurrentRecipe();
-            Recipe = new cRecipe("");
-            setRecipeBackup([]);
-            clearSortBy();
-            DisplayRecipe();
-            document.getElementById("edRecipeName").focus();
-            SetRecipeModified(false);
-        };
-        document.getElementById('btnStoreAsIngredient').onclick = () => {
-            if (Recipe.Name == "") {
-                Warning("Please add a recipe name.");
-                document.getElementById("edRecipeName").focus();
-                return;
-            }
-            if (Recipe.Ingredients.length < 1 || Recipe.Sums.Amount == 0.0) {
-                Warning("Recipe has no ingredients.");
-                return;
-            }
-
-            function storeAsIngredient() {
-                var sums = Recipe.Sums;
-                const amount = sums.Amount;
-                for (const val in sums)
-                    sums[val] /= amount;
-                Ingredients[Recipe.Name] = new cIngredient(sums.Water, sums.Sugar, sums.Fat, sums.Solids, sums.MSNF, sums.PAC, sums.POD, sums.kcal);
-                Info("Mixture added. Do not forget to save the ingredient data.");
-            }
-
-            if (!Ingredients.hasOwnProperty(Recipe.Name)) {
-                storeAsIngredient();
-                return;
-            }
-
-            var div = document.createElement("div");
-            div.style = "display: table; table-layout: fixed;";
-            div.innerHTML += "<h3>Confirm</h3><strong>" + Recipe.Name + "</strong> already exists in ingredients list.<br>Do you want to overwrite it?";
-
-            var buttonBar = document.createElement("div");
-            var buttons = [...nGenerator(2, () => { return document.createElement('button'); })];
-            buttons[0].innerText = "Abort";
-            buttons[0].onclick = hideModal;
-            buttons[1].innerText = "Replace";
-            buttons[1].onclick = function () {
-                storeAsIngredient();
-                hideModal();
-            };
-            for (const button of buttons)
-                buttonBar.appendChild(button);
-            showModal(div, buttonBar);
-        };
-        document.getElementById('btnSaveRecipe').onclick = () => {
-            if (Recipe.Name == "") {
-                Warning("Please add a recipe name.");
-                document.getElementById("edRecipeName").focus();
-                return;
-            }
-
-            var container = {
-                Recipe: Recipe,
-                Ingredients: {}
-            };
-            for (const ingredient of Recipe.Ingredients)
-                if (Ingredients.hasOwnProperty(ingredient.Name)) {
-                    container.Ingredients[ingredient.Name] = Ingredients[ingredient.Name].copy();
-                    for (const key in container.Ingredients[ingredient.Name])
-                        if (container.Ingredients[ingredient.Name][key] == 0.0)
-                            delete container.Ingredients[ingredient.Name][key];
-                } else
-                    Warning("Recipe is using undefined ingredient " + ingredient.Name);
-
-            saveToFile(container, Recipe.Name + ".ier", "IER", 1);
-            SetRecipeModified(false);
-        };
-        document.getElementById('btnLoadRecipe').onclick = (event) => { clickOn(document.getElementById("inputLoadRecipe")); };
-        document.getElementById('inputLoadRecipe').onchange = (event) => {
-            var reader = new FileReader();
-            reader.onload = function () {
-                var dataObj = parseRecipeFile(reader.result);
-
-                if (!dataObj) {
-                    ErrorMsg("Invalid file format in: " + event.target.files[0].name);
-                    return;
-                }
-
-                function loadRecipe() {
-                    importIngredients(dataObj.data.Ingredients);
-
-                    setRecipeBackup([]);
-                    Recipe = new cRecipe("");
-                    clearSortBy();
-
-                    for (const key in Recipe) {
-                        if (dataObj.data.Recipe.hasOwnProperty(key)) {
-                            Recipe[key] = dataObj.data.Recipe[key];
-                        }
-                    }
-                    DisplayRecipe();
-                    SetRecipeModified(false);
-                }
-
-                BackupCurrentRecipe();
-                const RecipeStack = getRecipeStack();
-                if (RecipeStack.hasOwnProperty(dataObj.data.Recipe.Name)) {
-                    if (!RecipeStack[dataObj.data.Recipe.Name].Modified) {
-                        delete RecipeStack[dataObj.data.Recipe.Name];
-                        DisplayBackupList();
-                        loadRecipe();
-                    } else {
-                        var div = document.createElement("div");
-                        div.style = "display: table; table-layout: fixed;";
-                        div.innerHTML += "<h3>Confirm</h3><strong>" + dataObj.data.Recipe.Name + "</strong> is already loaded"
-                            + (RecipeStack[dataObj.data.Recipe.Name].Modified ? " and modified" : "")
-                            + ".<br>Do you want to replace it?";
-
-                        var buttonBar = document.createElement("div");
-                        var buttons = [...nGenerator(2, () => { return document.createElement('button'); })];
-                        buttons[0].innerText = "Keep Current";
-                        buttons[0].onclick = () => {
-                            RestoreBackup(dataObj.data.Recipe.Name);
-                            hideModal();
-                        };
-                        buttons[1].innerText = "Continue Loading";
-                        buttons[1].onclick = function () {
-                            delete RecipeStack[dataObj.data.Recipe.Name];
-                            DisplayBackupList();
-                            loadRecipe();
-                            hideModal();
-                        };
-                        for (const button of buttons)
-                            buttonBar.appendChild(button);
-                        showModal(div, buttonBar);
-                    }
-                } else
-                    loadRecipe();
-
-            };
-            reader.readAsText(event.target.files[0]);
-        };
-        document.getElementById('btnPrintRecipe').onclick = () => {
-            window.print();
-        };
-        document.getElementById('btnCategorizeRecipe').onclick = CategorizeRecipe;
-
+        // Target weight input handlers (remain here as they affect DOM elements outside recipe-manager)
         document.getElementById('edTargetWeight').onkeyup = (event) => {
             if ((event.which ? event.which : event.keyCode) === 13) {
                 event.preventDefault();
@@ -549,13 +257,6 @@
             sel.focus();
             sel.select();
         };
-
-
-        document.getElementById('btnOptimizeMean').onclick = OptimizeRecipe;
-        document.getElementById('btnOptimizeRange').onclick = () => { OptimizeRecipe(false) };
-        document.getElementById('btnRestoreRecipe').onclick = RestoreRecipe;
-        document.getElementById('btnRestoreRecipe').disabled = true;
-        document.getElementById('cbxScaleByIngredient').addEventListener('change', ToggleIngredientScale);
 
 
 
