@@ -2,12 +2,12 @@
 
 ## Current Position
 
-Phase: 8 of 9 (Extract Core Models)
-Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-01-13 - Completed 08-01-PLAN.md
+Phase: 9 of 9 (Extract Recipe Manager)
+Plan: 1 of 2 in current phase
+Status: Plan 09-01 complete
+Last activity: 2026-01-13 - Completed 09-01-PLAN.md
 
-Progress: ████████░░ 80%
+Progress: █████████░ 90%
 
 ## Accumulated Decisions
 
@@ -17,6 +17,7 @@ Progress: ████████░░ 80%
 | 07 | Return InitYolkTable from initYolkCalculator | Tab handler needs access to initialize yolk values |
 | 08 | Constructor defaults object for cRecipe | Decouple class from DOM at construction time |
 | 08 | Inject RecipeDataColumns via getRecipeDataColumns | Avoid circular dependency with future recipe-manager |
+| 09 | Accessor functions for module state | Allow app.js to interact with RecipeBackup/RecipeStack/sortBy owned by recipe-manager |
 
 ## Deferred Issues
 
@@ -31,14 +32,14 @@ Progress: ████████░░ 80%
 
 ## Blockers/Concerns Carried Forward
 
-None - ready for Phase 9.
+None - ready for Phase 9 Plan 2.
 
 ## Brief Alignment Status
 
-Project is progressing well through modularization. Phase 8 successfully extracted core data models (cTargetValue, cTarget, Targets, cRecipe) to js/models/core.js. The constructor defaults pattern enables DOM decoupling. All tests pass. app.js now at 1266 lines.
+Project continuing modularization. Phase 9 Plan 1 successfully extracted core recipe state and display functions to js/features/recipe-manager.js (500 lines). The module uses dependency injection pattern for Recipe access and UI dependencies. Internal event handlers moved with their consuming functions. All tests pass. app.js now at 993 lines (reduced by 274 lines).
 
 ## Session Continuity
 
-Last session: 2026-01-13T21:04:36Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-01-13
+Stopped at: Completed 09-01-PLAN.md
 Resume file: None
