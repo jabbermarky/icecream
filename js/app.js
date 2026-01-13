@@ -1,19 +1,35 @@
         //=====================================================================================================================================================================
-        // Step 1: Import helper utilities
-        import { toFloat, clickOn, decimalSeparator } from './utils/helpers.js';
+        // Import modules
+        import { toFloat, clickOn, decimalSeparator, round, nGenerator, objIsEmpty, filterPosNumberInput, filterNumberInput, DamerauLevenshteinDistance } from './utils/helpers.js';
         import { GetIdealPAC, DrawFreezingGraph } from './freezing-curve.js';
         import { saveToFile, saveIngredientsToFile, parseRecipeFile, parseIngredientsFile } from './utils/file-io.js';
+        import {
+            cIngredient,
+            Ingredients,
+            IngredientDataFields,
+            loadIngredients,
+            IngredientNames,
+            SortIngredients,
+            isIngredientUsed,
+            onIngredientEdit,
+            onIngredientDeleted,
+            onIngredientFilterEdit,
+            filterIngredients,
+            createIngredientRow,
+            DisplayIngredients,
+            diffIngredients,
+            importIngredients,
+            onDownloadIngredientData,
+            initIngredients
+        } from './features/ingredients.js';
 
         const VERSION = "0.4.0 beta";
 
 
 
-
-
-
         const RecipeDataColumns = ["Water", "Sugar", "Fat", "MSNF", "Solids", "PAC", "POD", "Stabilizer"];
         const RecipeColumns = ["Name", "Amount", "Scale to", ""].concat(RecipeDataColumns);
-        const IngredientDataFields = ["Water", "Sugar", "Fat", "MSNF", "Solids", "PAC", "POD", "Stabilizer", "kcal"];
+        // IngredientDataFields is now imported from ingredients.js
 
         // replaceAll is currently not everywhere available. Use this polyfill from https://stackoverflow.com/a/14822579
         String.prototype.replaceAll = String.prototype.replaceAll || function (find, replace) {
@@ -56,115 +72,13 @@
             });
         }
 
-        class cIngredient {
-            // all values are ratios e.g. 30% Fat would be stored as 0.3
-            // MSNF = Solids - Fat? (F. Borges
-            // FDP_Salt = MSNF * 2.37 ???
-            // FDP_M = Lactose * 1.0 ??? -> is Lactose == 1.0 SE
-            constructor(water = 0.0, sugar = 0.0, fat = 0.0, solids = 0.0, MSNF = 0.0, PAC = 0.0, POD = 0.0, kcal = 0.0, stabilizer = 0.0) {
-                if (water > 0.0)
-                    this.Water = water;
-                if (sugar > 0.0)
-                    this.Sugar = sugar;
-                if (fat > 0.0)
-                    this.Fat = fat;
-                if (solids > 0.0)
-                    this.Solids = solids;
-                if (MSNF > 0.0)
-                    this.MSNF = MSNF; // Milk Solids Non-Fat
-                if (Math.abs(PAC) > 0.0)
-                    this.PAC = PAC; // potere anticongelante / anti-freezing power / Freezing point depression factor
-                if (POD > 0.0)
-                    this.POD = POD;   // potere edulcorante / sweetening power
-                if (kcal > 0.0)
-                    this.kcal = kcal;
-                if (stabilizer > 0.0)
-                    this.Stabilizer = stabilizer;
-            }
-            copy() {
-                var copy = Object.assign(new cIngredient(), this);
-                return copy;
-            }
-            get isSugar() { return this.Sugar >= 0.3 && this.PAC >= 0.5 && !this.isMilkPowder; }
-            get isMilkPowder() { return this.MSNF > 0.9 && this.Water < 0.05 }
-            get milkFat() {
-                if (isNaN(this.Fat)) {
-                    console.log(`cIngredient: Fat is NaN, returning 0.0`);
-                    return 0.0
-                };
-                // has fat 
-                if (isNaN(this.MSNF)) {
-                    console.log(`cIngredient: MSNF is NaN; returning 0.0)`);
-                    return 0.0;
-                }
-                if (this.MSNF < 0.001) {
-                    console.log(`cIngredient: MSNF(${this.MSNF}) is too low; returning 0.0`);
-                    return 0.0;
-                }
-                console.log(`cIngredient: default returning Fat (${this.Fat})`);
-                return this.Fat;
-            }
-            get nonLactoseSugar() {
-                if (isNaN(this.Sugar)) {
-                    //console.log(`cIngredient: Sugar is NaN, returning 0.0`);
-                    return 0.0
-                };
-                // has sugar 
-                if (isNaN(this.MSNF)) {
-                    //console.log(`cIngredient: MSNF is NaN; returning Sugar amount(${this.Sugar})`);
-                    return this.Sugar;
-                }
-                if (this.MSNF < 0.001) {
-                    //console.log(`cIngredient: MSNF(${this.MSNF}) is too low; returning Sugar amount`);
-                    return this.Sugar;
-                }
-                //console.log("cIngredient: default returning 0.0");
-                return 0.0;
-            }
-        }
+        // cIngredient, Ingredients, loadIngredients, IngredientNames, SortIngredients
+        // are now imported from features/ingredients.js
+
         var temperatureForTgtHardness = 0;
-        var Ingredients = {};
-
-        // Load ingredients from external JSON file
-        async function loadIngredients() {
-            try {
-                const response = await fetch('data/ingredients.json');
-                if (!response.ok) {
-                    throw new Error(`Failed to load ingredients: ${response.status}`);
-                }
-                const data = await response.json();
-                Ingredients = data.ingredients;
-                // Convert plain objects to cIngredient instances
-                for (const key in Ingredients) {
-                    Ingredients[key] = Object.assign(new cIngredient(), Ingredients[key]);
-                }
-                SortIngredients();
-            } catch (error) {
-                console.error('Error loading ingredients:', error);
-                // Show error to user
-                alert('Failed to load ingredients database. Please refresh the page.');
-            }
-        }
-
-        function IngredientNames() {
-            return Object.keys(Ingredients);
-        }
-        function SortIngredients() {
-            const keys = Object.keys(Ingredients).sort();
-            var tmp = {};
-            for (const key of keys) {
-                tmp[key] = Ingredients[key];
-            }
-            Ingredients = tmp;
-        }
 
         // Load ingredients before continuing (top-level await)
         await loadIngredients();
-
-        // Expose key objects to window for testing
-        window.Ingredients = Ingredients;
-        window.IngredientNames = IngredientNames;
-        window.SortIngredients = SortIngredients;
 
         class cTargetValue {
             constructor(min, max) {
@@ -1257,527 +1171,9 @@
             document.getElementById("edIngredientFilter").focus();
         };
 
-        function diffIngredients(A, B) {
-            var diffObj = {};
-            function cmp(a, b) {
-                for (const [key, data] of Object.entries(a))
-                    if (!diffObj.hasOwnProperty(key)
-                        && (!b.hasOwnProperty(key)
-                            || typeof (a[key]) != typeof (b[key])
-                            || a[key] != b[key]))
-                        diffObj[key] = [
-                            A.hasOwnProperty(key) ? A[key] : null,
-                            B.hasOwnProperty(key) ? B[key] : null
-                        ];
-            };
-            cmp(A, B);
-            cmp(B, A);
-            return diffObj;
-        }
-
-        function importIngredients(dataObj, overrideExisting = false, mergeMessageMtml = null) {
-            var mergeList = {};
-            for (const [key, data] of Object.entries(dataObj)) {
-                dataObj[key] = Object.assign(new cIngredient(), dataObj[key]);
-
-                if (overrideExisting || !Ingredients.hasOwnProperty(key)) {
-                    Ingredients[key] = dataObj[key];
-                } else {
-                    const diff = diffIngredients(Ingredients[key], dataObj[key]);// diff ingredient and add to merge list if not equal
-                    if (!objIsEmpty(diff))
-                        mergeList[key] = diff;
-                }
-            }
-
-            SortIngredients();
-
-            // display merge dialog
-            const mergeItems = Object.keys(mergeList).length;
-            if (mergeItems > 0) {
-                const multi = mergeItems > 1;
-
-                var div = document.createElement("div");
-                div.style = "display: table; table-layout: fixed;";
-                var h3 = document.createElement("h3");
-                h3.innerText = "Resolve Merge Conflict" + (multi ? "s" : "");
-                div.appendChild(h3);
-                if (mergeMessageMtml != null) {
-                    var p = document.createElement("p");
-                    p.style = "text-align: initial;";
-                    p.innerHTML = mergeMessageMtml;
-                    div.appendChild(p);
-                }
-
-                var table = document.createElement("table");
-                var th = document.createElement("thead");
-                var tr = document.createElement('tr');
-                for (name of ["Ingredient", "Current", "Imported"]) {
-                    var cell = document.createElement('th');
-                    cell.innerText = name;
-                    tr.appendChild(cell);
-                }
-                th.appendChild(tr);
-                table.appendChild(th);
-                var tbody = document.createElement("tbody");
-
-
-
-                for (const [key, data] of Object.entries(mergeList)) {
-                    tr = document.createElement('tr');
-                    tr.Name = key;
-
-                    var cells = [...nGenerator(3, () => { return document.createElement('td'); })];
-                    cells[0].innerHTML = "<b>" + key + "</b>";
-                    if (multi) {
-                        cells[1].innerHTML = '<input type="radio" name="' + key + '" value="Current">';
-                        cells[2].innerHTML = '<input type="radio" name="' + key + '" value="Imported">';
-                    }
-                    for (const [fieldKey, fieldValues] of Object.entries(data)) {
-                        cells[0].innerHTML += "<br>" + fieldKey;
-                        cells[1].innerHTML += "<br>" + (fieldValues[0] == null ? "-" : round(fieldValues[0] * 100.));
-                        cells[2].innerHTML += "<br>" + (fieldValues[1] == null ? "-" : round(fieldValues[1] * 100.));
-                    }
-                    for (const cell of cells)
-                        tr.appendChild(cell);
-                    tbody.appendChild(tr);
-                }
-                table.appendChild(tbody);
-                div.appendChild(table);
-
-                var buttonBar = document.createElement("div");
-                var buttons = [...nGenerator(multi ? 3 : 2, () => { return document.createElement('button'); })];
-                buttons[0].innerText = multi ? "Keep All" : "Keep";
-                buttons[0].onclick = hideModal;
-                buttons[1].innerText = multi ? "Replace All" : "Replace";
-                buttons[1].onclick = function () { // merge all
-                    for (const [key, data] of Object.entries(mergeList))
-                        Ingredients[key] = dataObj[key];
-                    hideModal();
-                    DisplayRecipe();
-                    DisplayIngredients();
-                };
-                if (multi) {
-                    buttons[2].innerText = "Apply";
-                    buttons[2].onclick = function () {
-                        // check if all rows are selected
-                        for (const row of table.tBodies[0].rows) {
-                            const rbCurrent = row.querySelector("input[type='radio'][value='Current']");
-                            const rbImported = row.querySelector("input[type='radio'][value='Imported']");
-                            if (!rbCurrent.checked && !rbImported.checked) {
-                                Warning("Please select one option for each ingredient.");
-                                return;
-                            }
-                        }
-                        // merge selected
-                        for (const row of table.tBodies[0].rows)
-                            if (row.querySelector("input[type='radio'][value='Imported']").checked)
-                                Ingredients[row.Name] = dataObj[row.Name];
-
-                        hideModal();
-                        DisplayRecipe();
-                        DisplayIngredients();
-                    };
-                }
-
-                for (const button of buttons)
-                    buttonBar.appendChild(button);
-                showModal(div, buttonBar);
-            } else {
-                DisplayRecipe();
-                DisplayIngredients();
-            }
-        }
-
-        function onIngredientFilterEdit() {
-            filterIngredients.ignored = null;
-            filterIngredients();
-        }
-
-        function filterIngredients() {
-            var rows = document.getElementById("tblIngredientsList").getElementsByTagName('tr');
-            const filter = document.getElementById('edIngredientFilter').value.toLowerCase();
-            const doFilter = filter.length > 0;
-            for (var row of rows)
-                row.style.display = (doFilter && row.hasOwnProperty('name') && row.name != "" && !(row.name.toLowerCase().includes(filter) || row.name == filterIngredients.ignored)) ? 'none' : '';
-        }
-        filterIngredients.ignored = null;
-
-        function onIngredientEdit(element) {
-            const ingredientName = element.currentTarget.parentNode.parentNode.firstChild.firstChild.value;
-            const propertyName = element.currentTarget.name;
-            const propertyValue = element.currentTarget.value;
-
-            if (propertyName == "Name") {
-                if (propertyValue == "")
-                    return;
-
-                const originalName = element.currentTarget.parentNode.parentNode.name;
-                if (originalName != "") {
-                    const IngredientUsed = isIngredientUsed(originalName);
-                    if (IngredientUsed.IsUsed) {
-                        Warning(originalName + " is used by " + IngredientUsed.IsUsedBy);
-                        element.currentTarget.value = originalName;
-                        return;
-                    }
-
-                    // check for duplicate name and reset value as required
-                    if (Ingredients.hasOwnProperty(ingredientName)) {
-                        Warning(ingredientName + " already exists.");
-                        element.currentTarget.value = originalName;
-                        return;
-                    }
-
-                    Ingredients[ingredientName] = Ingredients[originalName];
-                    element.currentTarget.parentNode.parentNode.name = ingredientName;
-                    delete Ingredients[originalName];
-                } else {
-                    // check for duplicate name and reset value as required
-                    if (Ingredients.hasOwnProperty(ingredientName)) {
-                        Warning(ingredientName + " already exists.");
-                        element.currentTarget.value = "";
-                        return;
-                    }
-                    Ingredients[ingredientName] = new cIngredient(0, 0, 0, 0);
-                    element.currentTarget.parentNode.parentNode.name = ingredientName;
-                }
-            } else {
-                if (ingredientName == "" || !Ingredients.hasOwnProperty(ingredientName)) {
-                    element.currentTarget.value = "";
-                    return;
-                }
-
-                const value = propertyValue == "" ? 0. : toFloat(propertyValue);
-                if (isNaN(value)) {
-                    Warning(propertyValue + " is not a valid number.");
-                    element.currentTarget.value = round(Ingredients[ingredientName][propertyName] * 100.);
-                } else {
-                    Ingredients[ingredientName][propertyName] = value / 100.;
-                }
-            }
-
-            // add empty line on top
-            var row = element.currentTarget.closest('tr');
-            if (row.rowIndex == 1 && ingredientName != "") {
-                row.parentNode.insertBefore(createIngredientRow(), row);
-            }
-        }
-
-        function isIngredientUsed(ingredientName) {
-            console.assert(ingredientName.length > 0);
-
-            var result = {
-                IsUsed: false,
-                IsUsedBy: ""
-            }
-            function CheckUsage(Recipe) {
-                const used = Recipe.Ingredients.some(ingredient => ingredient.Name === ingredientName);
-                if (used)
-                    result.IsUsedBy = Recipe.Name;
-                return used;
-            }
-
-            result.IsUsed = CheckUsage(Recipe)
-                || RecipeBackup.some(recipe => CheckUsage(recipe))
-                || (() => {
-                    for (const key in RecipeStack)
-                        if (CheckUsage(RecipeStack[key].Recipe))
-                            return true;
-                    return false;
-                })();
-            return result;
-        }
-
-        function onIngredientDeleted(element) {
-            const ingredientName = element.currentTarget.parentNode.parentNode.firstChild.firstChild.value;
-            if (ingredientName == "")
-                return;
-
-            const IngredientUsed = isIngredientUsed(ingredientName);
-            if (IngredientUsed.IsUsed) {
-                Warning(ingredientName + " is used by " + IngredientUsed.IsUsedBy);
-                return;
-            }
-
-            delete Ingredients[ingredientName];
-            element.currentTarget.closest('tr').remove();
-        }
-
-        function onDownloadIngredientData(element) {
-            const ingredientName = element.currentTarget.parentNode.parentNode.firstChild.firstChild.value;
-            if (ingredientName == "")
-                return;
-
-            requestData(ingredientName);
-
-            function requestData(ingredientName) {
-                var httpRequest = new XMLHttpRequest();
-                httpRequest.onreadystatechange = resultHandler;
-
-                const searchParams = {
-                    query: ingredientName,
-                    dataType: ["Foundation", "Survey (FNDDS)", "SR Legacy"]/*,
-            sortBy: "fdcId",
-            sortOrder: "desc"*/
-                };
-                httpRequest.open('POST', "https://api.nal.usda.gov/fdc/v1/foods/search?api_key=wiMzQqoyJ2hgzPsDdUsubCjltt6djhCjG6phgSLT");
-                httpRequest.setRequestHeader('Content-type', 'application/json');
-                httpRequest.send(JSON.stringify(searchParams));
-            }
-
-            function resultHandler() {
-                if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
-                    var dataObj = JSON.parse(this.responseText);
-                    var query = dataObj.foodSearchCriteria.query;
-
-                    if (dataObj.totalHits == 0) // search again
-                    {
-                        query = query.substring(0, query.lastIndexOf(" "));
-                        if (query.length > 1)
-                            requestData(query);
-                        else
-                            Info("No data found for " + ingredientName);
-                        return;
-                    }
-
-                    // filter results
-                    var distances = [];
-                    for (const food of dataObj.foods)
-                        distances.push(DamerauLevenshteinDistance(food.description, ingredientName));
-                    distances.sort();
-                    const minDistance = distances[Math.min(12, distances.length - 1)];
-                    dataObj.foods = dataObj.foods.filter(food => {
-                        return food.dataType == "Foundation" /* || food.description.includes( ingredientName )*/
-                            || (DamerauLevenshteinDistance(food.description, ingredientName) <= minDistance);
-                    });
-
-                    // display search results for selection
-                    var items = [];
-                    for (const food of dataObj.foods)
-                        items.push(food.description);
-                    items = items.filter((value, index, self) => { // make unique
-                        return self.indexOf(value) === index;
-                    });
-                    var div = document.createElement("div");
-                    div.style = "display: table; table-layout: fixed; font-size:125%; line-height: 1.33; text-align: initial;";
-                    var h3 = document.createElement("h3");
-                    h3.innerText = "Search Results";
-                    div.appendChild(h3);
-
-                    for (const value of items) {
-                        var a = document.createElement('a');
-                        a.style = "cursor: pointer;";
-                        a.innerText = value;
-                        a.onclick = importItem;
-                        div.appendChild(a);
-                        div.appendChild(document.createElement('br'));
-                    }
-
-                    var buttonBar = document.createElement("div");
-                    var button = document.createElement('button');
-                    button.innerText = "Abort";
-                    button.onclick = hideModal;
-                    buttonBar.appendChild(button);
-                    showModal(div, buttonBar);
-
-                    function importItem(event) {
-                        hideModal();
-
-                        const name = event.target.innerText;
-
-                        const foods = function () {
-                            // find indices first instead of adding foods directly to result array to allow them to be pushed in the desired order
-                            var foundationNdx = -1;
-                            var surveyNdx = -1;
-                            var legacyNdx = -1;
-                            for (const i in dataObj.foods)
-                                if (dataObj.foods[i].description === name) {
-                                    switch (dataObj.foods[i].dataType) {
-                                        case "Foundation": foundationNdx = i; break
-                                        case "Survey (FNDDS)": surveyNdx = i; break;
-                                        case "SR Legacy": legacyNdx = i; break;
-                                    }
-                                }
-
-                            var foods = [];
-                            if (foundationNdx >= 0)
-                                foods.push(dataObj.foods[foundationNdx]);
-                            if (legacyNdx >= 0)
-                                foods.push(dataObj.foods[legacyNdx]);
-                            if (surveyNdx >= 0)
-                                foods.push(dataObj.foods[surveyNdx]);
-                            return foods;
-                        }();
-
-                        function getNutritionValue(name, unit = "G") {
-                            for (const food of foods)
-                                for (const nutritient of food.foodNutrients)
-                                    if (nutritient.nutrientName === name && nutritient.unitName === unit)
-                                        return nutritient.value / 100.0;
-
-                            return -1.0;
-                        }
-
-                        if (foods.length > 0) {
-                            var imported = Ingredients[ingredientName].copy();
-
-                            var foundFields = {};
-                            for (const field of IngredientDataFields)
-                                foundFields[field] = false;
-
-                            function setValue(key, value) {
-                                if (value >= 0) {
-                                    foundFields[key] = true;
-                                    imported[key] = value;
-                                }
-                                return value;
-                            }
-
-                            const water = setValue("Water", getNutritionValue("Water"));
-                            const fat = setValue("Fat", getNutritionValue("Total lipid (fat)"));
-                            setValue("Sugar", Math.max(getNutritionValue("Sugars, Total NLEA"), getNutritionValue("Sugars, total including NLEA")));
-                            setValue("kcal", getNutritionValue("Energy", "KCAL"));
-
-                            var ethanol = Math.max(getNutritionValue("Alcohol, ethyl"), 0.); // no alcohol for Foundation
-                            const sugars = {
-                                Sucrose: getNutritionValue("Sucrose"),
-                                Dextrose: getNutritionValue("Glucose (dextrose)"),
-                                Fructose: getNutritionValue("Fructose"),
-                                Lactose: getNutritionValue("Lactose"),
-                                Maltose: getNutritionValue("Maltose"),
-                                Galactose: getNutritionValue("Galactose"),
-                                Ethanol: ethanol
-                            };
-                            var pacSum = 0.0;
-                            var podSum = 0.0;
-                            var valid = true;
-                            for (const key in sugars) {
-                                valid &= sugars[key] >= 0.0;
-                                pacSum += 342.3 / Sugars[key][0] * sugars[key];
-                                podSum += Sugars[key][1] * sugars[key];
-                            }
-                            if (valid) {
-                                imported.PAC = pacSum;
-                                imported.POD = podSum / 100.0;
-                                foundFields.PAC = true;
-                                foundFields.POD = true;
-                            }
-                            if (water >= 0) {
-                                foundFields.Solids = true;
-                                imported.Solids = 1.0 - (water + ethanol);
-                                if (fat >= 0 && sugars.Lactose > 0) // check for lactose to identify dairy products
-                                {
-                                    foundFields.MSNF = true;
-                                    imported.MSNF = imported.Solids - fat;
-                                }
-                            }
-
-                            var notFound = [];
-                            for (const field in foundFields)
-                                if (!foundFields[field])
-                                    notFound.push(field);
-
-                            var lib = {};
-                            lib[ingredientName] = imported;
-                            filterIngredients.ignored = ingredientName;
-                            importIngredients(lib, false, (notFound.length > 0 ? ("Please check values manually for: " + notFound.join(", ")) : null));
-                        } else {
-                            console.assert(false);
-                            return;
-                        }
-
-
-                    }
-                }
-            }
-        }
-
-        function createIngredientRow(name = "", ingredient = null) {
-            function addCell(columnName, value) {
-                var cell = document.createElement('td');
-
-                var input = document.createElement('input');
-                input.name = columnName;
-                input.placeholder = columnName;
-                input.oninput = onIngredientEdit;
-                if (typeof value === "number") {
-                    input.value = round(value * 100.);
-                    input.onkeypress = filterPosNumberInput;
-                    input.pattern = "[0-9]+([\.,][0-9]+)?";
-                    if (columnName === "PAC") {
-                        input.onkeypress = filterNumberInput;
-                        input.pattern = "-?" + input.pattern;
-                    }
-                    input.step = "any";
-                    if (value == 0.0)
-                        input.value = null;
-                } else
-                    input.value = value;
-
-                cell.appendChild(input);
-                if (columnName === "Name") {
-                    btn = document.createElement('button');
-                    btn.title = "Try to download values from FoodData Central";
-                    btn.innerText = "🌐";
-                    btn.onclick = onDownloadIngredientData;
-                    btn.style = "margin-left: 7px;";
-                    cell.appendChild(btn);
-
-
-                    btn = document.createElement('button');
-                    btn.title = "Delete";
-                    btn.innerText = "🗑️";
-                    btn.onclick = onIngredientDeleted;
-                    btn.style = "margin-left: 7px;";
-                    cell.appendChild(btn);
-                }
-                row.appendChild(cell);
-            }
-
-            var row = document.createElement('tr');
-            addCell("Name", name);
-            row.name = name;
-            for (const columnName of IngredientDataFields) {
-                if (ingredient != null && ingredient.hasOwnProperty(columnName)) {
-                    addCell(columnName, ingredient[columnName]);
-                } else {
-                    addCell(columnName, 0);
-                }
-            }
-            return row;
-        }
-
-        function DisplayIngredients() {
-            var table = document.createElement('table');
-
-            var tableHead = document.createElement('thead');
-            var row = document.createElement('tr');
-            var cell = document.createElement('th');
-            cell.appendChild(document.createTextNode("Name"));
-            row.appendChild(cell);
-            for (const columnName of IngredientDataFields) {
-                var cell = document.createElement('th');
-                cell.appendChild(document.createTextNode(columnName));
-                row.appendChild(cell);
-            }
-            tableHead.appendChild(row);
-            table.appendChild(tableHead);
-
-            var tableBody = document.createElement('tbody');
-            tableBody.appendChild(createIngredientRow());
-            for (const key in Ingredients)
-                tableBody.appendChild(createIngredientRow(key, Ingredients[key]));
-            table.appendChild(tableBody);
-            table.id = "tblIngredientsList";
-
-            document.getElementById("tblIngredientsList").replaceWith(table);
-
-            if (document.getElementById("edIngredientFilter").value != "")
-                filterIngredients();
-        }
-
-
-
-
+        // Ingredient functions (diffIngredients, importIngredients, filterIngredients,
+        // onIngredientEdit, isIngredientUsed, onIngredientDeleted, onDownloadIngredientData,
+        // createIngredientRow, DisplayIngredients) are now imported from features/ingredients.js
 
 
         // --- Tools ------------------------------------------------------------------
@@ -2246,22 +1642,7 @@
         function gToL(value) { return value / 1100.; }
         function LToG(value) { return 1100. * value; }
 
-
-        function filterPosNumberInput(event) {
-            const acceptSeparator = !this.value.includes(decimalSeparator) && !this.value.includes('.');
-            const ASCIICode = event.which ? event.which : event.keyCode;
-            const isSeparator = String.fromCharCode(ASCIICode) === decimalSeparator || String.fromCharCode(ASCIICode) === '.';
-            return (acceptSeparator && isSeparator)
-                || (ASCIICode >= 48 && ASCIICode <= 57);
-        }
-        function filterNumberInput(event) {
-            const acceptSeparator = !this.value.includes(decimalSeparator) && !this.value.includes('.');
-            const ASCIICode = event.which ? event.which : event.keyCode;
-            const isSeparator = String.fromCharCode(ASCIICode) === decimalSeparator || String.fromCharCode(ASCIICode) === '.';
-            return (acceptSeparator && isSeparator)
-                || (ASCIICode >= 48 && ASCIICode <= 57)
-                || (ASCIICode === 45 && event.target.selectionStart === 0); // allow '-' at first position
-        }
+        // filterPosNumberInput, filterNumberInput are now imported from helpers.js
 
         function showModal(content, buttons = null) {
             console.assert(content != null && ["string", "object"].includes(typeof content));
@@ -2328,51 +1709,7 @@
 
         }
 
-        function round(value) {
-            if (value == 0)
-                return 0;
-            const precision = 2;
-            const decimalShift = Math.max(Math.pow(10, Math.min(precision - Math.floor(Math.log10(Math.abs(value))), 2)), 1);
-            return Math.round(value * decimalShift) / decimalShift;
-        }
-
-        function* nGenerator(count, functor) {
-            var i = 0;
-            for (; i < count; ++i) {
-                yield functor(i);
-            }
-            return i;
-        }
-
-        function objIsEmpty(obj) {
-            return Object.keys(obj).length === 0 && obj.constructor === Object;
-        }
-
-        function DamerauLevenshteinDistance(a, b) {
-            var i, j;
-            const m = a.length, n = b.length;
-            if (!m)
-                return n;
-            if (!n)
-                return m;
-
-            var d = [(m + 1) * (n + 1)];
-
-            for (i = 0; i <= m; ++i)
-                d[i] = i;
-            for (j = 0; j <= n; ++j)
-                d[j * (m + 1)] = j;
-
-            for (i = 0; i != m; ++i)
-                for (j = 0; j != n; ++j)
-                    d[(i + 1) + (j + 1) * (m + 1)] = Math.min(
-                        d[i + (j + 1) * (m + 1)] + 1, //deletion
-                        d[(i + 1) + j * (m + 1)] + 1,  //insertion
-                        d[i + j * (m + 1)] + ((a[i] != b[j]) ? 1 : 0), // substitution                    
-                        (i && j && a[i] == b[j - 1] && a[i - 1] == b[j]) ? d[(i - 1) + (j - 1) * (m + 1)] + 1 : Number.MAX_SAFE_INTEGER // transposition
-                    );
-            return d[m + n * (m + 1)];
-        }
+        // round, nGenerator, objIsEmpty, DamerauLevenshteinDistance are now imported from helpers.js
 
         const pickerOpts = {
             types: [
@@ -2395,10 +1732,20 @@
             const fileData = await fileHandle.getFile();
         }
 
+        // Initialize ingredients module with UI dependencies
+        initIngredients({
+            showModal,
+            hideModal,
+            Warning,
+            Info,
+            DisplayRecipe,
+            getRecipeContext: () => ({ Recipe, RecipeBackup, RecipeStack }),
+            Sugars
+        });
+
         // Expose additional objects to window for testing
+        // Note: Ingredients, IngredientNames, SortIngredients, isIngredientUsed,
+        // diffIngredients, onDownloadIngredientData, DamerauLevenshteinDistance
+        // are now exposed by the ingredients module
         window.Recipe = Recipe;
-        window.isIngredientUsed = isIngredientUsed;
-        window.diffIngredients = diffIngredients;
-        window.onDownloadIngredientData = onDownloadIngredientData;
-        window.DamerauLevenshteinDistance = DamerauLevenshteinDistance;
 
