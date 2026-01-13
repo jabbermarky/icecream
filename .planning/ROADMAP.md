@@ -6,9 +6,10 @@
 ## Phases
 
 ### Phase 7: Extract Tools Module
-**Status:** Not started
+**Status:** Complete (2026-01-13)
 **Goal:** Extract calculator tools to `js/utils/tools.js`
-**Output:** PAC/POD, G/Mol, and Egg/Yolk calculators in dedicated module (~314 lines)
+**Output:** PAC/POD, G/Mol, and Egg/Yolk calculators in dedicated module (396 lines)
+**Plans:** 1/1 complete
 
 ### Phase 8: Extract Core Models
 **Status:** Not started
