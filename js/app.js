@@ -1,7 +1,7 @@
         //=====================================================================================================================================================================
         // Import modules
         import { toFloat, clickOn, decimalSeparator, round, nGenerator, objIsEmpty, filterPosNumberInput, filterNumberInput, DamerauLevenshteinDistance } from './utils/helpers.js';
-        import { GetIdealPAC, Fitness } from './freezing-curve.js';
+        import { GetIdealPAC, Fitness } from './features/calculations.js';
         import { DrawFreezingGraph } from './ui/graph.js';
         import { saveToFile, saveIngredientsToFile, parseRecipeFile, parseIngredientsFile } from './utils/file-io.js';
         import {

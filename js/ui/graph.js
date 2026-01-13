@@ -3,7 +3,7 @@
  * Canvas-based freezing curve visualization
  */
 
-import { CalcFDP } from '../freezing-curve.js';
+import { CalcFDP } from '../features/calculations.js';
 
 /**
  * Draw the freezing curve graph on the canvas

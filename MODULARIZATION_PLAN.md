@@ -3,8 +3,13 @@
 ## Current State
 ✅ HTML: 377 lines (clean structure)
 ✅ CSS: 455 lines in `css/styles.css`
-✅ **Step 1 COMPLETE:** Helper functions extracted to `js/utils/helpers.js` (72 lines)
-- JavaScript: 2,643 lines in `js/app.js` (down from 2,694)
+✅ **Step 1 COMPLETE:** Helper functions extracted to `js/utils/helpers.js` (127 lines)
+✅ **Step 2 COMPLETE:** Ingredients data extracted to `data/ingredients.json`
+✅ **Step 3 COMPLETE:** Ingredients module extracted to `js/features/ingredients.js` (749 lines)
+✅ **Step 4 COMPLETE:** Calculations extracted to `js/features/calculations.js` (95 lines)
+✅ **Step 5 COMPLETE:** UI components extracted to `js/ui/components.js` (180 lines)
+✅ **Step 6 COMPLETE:** Graph renderer extracted to `js/ui/graph.js` (118 lines)
+- JavaScript: ~1,666 lines in `js/app.js` (down from 2,694)
 - ⚠️ **Lesson learned:** ES6 modules enable strict mode - need to test for strict mode bugs BEFORE extraction
 
 ## Goal
@@ -227,63 +232,55 @@ export function fetchUSDADetails(fdcId) { /* ... */ }
 
 ---
 
-### Step 4: Extract Calculations (features/calculations.js)
-**Why:** Pure math functions, depends only on ingredients module
+### Step 4: Extract Calculations (features/calculations.js) ✅ COMPLETE
+**Status:** Done
 
-**What to extract:**
-- \`CalcFDP()\` - Freezing point depression
-- \`GetIdealPAC()\` - PAC from temperature
-- \`SE_to_FPD()\` / \`FDP_to_SE()\` - Conversion functions
-- \`Fitness()\` - Optimization fitness
-- PAC/POD calculation helpers
+**What was extracted:**
+- `SE_to_FPD()` / `FDP_to_SE()` - Sucrose equivalent conversion functions
+- `CalcFDP()` - Freezing point depression calculation
+- `GetIdealPAC()` - Ideal PAC from temperature
+- `Fitness()` - Recipe optimization fitness function
 
-**Lines:** Scattered, ~280 lines
+**Lines:** 95 lines
 
 **Exports:**
-\`\`\`javascript
-export { CalcFDP, GetIdealPAC, SE_to_FPD, FDP_to_SE, Fitness };
-\`\`\`
-
-**Testing after:** Check recipe calculations update correctly, try optimization
+```javascript
+export { SE_to_FPD, FDP_to_SE, CalcFDP, GetIdealPAC, Fitness };
+```
 
 ---
 
-### Step 5: Extract UI Components (ui/components.js)
-**Why:** Self-contained UI logic, depends on helpers
+### Step 5: Extract UI Components (ui/components.js) ✅ COMPLETE
+**Status:** Done
 
-**What to extract:**
-- Tab system handler
-- Modal dialog system (\`showModal\`, \`hideModal\`)
-- Form field creation helpers
+**What was extracted:**
+- Tab system with dependency-injected callbacks (`initTabs`, `initUIComponents`)
+- Modal dialog system (`showModal`, `hideModal`)
+- Status bar messaging (`Info`, `Warning`, `ErrorMsg`, `SetStatusBarMessage`)
+- CSS helper (`getCSS`)
 
-**Lines:** ~22-55 (tabs) + scattered UI helpers (~180 lines total)
+**Lines:** 180 lines
 
 **Exports:**
-\`\`\`javascript
-export function initTabs() { /* ... */ }
-export function showModal(title, content, buttons) { /* ... */ }
-export function hideModal() { /* ... */ }
-\`\`\`
-
-**Testing after:** Test tab switching, open/close modals
+```javascript
+export { initUIComponents, initTabs, showModal, hideModal, Info, Warning, ErrorMsg, SetStatusBarMessage, getCSS };
+```
 
 ---
 
-### Step 6: Extract Graph Renderer (ui/graph.js)
-**Why:** Isolated canvas code, depends on calculations
+### Step 6: Extract Graph Renderer (ui/graph.js) ✅ COMPLETE
+**Status:** Done
 
-**What to extract:**
-- \`DrawFreezingGraph()\` - Canvas rendering
-- Graph scaling and axis drawing
+**What was extracted:**
+- `DrawFreezingGraph()` - Canvas-based freezing curve visualization
+- Imports `CalcFDP` from calculations.js
 
-**Lines:** ~95 lines
+**Lines:** 118 lines
 
 **Exports:**
-\`\`\`javascript
-export function DrawFreezingGraph() { /* ... */ }
-\`\`\`
-
-**Testing after:** Verify freezing curve renders in Recipe tab
+```javascript
+export { DrawFreezingGraph };
+```
 
 ---
 
@@ -409,7 +406,7 @@ Modules that currently rely on global variables (Recipe, Ingredients, etc.) will
 
 ---
 
-## File Structure (Final)
+## File Structure (Current/Final)
 
 \`\`\`
 /icecream/
@@ -418,23 +415,23 @@ Modules that currently rely on global variables (Recipe, Ingredients, etc.) will
 ├── css/
 │   └── styles.css (455 lines)
 ├── data/
-│   └── ingredients.json - Default ingredient database (72 ingredients)
+│   └── ingredients.json - Default ingredient database (76 ingredients) ✅
 ├── js/
-│   ├── app.js (~150 lines) - Main entry point
+│   ├── app.js (~1,666 lines → ~150 lines final) - Main entry point
 │   ├── models/
-│   │   └── core.js (~200 lines) - Recipe, Target, Egg classes
+│   │   └── core.js (~200 lines) - Recipe, Target, Egg classes [Step 8]
 │   ├── features/
-│   │   ├── ingredients.js (~600 lines) - Ingredient class, CRUD, USDA, display
-│   │   ├── calculations.js (~300 lines) - Math functions
-│   │   └── recipe-manager.js (~600 lines) - Recipe operations
+│   │   ├── ingredients.js (749 lines) ✅
+│   │   ├── calculations.js (95 lines) ✅
+│   │   └── recipe-manager.js (~600 lines) [Step 9]
 │   ├── ui/
-│   │   ├── components.js (~180 lines) - Tabs, modals
-│   │   └── graph.js (~100 lines) - Canvas freezing curve
+│   │   ├── components.js (180 lines) ✅
+│   │   └── graph.js (118 lines) ✅
 │   └── utils/
-│       ├── helpers.js (~72 lines) - Utilities ✅
-│       ├── file-io.js (~200 lines) - Save/load
-│       └── tools.js (~314 lines) - Calculators
-├── test-app.js - Playwright test suite
+│       ├── helpers.js (127 lines) ✅
+│       ├── file-io.js (92 lines) ✅
+│       └── tools.js (~314 lines) [Step 7]
+├── test-app.js - Playwright test suite (76 tests)
 ├── start.sh
 └── serve.sh
 \`\`\`
