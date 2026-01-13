@@ -1,0 +1,18 @@
+{
+  "project": "Ice Ed Modularization",
+  "created": "2026-01-13",
+  "workflow": {
+    "planFirst": true,
+    "testAfterEachStep": true,
+    "commitAfterEachStep": true
+  },
+  "testing": {
+    "command": "npm test",
+    "required": true
+  },
+  "conventions": {
+    "moduleStyle": "ES6",
+    "exports": "named",
+    "fileNaming": "kebab-case"
+  }
+}
