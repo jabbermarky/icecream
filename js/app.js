@@ -34,6 +34,7 @@
             getCSS
         } from './ui/components.js';
         import { initTools, initPACPODCalculator, initGMolCalculator, initYolkCalculator, Sugars, eggTypes, cEgg } from './utils/tools.js';
+        import { initModels, cTargetValue, cTarget, Targets, cRecipe } from './models/core.js';
 
         const VERSION = "0.4.0 beta";
 
@@ -46,6 +47,9 @@
         const RecipeDataColumns = ["Water", "Sugar", "Fat", "MSNF", "Solids", "PAC", "POD", "Stabilizer"];
         const RecipeColumns = ["Name", "Amount", "Scale to", ""].concat(RecipeDataColumns);
         // IngredientDataFields is now imported from ingredients.js
+
+        // Initialize models module with RecipeDataColumns dependency
+        initModels({ getRecipeDataColumns: () => RecipeDataColumns });
 
         // replaceAll is currently not everywhere available. Use this polyfill from https://stackoverflow.com/a/14822579
         String.prototype.replaceAll = String.prototype.replaceAll || function (find, replace) {
@@ -81,61 +85,7 @@
         // Load ingredients before continuing (top-level await)
         await loadIngredients();
 
-        class cTargetValue {
-            constructor(min, max) {
-                this.Min = min;
-                this.Max = max;
-                this.Range = max - min;
-                this.Mean = (min + max) * 0.5;
-            }
-            getRangeError(factor, value) {
-                if (this.Range <= 0.0)
-                    return getMeanError(factor, value);
-                return Math.max(Math.abs(this.Mean * factor - value) - this.Range * factor * 0.5, 0.0) / (this.Range * factor);
-            };
-            getMeanError(factor, value) {
-                const delta = Math.abs(this.Mean * factor - value);
-                if (delta == 0.0)
-                    return 0.0;
-                return delta / (this.Mean * factor);
-            }
-
-
-        }
-        class cTarget {
-            constructor(fatMin, fatMax
-                , msnfMin, msnfMax
-                , podMin, podMax
-                , stabilizerMin, stabilizerMax
-                , solidsMin, solidsMax
-            ) {
-
-                this.Fat = new cTargetValue(fatMin, fatMax);
-                this.MSNF = new cTargetValue(msnfMin, msnfMax);
-                this.Solids = new cTargetValue(solidsMin, solidsMax);
-                this.POD = new cTargetValue(podMin, podMax);
-                this.Stabilizer = new cTargetValue(stabilizerMin, stabilizerMax);
-            }
-        }
-        var Targets = {};
-
-        // Based on: https://www.sciencedirect.com/topics/food-science/frozen-dessert
-        //       Name                                         Fat       	    MSNF        	    POD                 Stabilizer          Total Solids
-        Targets["Non-Fat"] = new cTarget(0, 0.005, 0.12, 0.14, 0.18, 0.22, 0.009, 0.011, 0.28, 0.32);
-        Targets["Low Fat"] = new cTarget(0.02, 0.05, 0.12, 0.14, 0.18, 0.21, 0.007, 0.009, 0.28, 0.32);
-        Targets["Light"] = new cTarget(0.05, 0.07, 0.11, 0.12, 0.18, 0.2, 0.004, 0.006, 0.3, 0.35);
-        Targets["Reduced Fat"] = new cTarget(0, 0.1, 0.09, 0.1, 0.14, 0.17, 0.002, 0.004, 0.36, 0.38);
-        Targets["Standard"] = new cTarget(0.10, 0.12, 0.09, 0.1, 0.14, 0.17, 0.002, 0.004, 0.36, 0.38);
-        Targets["Premium"] = new cTarget(0.12, 0.14, 0.08, 0.1, 0.13, 0.16, 0.002, 0.004, 0.38, 0.4);
-        Targets["Super-Premium"] = new cTarget(0.14, 0.18, 0.05, 0.08, 0.14, 0.17, 0.0, 0.002, 0.4, 0.42);
-        Targets["Gelato"] = new cTarget(0.04, 0.08, 0.09, 0.12, 0.13, 0.17, 0.004, 0.005, 0.32, 0.42);
-        Targets["Frozen Yogurt: Non-Fat"] = new cTarget(0, 0.005, 0.09, 0.14, 0.15, 0.17, 0.005, 0.007, 0.28, 0.32);
-        Targets["Frozen Yogurt: Regular"] = new cTarget(0.03, 0.06, 0.09, 0.13, 0.15, 0.17, 0.004, 0.005, 0.3, 0.36);
-        Targets["Sorbet"] = new cTarget(0.0, 0.01, 0.0, 0.0, 0.22, 0.28, 0.004, 0.005, 0.28, 0.34);
-        Targets["Sherbet"] = new cTarget(0.01, 0.02, 0.01, 0.03, 0.22, 0.28, 0.004, 0.005, 0.28, 0.34);
-
-
-
+        // cTargetValue, cTarget, and Targets are now imported from models/core.js
 
 
         // --- Recipe -----------------------------------------------------------
@@ -222,63 +172,13 @@
             SetRecipeModified();
         };
 
-        class cRecipe {
-            constructor(name = "", notes = "") {
-                this.Name = name;
-                this.Notes = notes;
-                this.Type = tgtSelection.value;
-                this.ServingTemperature = slServingTemperature.value;
-                this.Hardness = slHardness.value / 100.0;
-                this.Overrun = 0.3;
-                this.Ingredients = [];
-            }
-            static copyFrom(original) {
-                var copy = Object.assign(new cRecipe(""), original);
-                copy.Ingredients = original.Ingredients.map(value => ({ ...value }));
-                return copy;
-            }
-
-            addIngredient(name, amount = 0) {
-                this.Ingredients.push(({ Name: name, Amount: amount }));
-            }
-            get Amount() {
-                var sum = 0.0;
-                for (const ingredient of this.Ingredients)
-                    sum += ingredient.Amount;
-                return sum;
-            }
-            set Amount(tgtAmount) {
-                const factor = tgtAmount / this.Amount;
-                for (const ingredient of this.Ingredients)
-                    ingredient.Amount = round(ingredient.Amount * factor);
-            }
-
-            get Sums() {
-                var sums = { Amount: 0.0, nonLactoseSugar: 0.0, milkFat: 0.0 };
-                const columns = RecipeDataColumns.concat("kcal");
-                for (const columnName of columns)
-                    sums[columnName] = 0.0;
-                for (const ingredient of this.Ingredients) {
-                    console.log(`ingredient.Name: ${ingredient.Name}, ingredient.Amount: ${ingredient.Amount}`);
-
-                    sums.Amount += ingredient.Amount;
-                    if (Ingredients.hasOwnProperty(ingredient.Name)) {
-                        sums.nonLactoseSugar += Ingredients[ingredient.Name].nonLactoseSugar * ingredient.Amount;
-                        //console.log(`nonLactoseSugar: ${Ingredients[ingredient.Name].nonLactoseSugar * ingredient.Amount}`);
-                        let ingredientMilkFat = Ingredients[ingredient.Name].milkFat;
-                        let milkFat = ingredientMilkFat * ingredient.Amount
-                        sums.milkFat += milkFat;
-                        console.log(`ingredientMilkFat: ${ingredientMilkFat}`);
-                        console.log(`milkFat: ${milkFat}`);
-                    }
-                    for (const columnName of columns)
-                        if (Ingredients.hasOwnProperty(ingredient.Name) && Ingredients[ingredient.Name].hasOwnProperty(columnName))
-                            sums[columnName] += Ingredients[ingredient.Name][columnName] * ingredient.Amount;
-                }
-                return sums;
-            }
-        }
-        var Recipe = new cRecipe();
+        // cRecipe class is now imported from models/core.js
+        // Initialize with DOM defaults
+        var Recipe = new cRecipe("", "", {
+            Type: tgtSelection.value,
+            ServingTemperature: toFloat(slServingTemperature.value),
+            Hardness: toFloat(slHardness.value) / 100.0
+        });
 
         document.getElementById("edRecipeName").oninput = (event) => {
             Recipe.Name = event.target.value;
