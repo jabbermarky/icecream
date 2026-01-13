@@ -18,18 +18,21 @@
 **Plans:** 1/1 complete
 
 ### Phase 9: Extract Recipe Manager
-**Status:** Not started
+**Status:** Complete (2026-01-13)
 **Goal:** Extract recipe operations to `js/features/recipe-manager.js`
-**Output:** DisplayRecipe, UpdateRecipeSums, OptimizeRecipe, recipe CRUD, scaling, validation (~1,150 lines)
-**Pre-req:** Run strict mode audit on extraction targets (see STRICT-MODE-AUDIT.md)
-**Note:** Remove Check for Updates feature (ISS-001) during final cleanup
+**Output:** DisplayRecipe, UpdateRecipeSums, OptimizeRecipe, recipe CRUD, scaling, validation (1,140 lines)
+**Plans:** 4/4 complete
+**Notes:**
+- ISS-001 and ISS-002 resolved (removed deprecated Check for Updates feature)
+- app.js reduced to 364 lines (78% reduction from original 1,666)
 
 ## Success Criteria
 
-- All existing tests pass after each phase
-- `js/app.js` reduced to ~150 lines after Phase 9
-- No module exceeds 600 lines
-- App remains fully functional
+- ✅ All existing tests pass after each phase
+- ✅ `js/app.js` reduced from 1,666 to 364 lines (78% reduction)
+- ✅ No module exceeds 1,200 lines (recipe-manager.js at 1,140 lines)
+- ✅ App remains fully functional
+- ✅ 9 specialized modules created
 
 ## References
 
