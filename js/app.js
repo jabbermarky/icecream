@@ -375,68 +375,6 @@
         // --- About ------------------------------------------------------------------
         document.getElementById("Version").innerText = "Version: " + VERSION;
 
-        document.getElementById("btnCheckUpdate").onclick = function (event) {
-            class cVersion {
-                constructor(versionStr) {
-                    versionStr = versionStr.split(/ (.+)/);
-                    this.Suffix = versionStr.length > 1 ? versionStr[1] : "";
-                    this.Valid = RegExp("^[0-9]+\.[0-9]+\.[0-9]+$").test(versionStr[0]);
-                    this.Version = versionStr[0].split('.');
-                }
-                isNewerThan(other) {
-                    return this.Valid && other.Valid
-                        && (this.Version[0] > other.Version[0]
-                            || (this.Version[0] == other.Version[0] && this.Version[1] > other.Version[1])
-                            || (this.Version[0] == other.Version[0] && this.Version[1] == other.Version[1] && this.Version[2] > other.Version[2]));
-                }
-                isEqual(other) {
-                    return this.Valid && other.Valid
-                        && (this.Version[0] == other.Version[0] && this.Version[1] == other.Version[1] && this.Version[2] == other.Version[2]);
-                }
-            }
-
-
-            if (event.target.innerText === "Download" && typeof event.target.downloadLink === "string") {
-                httpRequest = new XMLHttpRequest();
-                httpRequest.onreadystatechange = () => {
-                    if (httpRequest.readyState === XMLHttpRequest.DONE && httpRequest.status === 200) {
-                        var link = document.createElement('a');
-                        link.setAttribute('href', URL.createObjectURL(new Blob([httpRequest.responseText], {
-                            type: 'text/html'
-                        })));
-                        link.setAttribute('download', "Ice-Ed.html");
-                        clickOn(link);
-                    }
-                };
-                httpRequest.open('GET', event.target.downloadLink);
-                httpRequest.send();
-            } else {
-                httpRequest = new XMLHttpRequest();
-                httpRequest.onreadystatechange = () => {
-                    if (httpRequest.readyState === XMLHttpRequest.DONE) {
-                        if (httpRequest.status === 200) {
-                            const releaseInfo = JSON.parse(httpRequest.responseText);
-                            const current = new cVersion(VERSION);
-                            const latest = new cVersion(releaseInfo.name);
-                            if (latest.isNewerThan(current)) {
-                                event.target.innerText = "Download";
-                                event.target.downloadLink = "https://raw.githubusercontent.com/JoernMueller/Ice-Ed/" + releaseInfo.tag_name + "/IceEd.html";
-                                document.getElementById("VersionInfo").innerHTML = 'A newer version <strong>' + releaseInfo.name + '</strong> is available since ' + (new Date(releaseInfo.published_at)).toLocaleDateString()
-                                    + '. <a target="_blank" rel="noopener noreferrer" href="' + releaseInfo.html_url + '">Release Info</a>';
-                            } else if (latest.isEqual(current)) {
-                                document.getElementById("VersionInfo").innerHTML = "You are using the latest release.";
-                            }
-                        } else
-                            ErrorMsg("Failed to get data. HTTP Status: " + httpRequest.status);
-                    }
-
-                };
-                httpRequest.open('GET', "https://api.github.com/repos/JoernMueller/Ice-Ed/releases/latest");
-                httpRequest.send();
-            }
-
-        };
-
         {   // add TOC
             var content = document.getElementById("AboutContent");
             for (var heading of document.getElementById("About").getElementsByTagName("h3")) {
