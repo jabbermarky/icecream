@@ -15,11 +15,14 @@
 **Status:** Not started
 **Goal:** Extract data models to `js/models/core.js`
 **Output:** cRecipe, cTarget, cTargetValue, cVersion, cEgg classes + Targets, Sugars constants
+**Pre-req:** Run strict mode audit on extraction targets (see STRICT-MODE-AUDIT.md)
 
 ### Phase 9: Extract Recipe Manager
 **Status:** Not started
 **Goal:** Extract recipe operations to `js/features/recipe-manager.js`
 **Output:** DisplayRecipe, UpdateRecipeSums, OptimizeRecipe, recipe CRUD, scaling, validation (~1,150 lines)
+**Pre-req:** Run strict mode audit on extraction targets (see STRICT-MODE-AUDIT.md)
+**Note:** Remove Check for Updates feature (ISS-001) during final cleanup
 
 ## Success Criteria
 
@@ -33,3 +36,5 @@
 - `MODULARIZATION_PLAN.md` - Detailed extraction strategy
 - `WORKFLOW.md` - Testing workflow
 - `.planning/codebase/` - Codebase analysis
+- `.planning/STRICT-MODE-AUDIT.md` - Strict mode compatibility checklist
+- `.planning/ISSUES.md` - Deferred issues log

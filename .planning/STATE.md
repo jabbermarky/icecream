@@ -18,7 +18,14 @@ Progress: ███████░░░ 70%
 
 ## Deferred Issues
 
-No issues deferred to ISSUES.md during Phase 7.
+- ISS-001: Remove Check for Updates functionality (discovered via strict mode audit)
+- ISS-002: httpRequest undeclared variable (will resolve via ISS-001)
+
+## Process Improvements
+
+- Added strict mode audit as pre-requisite for Phases 8-9
+- Created STRICT-MODE-AUDIT.md reference guide
+- Future extractions will scan for undeclared variables before moving code
 
 ## Blockers/Concerns Carried Forward
 
