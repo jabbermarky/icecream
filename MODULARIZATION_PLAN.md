@@ -32,74 +32,203 @@ Usage: `node test-app.js` or `npm test`
 
 ## Extraction Order & Plan
 
-### Step 1: Extract Helper Functions (utils/helpers.js)
-**Why first:** No dependencies, pure utility functions, lowest risk
+### Step 1: Extract Helper Functions (utils/helpers.js) ✅ COMPLETE
+**Status:** Done
 
-**What to extract:**
+**What was extracted:**
 - `toFloat()` - Parse float with locale support
 - `clickOn()` - Programmatic click helper
 - `decimalSeparator` - Locale decimal separator constant
 
-**Lines:** Scattered throughout (~50-100 lines total)
-
-**⚠️ PRE-EXTRACTION CHECKS (do BEFORE extracting):**
-1. Run full test suite to establish baseline
-2. Check browser console - should have ZERO errors on Recipe tab
-3. Verify strict mode compatibility - scan for `this` usage in functions to be extracted
-4. Document any existing bugs separately (don't fix during extraction)
-
-**Exports:**
-\`\`\`javascript
-export { toFloat, clickOn, decimalSeparator };
-\`\`\`
-
-**POST-EXTRACTION TESTS (verify after extracting):**
-1. ✅ Page loads without NEW console errors
-2. ✅ Recipe tab displays
-3. ✅ Number inputs work with locale decimals (uses `toFloat` and `decimalSeparator`)
-4. ✅ All tabs switch correctly
-
 ---
 
-### Step 2: Extract Core Models (models/core.js)
-**Why second:** Self-contained classes, no external dependencies
+### Step 2: Extract Ingredients Data (data/ingredients.json)
+**Why now:** Separate data from code, enables easier ingredient management and testing
 
 **What to extract:**
-- `cIngredient` class
-- `cTarget` class
-- `cTargetValue` class
-- `cRecipe` class (structure only)
-- `cVersion` class
-- `cEgg` class
-- Ingredients database (JSON data)
-- Targets definitions
-- Sugars reference table
+- The 72 ingredients currently embedded as JSON in `app.js` (lines 126-202)
+- Marked with `/*INGREDIENTS_START_MARKER*/` and `/*INGREDIENTS_END_MARKER*/`
 
-**Lines:** ~57-271
-
-**Exports:**
-\`\`\`javascript
-export class cIngredient { /* ... */ }
-export class cRecipe { /* ... */ }
-export class cTarget { /* ... */ }
-export class cTargetValue { /* ... */ }
-export class cVersion { /* ... */ }
-export class cEgg { /* ... */ }
-
-export let Ingredients = /* JSON data */;
-export function IngredientNames() { /* ... */ }
-export function SortIngredients() { /* ... */ }
-
-export const Targets = { /* ... */ };
-export const Sugars = { /* ... */ };
+**Current structure per ingredient:**
+\`\`\`json
+{
+  "Whole Milk 3.5%": {
+    "Water": 0.8813,
+    "Sugar": 0.0505,
+    "Fat": 0.035,
+    "Solids": 0.1187,
+    "MSNF": 0.087,
+    "PAC": 0.04,
+    "POD": 0.0077,
+    "kcal": 0.61
+  }
+}
 \`\`\`
 
-**Testing after:** Verify ingredients list displays, recipe table appears
+**New file:** `data/ingredients.json`
+\`\`\`json
+{
+  "version": 1,
+  "ingredients": {
+    "Alcohol 40%": { ... },
+    ...72 ingredients...
+    "Yogurt 3.5%": { ... }
+  }
+}
+\`\`\`
+
+**Loading strategy:**
+- Use `fetch()` to load JSON at app startup
+- Handle loading errors gracefully (show message if fetch fails)
+- Cache in global `Ingredients` variable as before
+
+**Testing:**
+1. ✅ JSON file is valid (can be parsed)
+2. ✅ All 72 ingredients present
+3. ✅ Each ingredient has required fields: Water, Sugar, Fat, MSNF, Solids, PAC, POD, kcal
+4. ✅ App loads ingredients correctly on startup
+5. ✅ Ingredients appear in dropdown and Ingredients List tab
 
 ---
 
-### Step 3: Extract Calculations (features/calculations.js)
-**Why third:** Pure math functions, depends only on models
+### Step 3: Extract Ingredient Module (features/ingredients.js)
+**Why now:** Large isolated feature (~600+ lines), clear boundaries, USDA integration is self-contained
+
+**What to extract:**
+
+**A. cIngredient Class (lines 59-124)**
+\`\`\`javascript
+export class cIngredient {
+  constructor(water, sugar, fat, MSNF, PAC, POD, kcal, stabilizer)
+  // Properties: Water, Sugar, Fat, MSNF, Solids, PAC, POD, kcal, Stabilizer
+  // Computed: isSugar, isMilkPowder, milkFat, nonLactoseSugar
+  // Methods: copy()
+}
+\`\`\`
+
+**B. Ingredients Data Management**
+- `Ingredients` - Global ingredients object (loaded from JSON)
+- `IngredientNames()` - Returns sorted array of ingredient names
+- `SortIngredients()` - Alphabetically sorts ingredients object
+- `IngredientDataFields` constant - `["Water", "Sugar", "Fat", "MSNF", "Solids", "PAC", "POD", "Stabilizer", "kcal"]`
+
+**C. Ingredient CRUD Operations**
+- `onIngredientEdit()` (lines 1457-1515) - Edit ingredient properties
+- `onIngredientDeleted()` (lines 1542-1555) - Delete with usage validation
+- `isIngredientUsed()` (lines 1517-1540) - Check if ingredient used in recipe
+
+**D. Ingredient Display & Filtering**
+- `DisplayIngredients()` (lines 1801-1828) - Render ingredients table
+- `createIngredientRow()` (lines 1746-1799) - Create table row for ingredient
+- `filterIngredients()` (lines 1448-1454) - Filter by search term
+- `onIngredientFilterEdit()` (lines 1443-1446) - Handle filter input
+
+**E. Import/Export**
+- `importIngredients()` (lines 1330-1441) - Import with merge conflict resolution
+- `diffIngredients()` (lines 1312-1328) - Compare two ingredient objects
+
+**F. USDA FoodData Central Integration**
+- `onDownloadIngredientData()` (lines 1557-1743) - Full USDA API integration
+- Damerau-Levenshtein fuzzy matching for search results
+- Modal dialog for selecting food item
+
+**Exports:**
+\`\`\`javascript
+// Class
+export class cIngredient { /* ... */ }
+
+// Data
+export let Ingredients;
+export const IngredientDataFields;
+export function IngredientNames() { /* ... */ }
+export function SortIngredients() { /* ... */ }
+export async function loadIngredients() { /* ... */ }
+
+// CRUD
+export function editIngredient(name, field, value) { /* ... */ }
+export function deleteIngredient(name) { /* ... */ }
+export function isIngredientUsed(name) { /* ... */ }
+
+// Display
+export function DisplayIngredients() { /* ... */ }
+export function filterIngredients(term) { /* ... */ }
+
+// Import/Export
+export function importIngredients(data, mode) { /* ... */ }
+export function diffIngredients(a, b) { /* ... */ }
+
+// USDA
+export async function searchUSDA(query) { /* ... */ }
+export function fetchUSDADetails(fdcId) { /* ... */ }
+\`\`\`
+
+**Dependencies on other modules:**
+- `helpers.js` - Uses `toFloat()`, `clickOn()`, `decimalSeparator`
+- `file-io.js` - Uses `saveIngredientsToFile()`, `parseIngredientsFile()`
+
+**Dependencies FROM other modules:**
+- Recipe system uses `Ingredients` global and `cIngredient` class
+- Recipe dropdowns use `IngredientNames()`
+
+---
+
+### Step 3 Testing Requirements
+
+**Unit Tests (add to test-app.js or new test file):**
+
+**A. cIngredient Class Tests:**
+1. ✅ Create ingredient with all properties
+2. ✅ Computed `Solids` = 1 - Water
+3. ✅ `isSugar` returns true for sugar-type ingredients (Sugar > 0.5)
+4. ✅ `isMilkPowder` detection works
+5. ✅ `copy()` creates independent copy
+
+**B. Ingredients Data Tests:**
+1. ✅ `loadIngredients()` fetches and parses JSON
+2. ✅ `IngredientNames()` returns sorted array
+3. ✅ `SortIngredients()` alphabetizes correctly
+4. ✅ Handle missing/corrupt JSON file gracefully
+
+**C. CRUD Operation Tests:**
+1. ✅ Create new ingredient - appears in list
+2. ✅ Edit ingredient property - value updates
+3. ✅ Edit ingredient name - name changes, old name removed
+4. ✅ Delete unused ingredient - removed from list
+5. ✅ Delete used ingredient - shows error, ingredient remains
+6. ✅ `isIngredientUsed()` returns true when ingredient in recipe
+7. ✅ `isIngredientUsed()` returns false when ingredient not used
+
+**D. USDA Integration Tests:**
+1. ✅ `searchUSDA()` returns results for valid query (e.g., "milk")
+2. ✅ `searchUSDA()` handles empty query
+3. ✅ `searchUSDA()` handles API errors gracefully
+4. ✅ Fuzzy matching filters irrelevant results
+5. ✅ Selected USDA item populates ingredient fields correctly
+6. ✅ USDA data conversion: nutrients → app format (decimals, not percentages)
+
+**E. Import/Export Tests:**
+1. ✅ Export ingredients creates valid .iei file
+2. ✅ Import ingredients (replace mode) replaces all
+3. ✅ Import ingredients (merge mode) adds new, keeps existing
+4. ✅ Import with conflicts shows diff dialog
+5. ✅ `diffIngredients()` detects added/modified/removed
+
+**F. Display & Filter Tests:**
+1. ✅ `DisplayIngredients()` shows all 72 default ingredients
+2. ✅ Filter "milk" shows only milk-containing ingredients
+3. ✅ Clear filter shows all ingredients again
+4. ✅ Ingredient row shows correct values
+5. ✅ Editing in table triggers `onIngredientEdit()`
+
+**Integration Tests (existing in test-app.js):**
+- `testIngredientsList()` - Already tests display and filter
+- `testIngredientSaving()` - Already tests save to file
+- `testRecipeBuilding()` - Already tests adding ingredients to recipe
+
+---
+
+### Step 4: Extract Calculations (features/calculations.js)
+**Why:** Pure math functions, depends only on ingredients module
 
 **What to extract:**
 - \`CalcFDP()\` - Freezing point depression
@@ -119,8 +248,8 @@ export { CalcFDP, GetIdealPAC, SE_to_FPD, FDP_to_SE, Fitness };
 
 ---
 
-### Step 4: Extract UI Components (ui/components.js)
-**Why fourth:** Self-contained UI logic, depends on helpers
+### Step 5: Extract UI Components (ui/components.js)
+**Why:** Self-contained UI logic, depends on helpers
 
 **What to extract:**
 - Tab system handler
@@ -140,8 +269,8 @@ export function hideModal() { /* ... */ }
 
 ---
 
-### Step 5: Extract Graph Renderer (ui/graph.js)
-**Why fifth:** Isolated canvas code, depends on models and calculations
+### Step 6: Extract Graph Renderer (ui/graph.js)
+**Why:** Isolated canvas code, depends on calculations
 
 **What to extract:**
 - \`DrawFreezingGraph()\` - Canvas rendering
@@ -158,33 +287,8 @@ export function DrawFreezingGraph() { /* ... */ }
 
 ---
 
-### Step 6: Extract File I/O (utils/file-io.js)
-**Why sixth:** Self-contained, depends on models
-
-**What to extract:**
-- \`saveToFile()\` - Generic save
-- Recipe save/load handlers
-- Ingredient save/load handlers
-- HTML download feature
-
-**Lines:** ~150 lines
-
-**Exports:**
-\`\`\`javascript
-export function saveToFile(data, filename, type) { /* ... */ }
-export function saveRecipe() { /* ... */ }
-export function loadRecipe() { /* ... */ }
-export function saveIngredients() { /* ... */ }
-export function loadIngredients() { /* ... */ }
-export function downloadHTML() { /* ... */ }
-\`\`\`
-
-**Testing after:** Test save/load recipes, save/load ingredients, download HTML
-
----
-
 ### Step 7: Extract Tools (utils/tools.js)
-**Why seventh:** Standalone calculators, moderate dependencies
+**Why:** Standalone calculators, moderate dependencies
 
 **What to extract:**
 - PAC/POD calculator
@@ -204,28 +308,31 @@ export function initYolkCalculator() { /* ... */ }
 
 ---
 
-### Step 8: Extract Ingredient Manager (features/ingredient-manager.js)
-**Why eighth:** Complex but isolated feature, has USDA integration
+### Step 8: Extract Core Models (models/core.js)
+**Why:** Remaining classes after ingredients extracted
 
 **What to extract:**
-- \`DisplayIngredients()\` - Rendering
-- Ingredient CRUD operations
-- Filtering logic
-- Import/export with conflict resolution
-- USDA FoodData Central integration
-
-**Lines:** ~560 lines
+- \`cTarget\` class
+- \`cTargetValue\` class
+- \`cRecipe\` class (structure only)
+- \`cVersion\` class
+- \`cEgg\` class
+- Targets definitions
+- Sugars reference table
 
 **Exports:**
 \`\`\`javascript
-export function DisplayIngredients() { /* ... */ }
-export function FilterIngredients() { /* ... */ }
-export function ImportIngredients() { /* ... */ }
-export function ExportIngredients() { /* ... */ }
-export function SearchUSDA() { /* ... */ }
+export class cRecipe { /* ... */ }
+export class cTarget { /* ... */ }
+export class cTargetValue { /* ... */ }
+export class cVersion { /* ... */ }
+export class cEgg { /* ... */ }
+
+export const Targets = { /* ... */ };
+export const Sugars = { /* ... */ };
 \`\`\`
 
-**Testing after:** Test full ingredient functionality - CRUD, filter, import/export, USDA search
+**Testing after:** Verify recipe targets display correctly, version info shows
 
 ---
 
@@ -310,21 +417,24 @@ Modules that currently rely on global variables (Recipe, Ingredients, etc.) will
 ├── IceEd.html (original backup)
 ├── css/
 │   └── styles.css (455 lines)
+├── data/
+│   └── ingredients.json - Default ingredient database (72 ingredients)
 ├── js/
 │   ├── app.js (~150 lines) - Main entry point
 │   ├── models/
-│   │   └── core.js (~200 lines) - Data models
+│   │   └── core.js (~200 lines) - Recipe, Target, Egg classes
 │   ├── features/
-│   │   ├── calculations.js (~300 lines) - Math
-│   │   ├── recipe-manager.js (~600 lines) - Recipe ops
-│   │   └── ingredient-manager.js (~400 lines) - Ingredient ops
+│   │   ├── ingredients.js (~600 lines) - Ingredient class, CRUD, USDA, display
+│   │   ├── calculations.js (~300 lines) - Math functions
+│   │   └── recipe-manager.js (~600 lines) - Recipe operations
 │   ├── ui/
 │   │   ├── components.js (~180 lines) - Tabs, modals
-│   │   └── graph.js (~100 lines) - Canvas
+│   │   └── graph.js (~100 lines) - Canvas freezing curve
 │   └── utils/
-│       ├── helpers.js (~100 lines) - Utilities
+│       ├── helpers.js (~72 lines) - Utilities ✅
 │       ├── file-io.js (~200 lines) - Save/load
 │       └── tools.js (~314 lines) - Calculators
+├── test-app.js - Playwright test suite
 ├── start.sh
 └── serve.sh
 \`\`\`
