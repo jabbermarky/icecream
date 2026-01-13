@@ -3,12 +3,13 @@
 // Extracted from js/app.js during Phase 9 modularization
 //=====================================================================================================================================================================
 
-import { toFloat, round, nGenerator, filterPosNumberInput } from '../utils/helpers.js';
+import { toFloat, round, nGenerator, filterPosNumberInput, clickOn } from '../utils/helpers.js';
 import { cRecipe, cTargetValue, Targets } from '../models/core.js';
-import { IngredientNames, IngredientDataFields } from './ingredients.js';
+import { IngredientNames, IngredientDataFields, cIngredient, importIngredients } from './ingredients.js';
 import { GetIdealPAC, Fitness } from './calculations.js';
 import { DrawFreezingGraph } from '../ui/graph.js';
 import { getCSS } from '../ui/components.js';
+import { saveToFile, parseRecipeFile } from '../utils/file-io.js';
 
 // Module-level state
 let RecipeBackup = [];  // backups recipe states on optimization
@@ -750,4 +751,390 @@ export function ToggleIngredientScale(event) {
     document.getElementById('RecipeData').querySelectorAll('tr>*:nth-child(3)').forEach(cell => {
         cell.hidden = !checked;
     });
+}
+
+// --- Optimization Functions ---
+
+/**
+ * Optimize the recipe to better match target values
+ * Uses hill-climbing algorithm to adjust ingredient amounts
+ * @param {boolean} OptimizeForMean - If true, optimize for mean values; if false, optimize for range
+ */
+export function OptimizeRecipe(OptimizeForMean = true) {
+    const Recipe = getRecipe();
+    const Ingredients = getIngredients();
+    const localBackup = cRecipe.copyFrom(Recipe);
+
+    var tgtType = Targets[tgtSelection.value];
+
+    const fitnessFields = IngredientDataFields.filter(col => tgtType.hasOwnProperty(col));
+
+    // Get the indices of ingredients that directly affect the target parameters.
+    // This is required to avoid adjustment of ingredients that affect the fitness of the recipie only
+    // indirect by changing the effect of other ingredients by changing their ratio of the volume.
+    // Also ingnore ingredients that make up less than 1.5% of the mixture, as they are typically things that primarily contribute to other things than the target parameters.
+    const adjustmentIndizes = [...function* () {
+        const totalAmount = Recipe.Amount;
+        for (var i = 0; i < Recipe.Ingredients.length; ++i) {
+            var ingredient = Recipe.Ingredients[i];
+            if (Ingredients.hasOwnProperty(ingredient.Name)
+                && fitnessFields.some(field => {
+                    return Ingredients[ingredient.Name].hasOwnProperty(field) && Ingredients[ingredient.Name][field] > 0.0;
+                })
+                && ingredient.Amount / totalAmount >= 0.015)
+                yield i;
+        }
+    }()];
+
+    const originalFitness = Fitness(localBackup, Recipe, tgtType, fitnessFields, cTargetValue, OptimizeForMean);
+
+    var recipeFitness = originalFitness;
+    let currentRecipe = cRecipe.copyFrom(Recipe);
+
+    var step = 0.1;
+    var outerImproved = 0;
+    do {
+        var improved = 0;
+
+        // test variations and apply the ones that gain improvement
+        for (const i of adjustmentIndizes) {
+            for (const factor of [1.0 + step, 1.0 - step]) {
+                var candidate = cRecipe.copyFrom(currentRecipe);
+                candidate.Ingredients[i].Amount *= factor;
+                const candidateFitness = Fitness(candidate, Recipe, tgtType, fitnessFields, cTargetValue, OptimizeForMean);
+                if (candidateFitness < recipeFitness) {
+                    currentRecipe = cRecipe.copyFrom(candidate);
+                    recipeFitness = candidateFitness;
+                    ++improved;
+                    break; // break the inner loop to skip second iteration in case the first succeeded
+                }
+            }
+        }
+
+        if (improved == 0)
+            step *= 0.5; // if no improvement was possible reduce the amount of variance
+    } while (step > 0.0005);
+
+
+    // scale to original volume
+    var scaledAmount = 0;
+    for (const i of adjustmentIndizes)
+        scaledAmount += currentRecipe.Ingredients[i].Amount;
+    const unscaledAmount = currentRecipe.Amount - scaledAmount;
+    const targetAmount = localBackup.Amount - unscaledAmount;
+    const factor = targetAmount / scaledAmount;
+    var changedIndizes = [];
+    for (const i of adjustmentIndizes) {
+        currentRecipe.Ingredients[i].Amount *= factor;
+
+        if (Math.abs(localBackup.Ingredients[i].Amount - currentRecipe.Ingredients[i].Amount) > Number.EPSILON)
+            changedIndizes.push(i)
+    }
+    const rowCount = changedIndizes.length;
+
+
+    if (rowCount > 0)
+        RecipeBackup.push(cRecipe.copyFrom(localBackup));
+
+    document.getElementById("btnRestoreRecipe").disabled = RecipeBackup.length == 0;
+
+    // Update Recipe with optimized values
+    setRecipe(currentRecipe);
+
+    // display comparision table
+    if (rowCount > 0) {
+        SetRecipeModified();
+
+        var table = document.createElement("table");
+        var th = document.createElement("thead");
+        var tr = document.createElement('tr');
+        for (var name of ["Name", "Original", "Optimized"]) {
+            var cell = document.createElement('th');
+            cell.innerText = name;
+            tr.appendChild(cell);
+        }
+        th.appendChild(tr);
+        table.appendChild(th);
+        var tbody = document.createElement("tbody");
+        for (const i of changedIndizes) {
+            const old = localBackup.Ingredients[i].Amount;
+            const changed = currentRecipe.Ingredients[i].Amount;
+
+            tr = document.createElement('tr');
+            var cells = [...nGenerator(3, () => { return document.createElement('td'); })];
+            cells[0].innerText = currentRecipe.Ingredients[i].Name;
+            cells[1].innerText = round(old);
+            cells[2].innerText = round(changed);
+            cells[changed > old ? 2 : 1].style = "font-size: " + (Math.sqrt(Math.min((Math.max(changed / old, old / changed) - 1.0) / 3.0, 2.0)) + 1.0) * 125.0 + "%;";
+
+            for (const cell of cells)
+                tr.appendChild(cell);
+            tbody.appendChild(tr);
+        }
+        table.appendChild(tbody);
+
+        var buttonBar = document.createElement("div");
+        var button = document.createElement('button');
+        button.innerText = "Close";
+        button.onclick = function () {
+            SortRecipe();
+            hideModal();
+        };
+        buttonBar.appendChild(button);
+        showModal(table, buttonBar);
+    } else
+        SortRecipe();
+
+}
+
+/**
+ * Restore recipe from the last optimization backup
+ */
+export function RestoreRecipe() {
+    if (!RecipeBackup.length)
+        return;
+    setRecipe(cRecipe.copyFrom(RecipeBackup.pop()));
+    DisplayRecipe();
+    document.getElementById("btnRestoreRecipe").disabled = RecipeBackup.length == 0;
+}
+
+/**
+ * Auto-detect and set recipe type based on fitness score
+ */
+export function CategorizeRecipe() {
+    const Recipe = getRecipe();
+    var bestFitness = Number.MAX_VALUE;
+    var bestKey = "";
+    for (const key in Targets) {
+        const value = Targets[key];
+        const fitnessFields = IngredientDataFields.filter(col => value.hasOwnProperty(col));
+        const score = Fitness(Recipe, value, fitnessFields, false);
+        if (score < bestFitness) {
+            bestFitness = score;
+            bestKey = key;
+        }
+    }
+    Recipe.Type = bestKey;
+    tgtSelection.value = bestKey;
+    UpdateRecipeSums();
+}
+
+// --- Button Handler Implementations ---
+
+/**
+ * Handle new recipe button click
+ * Creates a new empty recipe after backing up current
+ */
+function handleNewRecipe() {
+    BackupCurrentRecipe();
+    const newRecipe = new cRecipe("");
+    setRecipe(newRecipe);
+    RecipeBackup = [];
+    sortBy = null;
+    DisplayRecipe();
+    document.getElementById("edRecipeName").focus();
+    SetRecipeModified(false);
+}
+
+/**
+ * Handle store as ingredient button click
+ * Stores current recipe as a reusable ingredient
+ */
+function handleStoreAsIngredient() {
+    const Recipe = getRecipe();
+    const Ingredients = getIngredients();
+
+    if (Recipe.Name == "") {
+        Warning("Please add a recipe name.");
+        document.getElementById("edRecipeName").focus();
+        return;
+    }
+    if (Recipe.Ingredients.length < 1 || Recipe.Sums.Amount == 0.0) {
+        Warning("Recipe has no ingredients.");
+        return;
+    }
+
+    function storeAsIngredient() {
+        var sums = Recipe.Sums;
+        const amount = sums.Amount;
+        for (const val in sums)
+            sums[val] /= amount;
+        Ingredients[Recipe.Name] = new cIngredient(sums.Water, sums.Sugar, sums.Fat, sums.Solids, sums.MSNF, sums.PAC, sums.POD, sums.kcal);
+        Info("Mixture added. Do not forget to save the ingredient data.");
+    }
+
+    if (!Ingredients.hasOwnProperty(Recipe.Name)) {
+        storeAsIngredient();
+        return;
+    }
+
+    var div = document.createElement("div");
+    div.style = "display: table; table-layout: fixed;";
+    div.innerHTML += "<h3>Confirm</h3><strong>" + Recipe.Name + "</strong> already exists in ingredients list.<br>Do you want to overwrite it?";
+
+    var buttonBar = document.createElement("div");
+    var buttons = [...nGenerator(2, () => { return document.createElement('button'); })];
+    buttons[0].innerText = "Abort";
+    buttons[0].onclick = hideModal;
+    buttons[1].innerText = "Replace";
+    buttons[1].onclick = function () {
+        storeAsIngredient();
+        hideModal();
+    };
+    for (const button of buttons)
+        buttonBar.appendChild(button);
+    showModal(div, buttonBar);
+}
+
+/**
+ * Handle save recipe button click
+ * Saves current recipe to file
+ */
+function handleSaveRecipe() {
+    const Recipe = getRecipe();
+    const Ingredients = getIngredients();
+
+    if (Recipe.Name == "") {
+        Warning("Please add a recipe name.");
+        document.getElementById("edRecipeName").focus();
+        return;
+    }
+
+    var container = {
+        Recipe: Recipe,
+        Ingredients: {}
+    };
+    for (const ingredient of Recipe.Ingredients)
+        if (Ingredients.hasOwnProperty(ingredient.Name)) {
+            container.Ingredients[ingredient.Name] = Ingredients[ingredient.Name].copy();
+            for (const key in container.Ingredients[ingredient.Name])
+                if (container.Ingredients[ingredient.Name][key] == 0.0)
+                    delete container.Ingredients[ingredient.Name][key];
+        } else
+            Warning("Recipe is using undefined ingredient " + ingredient.Name);
+
+    saveToFile(container, Recipe.Name + ".ier", "IER", 1);
+    SetRecipeModified(false);
+}
+
+/**
+ * Handle load recipe file change event
+ * @param {Event} event - The file input change event
+ */
+function handleLoadRecipeFile(event) {
+    var reader = new FileReader();
+    reader.onload = function () {
+        var dataObj = parseRecipeFile(reader.result);
+
+        if (!dataObj) {
+            ErrorMsg("Invalid file format in: " + event.target.files[0].name);
+            return;
+        }
+
+        function loadRecipe() {
+            importIngredients(dataObj.data.Ingredients);
+
+            RecipeBackup = [];
+            const newRecipe = new cRecipe("");
+            setRecipe(newRecipe);
+            sortBy = null;
+
+            const Recipe = getRecipe();
+            for (const key in Recipe) {
+                if (dataObj.data.Recipe.hasOwnProperty(key)) {
+                    Recipe[key] = dataObj.data.Recipe[key];
+                }
+            }
+            DisplayRecipe();
+            SetRecipeModified(false);
+        }
+
+        BackupCurrentRecipe();
+        if (RecipeStack.hasOwnProperty(dataObj.data.Recipe.Name)) {
+            if (!RecipeStack[dataObj.data.Recipe.Name].Modified) {
+                delete RecipeStack[dataObj.data.Recipe.Name];
+                DisplayBackupList();
+                loadRecipe();
+            } else {
+                var div = document.createElement("div");
+                div.style = "display: table; table-layout: fixed;";
+                div.innerHTML += "<h3>Confirm</h3><strong>" + dataObj.data.Recipe.Name + "</strong> is already loaded"
+                    + (RecipeStack[dataObj.data.Recipe.Name].Modified ? " and modified" : "")
+                    + ".<br>Do you want to replace it?";
+
+                var buttonBar = document.createElement("div");
+                var buttons = [...nGenerator(2, () => { return document.createElement('button'); })];
+                buttons[0].innerText = "Keep Current";
+                buttons[0].onclick = () => {
+                    RestoreBackup(dataObj.data.Recipe.Name);
+                    hideModal();
+                };
+                buttons[1].innerText = "Continue Loading";
+                buttons[1].onclick = function () {
+                    delete RecipeStack[dataObj.data.Recipe.Name];
+                    DisplayBackupList();
+                    loadRecipe();
+                    hideModal();
+                };
+                for (const button of buttons)
+                    buttonBar.appendChild(button);
+                showModal(div, buttonBar);
+            }
+        } else
+            loadRecipe();
+
+    };
+    reader.readAsText(event.target.files[0]);
+}
+
+/**
+ * Initialize recipe button handlers
+ * @param {Object} buttons - Button element references
+ * @param {HTMLButtonElement} buttons.btnNewRecipe - New recipe button
+ * @param {HTMLButtonElement} buttons.btnStoreAsIngredient - Store as ingredient button
+ * @param {HTMLButtonElement} buttons.btnSaveRecipe - Save recipe button
+ * @param {HTMLButtonElement} buttons.btnLoadRecipe - Load recipe button
+ * @param {HTMLInputElement} buttons.inputLoadRecipe - Load recipe file input
+ * @param {HTMLButtonElement} buttons.btnPrintRecipe - Print recipe button
+ * @param {HTMLButtonElement} buttons.btnCategorizeRecipe - Categorize recipe button
+ * @param {HTMLButtonElement} buttons.btnOptimizeMean - Optimize for mean button
+ * @param {HTMLButtonElement} buttons.btnOptimizeRange - Optimize for range button
+ * @param {HTMLButtonElement} buttons.btnRestoreRecipe - Restore recipe button
+ * @param {HTMLButtonElement} buttons.btnScale - Scale recipe button
+ * @param {HTMLInputElement} buttons.cbxScaleByIngredient - Scale by ingredient checkbox
+ * @param {HTMLInputElement} buttons.edTargetWeight - Target weight input
+ * @param {HTMLSelectElement} buttons.selTargetWeightMode - Target weight mode select
+ * @param {HTMLInputElement} buttons.edRecipeName - Recipe name input
+ */
+export function initRecipeButtons(buttons) {
+    const {
+        btnNewRecipe,
+        btnStoreAsIngredient,
+        btnSaveRecipe,
+        btnLoadRecipe,
+        inputLoadRecipe,
+        btnPrintRecipe,
+        btnCategorizeRecipe,
+        btnOptimizeMean,
+        btnOptimizeRange,
+        btnRestoreRecipe,
+        btnScale,
+        cbxScaleByIngredient,
+        edTargetWeight,
+        selTargetWeightMode,
+        edRecipeName
+    } = buttons;
+
+    btnNewRecipe.onclick = handleNewRecipe;
+    btnStoreAsIngredient.onclick = handleStoreAsIngredient;
+    btnSaveRecipe.onclick = handleSaveRecipe;
+    btnLoadRecipe.onclick = () => { clickOn(inputLoadRecipe); };
+    inputLoadRecipe.onchange = handleLoadRecipeFile;
+    btnPrintRecipe.onclick = () => { window.print(); };
+    btnCategorizeRecipe.onclick = CategorizeRecipe;
+    btnOptimizeMean.onclick = OptimizeRecipe;
+    btnOptimizeRange.onclick = () => { OptimizeRecipe(false); };
+    btnRestoreRecipe.onclick = RestoreRecipe;
+    btnRestoreRecipe.disabled = true;
+    cbxScaleByIngredient.addEventListener('change', ToggleIngredientScale);
 }
