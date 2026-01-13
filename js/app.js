@@ -52,8 +52,6 @@
 
         const RecipeDataColumns = ["Water", "Sugar", "Fat", "MSNF", "Solids", "PAC", "POD", "Stabilizer"];
         const RecipeColumns = ["Name", "Amount", "Scale to", ""].concat(RecipeDataColumns);
-        // IngredientDataFields is now imported from ingredients.js
-
         // Initialize models module with RecipeDataColumns dependency
         initModels({ getRecipeDataColumns: () => RecipeDataColumns });
 
@@ -83,20 +81,10 @@
         });
         initTabs();
 
-        // cIngredient, Ingredients, loadIngredients, IngredientNames, SortIngredients
-        // are now imported from features/ingredients.js
-
-        var temperatureForTgtHardness = 0;
-
         // Load ingredients before continuing (top-level await)
         await loadIngredients();
 
-        // cTargetValue, cTarget, and Targets are now imported from models/core.js
-
-
         // --- Recipe -----------------------------------------------------------
-        // RecipeBackup, RecipeStack, sortBy, sortAsc moved to recipe-manager.js
-
         document.getElementById("JavscriptWarning").style = "display: none;";
         var slServingTemperature = document.getElementById("slServingTemperature");
         slServingTemperature.value = -18;
@@ -173,8 +161,7 @@
             SetRecipeModified();
         };
 
-        // cRecipe class is now imported from models/core.js
-        // Initialize with DOM defaults
+        // Initialize Recipe with DOM defaults
         var Recipe = new cRecipe("", "", {
             Type: tgtSelection.value,
             ServingTemperature: toFloat(slServingTemperature.value),
@@ -216,13 +203,6 @@
         SetRecipeModified(false);
         slScoopSize.oninput();
 
-        // SetRecipeModified, IsRecipeModified, BackupCurrentRecipe, BackupRecipe,
-        // DisplayBackupList, RestoreBackup, SortRecipe, CreateRecipeRow, DisplayRecipe,
-        // UpdateRecipeRow, onIngredientChanged, onIngredientAmountEdited, onRecipeIngredientDeleted,
-        // UpdateRecipeSums, UpdateRecipeInfo, onRecipeScaled, ToggleIngredientScale, gToL, LToG,
-        // OptimizeRecipe, RestoreRecipe, CategorizeRecipe, initRecipeButtons
-        // are now imported from features/recipe-manager.js
-
         // Initialize recipe button handlers
         initRecipeButtons({
             btnNewRecipe: document.getElementById('btnNewRecipe'),
@@ -258,11 +238,7 @@
             sel.select();
         };
 
-
-
-
         // --- Ingredients -----------------------------------------------------------
-
         document.getElementById('btnSaveIngredients').onclick = () => {
             saveIngredientsToFile(Ingredients);
         };
@@ -288,23 +264,13 @@
             document.getElementById("edIngredientFilter").focus();
         };
 
-        // Ingredient functions (diffIngredients, importIngredients, filterIngredients,
-        // onIngredientEdit, isIngredientUsed, onIngredientDeleted, onDownloadIngredientData,
-        // createIngredientRow, DisplayIngredients) are now imported from features/ingredients.js
-
-
         // --- Tools ------------------------------------------------------------------
-        // Tools are now imported from utils/tools.js
-        // Initialize tools module with Recipe dependency
         initTools({ getRecipe: () => Recipe });
 
         // Initialize calculator UIs
         initPACPODCalculator();
         initGMolCalculator();
         ({ InitYolkTable } = initYolkCalculator());
-
-
-
 
 
         // --- Links ------------------------------------------------------------------
@@ -369,9 +335,6 @@
         }
 
 
-
-
-
         // --- About ------------------------------------------------------------------
         document.getElementById("Version").innerText = "Version: " + VERSION;
 
@@ -386,35 +349,6 @@
             }
         }
 
-
-        // --- Helper Methods -----------------------------------------------------------
-
-        // gToL, LToG are now imported from recipe-manager.js
-        // filterPosNumberInput, filterNumberInput are now imported from helpers.js
-        // showModal, hideModal, getCSS, Info, Warning, ErrorMsg, SetStatusBarMessage are now imported from ui/components.js
-        // round, nGenerator, objIsEmpty, DamerauLevenshteinDistance are now imported from helpers.js
-
-        const pickerOpts = {
-            types: [
-                {
-                    description: "Images",
-                    accept: {
-                        "application/json": [".ier"],
-                    },
-                },
-            ],
-            excludeAcceptAllOption: true,
-            multiple: false,
-        };
-
-        async function getTheFile() {
-            // Open file picker and destructure the result the first handle
-            const [fileHandle] = await window.showOpenFilePicker(pickerOpts);
-
-            // get file contents
-            const fileData = await fileHandle.getFile();
-        }
-
         // Initialize ingredients module with UI dependencies
         initIngredients({
             showModal,
@@ -426,9 +360,5 @@
             Sugars
         });
 
-        // Expose additional objects to window for testing
-        // Note: Ingredients, IngredientNames, SortIngredients, isIngredientUsed,
-        // diffIngredients, onDownloadIngredientData, DamerauLevenshteinDistance
-        // are now exposed by the ingredients module
+        // Expose Recipe to window for testing
         window.Recipe = Recipe;
-
