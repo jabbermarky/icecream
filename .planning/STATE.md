@@ -2,12 +2,12 @@
 
 ## Current Position
 
-Phase: 7 of 9 (Extract Tools Module)
+Phase: 8 of 9 (Extract Core Models)
 Plan: 1 of 1 in current phase
 Status: Phase complete
-Last activity: 2026-01-13 - Completed 07-01-PLAN.md
+Last activity: 2026-01-13 - Completed 08-01-PLAN.md
 
-Progress: ███████░░░ 70%
+Progress: ████████░░ 80%
 
 ## Accumulated Decisions
 
@@ -15,6 +15,8 @@ Progress: ███████░░░ 70%
 |-------|----------|-----------|
 | 07 | Deferred Recipe access via getRecipe function | Recipe not available at module load time |
 | 07 | Return InitYolkTable from initYolkCalculator | Tab handler needs access to initialize yolk values |
+| 08 | Constructor defaults object for cRecipe | Decouple class from DOM at construction time |
+| 08 | Inject RecipeDataColumns via getRecipeDataColumns | Avoid circular dependency with future recipe-manager |
 
 ## Deferred Issues
 
@@ -29,14 +31,14 @@ Progress: ███████░░░ 70%
 
 ## Blockers/Concerns Carried Forward
 
-None - ready for Phase 8.
+None - ready for Phase 9.
 
 ## Brief Alignment Status
 
-Project is progressing well through modularization. Phase 7 successfully extracted calculator tools to js/utils/tools.js. The extraction exposed and fixed pre-existing bugs (undeclared variables). All tests pass.
+Project is progressing well through modularization. Phase 8 successfully extracted core data models (cTargetValue, cTarget, Targets, cRecipe) to js/models/core.js. The constructor defaults pattern enables DOM decoupling. All tests pass. app.js now at 1266 lines.
 
 ## Session Continuity
 
-Last session: 2026-01-13T20:34:46Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-01-13T21:04:36Z
+Stopped at: Completed 08-01-PLAN.md
 Resume file: None

@@ -12,10 +12,10 @@
 **Plans:** 1/1 complete
 
 ### Phase 8: Extract Core Models
-**Status:** Not started
+**Status:** Complete (2026-01-13)
 **Goal:** Extract data models to `js/models/core.js`
-**Output:** cRecipe, cTarget, cTargetValue, cVersion, cEgg classes + Targets, Sugars constants
-**Pre-req:** Run strict mode audit on extraction targets (see STRICT-MODE-AUDIT.md)
+**Output:** cTargetValue, cTarget, Targets, cRecipe classes with dependency injection (155 lines)
+**Plans:** 1/1 complete
 
 ### Phase 9: Extract Recipe Manager
 **Status:** Not started
