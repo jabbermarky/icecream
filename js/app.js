@@ -1,7 +1,7 @@
         //=====================================================================================================================================================================
         // Import modules
         import { toFloat, clickOn, decimalSeparator, round, nGenerator, objIsEmpty, filterPosNumberInput, filterNumberInput, DamerauLevenshteinDistance } from './utils/helpers.js';
-        import { GetIdealPAC, DrawFreezingGraph } from './freezing-curve.js';
+        import { GetIdealPAC, DrawFreezingGraph, Fitness } from './freezing-curve.js';
         import { saveToFile, saveIngredientsToFile, parseRecipeFile, parseIngredientsFile } from './utils/file-io.js';
         import {
             cIngredient,
@@ -815,23 +815,7 @@
             });
         }
 
-        function Fitness(Candidate, tgtType, fitnessFields, OptimizeForMean = true) {
-            var fitness = 0.0;
-            const sums = Candidate.Sums;
-            const pac_value = GetIdealPAC(Recipe, tgtType, sums) / sums.Amount; // adjust required PAC to current recipe
-            tgtType.PAC = new cTargetValue(pac_value * 0.95, pac_value * 1.05); // +/- 5%
-            for (const columnName of fitnessFields) {
-                const currValue = sums[columnName];
-                const tgtValue = sums.Amount * tgtType[columnName].Mean;
-                if (currValue == 0.0 || tgtValue == 0)
-                    fitness += 1.0; // can not calculate -> define as 100%
-                else
-                    fitness += OptimizeForMean ? tgtType[columnName].getMeanError(sums.Amount, currValue)
-                        : tgtType[columnName].getRangeError(sums.Amount, currValue);
-            }
-
-            return fitness;
-        }
+        // Fitness function is now imported from freezing-curve.js
 
         function OptimizeRecipe(OptimizeForMean = true) {
             const localBackup = cRecipe.copyFrom(Recipe);
@@ -859,7 +843,7 @@
                 }
             }()];
 
-            const originalFitness = Fitness(localBackup, tgtType, fitnessFields, OptimizeForMean);
+            const originalFitness = Fitness(localBackup, Recipe, tgtType, fitnessFields, cTargetValue, OptimizeForMean);
 
             var recipeFitness = originalFitness;
 
@@ -873,7 +857,7 @@
                     for (const factor of [1.0 + step, 1.0 - step]) {
                         var candidate = cRecipe.copyFrom(Recipe);
                         candidate.Ingredients[i].Amount *= factor;
-                        const candidateFitness = Fitness(candidate, tgtType, fitnessFields, OptimizeForMean);
+                        const candidateFitness = Fitness(candidate, Recipe, tgtType, fitnessFields, cTargetValue, OptimizeForMean);
                         if (candidateFitness < recipeFitness) {
                             Recipe = cRecipe.copyFrom(candidate);
                             recipeFitness = candidateFitness;

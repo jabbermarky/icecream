@@ -1,4 +1,4 @@
-// Freezing Curve Calculations
+// Freezing Curve Calculations and Recipe Fitness
 // Based on research from University of Guelph
 // https://www.uoguelph.ca/foodscience/sites/default/files/FreezingCurveCalculation.pdf
 
@@ -150,4 +150,33 @@ export function DrawFreezingGraph(Water, PAC, MSNF, Recipe, getCSS) {
         ctx.lineTo(tx(points[i].x), ty(points[i].y / tempRange));
     }
     ctx.stroke();
+}
+
+/**
+ * Calculate recipe fitness against target values
+ * Used by optimization algorithm to evaluate how well a recipe matches targets
+ * @param {object} Candidate - Recipe candidate to evaluate
+ * @param {object} Recipe - Current recipe (for GetIdealPAC context)
+ * @param {object} tgtType - Target type with min/max values
+ * @param {Array} fitnessFields - Fields to include in fitness calculation
+ * @param {function} cTargetValueClass - The cTargetValue constructor class
+ * @param {boolean} OptimizeForMean - Whether to optimize for mean (true) or range (false)
+ * @returns {number} Fitness score (lower is better)
+ */
+export function Fitness(Candidate, Recipe, tgtType, fitnessFields, cTargetValueClass, OptimizeForMean = true) {
+    var fitness = 0.0;
+    const sums = Candidate.Sums;
+    const pac_value = GetIdealPAC(Recipe, tgtType, sums) / sums.Amount; // adjust required PAC to current recipe
+    tgtType.PAC = new cTargetValueClass(pac_value * 0.95, pac_value * 1.05); // +/- 5%
+    for (const columnName of fitnessFields) {
+        const currValue = sums[columnName];
+        const tgtValue = sums.Amount * tgtType[columnName].Mean;
+        if (currValue == 0.0 || tgtValue == 0)
+            fitness += 1.0; // can not calculate -> define as 100%
+        else
+            fitness += OptimizeForMean ? tgtType[columnName].getMeanError(sums.Amount, currValue)
+                : tgtType[columnName].getRangeError(sums.Amount, currValue);
+    }
+
+    return fitness;
 }
