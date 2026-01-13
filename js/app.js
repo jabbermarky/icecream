@@ -428,7 +428,7 @@
             row.appendChild(cell);
 
             cell = document.createElement('td');
-            input = document.createElement('input');
+            var input = document.createElement('input');
             input.name = 'Amount';
             input.placeholder = 'Amount';
             input.type = 'number';
@@ -457,7 +457,7 @@
 
             cell = document.createElement('td');
             cell.classList.add("noprint");
-            btn = document.createElement('button');
+            var btn = document.createElement('button');
             btn.title = "Delete";
             btn.innerText = "🗑️";
             btn.onclick = onRecipeIngredientDeleted;
