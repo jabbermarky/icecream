@@ -3,11 +3,11 @@
 ## Current Position
 
 Phase: 9 of 9 (Extract Recipe Manager)
-Plan: 1 of 2 in current phase
-Status: Plan 09-01 complete
-Last activity: 2026-01-13 - Completed 09-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Plan 09-02 complete - Phase 9 complete
+Last activity: 2026-01-13 - Completed 09-02-PLAN.md
 
-Progress: █████████░ 90%
+Progress: ██████████ 100%
 
 ## Accumulated Decisions
 
@@ -18,6 +18,7 @@ Progress: █████████░ 90%
 | 08 | Constructor defaults object for cRecipe | Decouple class from DOM at construction time |
 | 08 | Inject RecipeDataColumns via getRecipeDataColumns | Avoid circular dependency with future recipe-manager |
 | 09 | Accessor functions for module state | Allow app.js to interact with RecipeBackup/RecipeStack/sortBy owned by recipe-manager |
+| 09 | Self-contained recipe-manager module | UpdateRecipeSums now internal, no callback injection needed |
 
 ## Deferred Issues
 
@@ -32,14 +33,14 @@ Progress: █████████░ 90%
 
 ## Blockers/Concerns Carried Forward
 
-None - ready for Phase 9 Plan 2.
+None - Phase 9 complete. Modularization roadmap finished.
 
 ## Brief Alignment Status
 
-Project continuing modularization. Phase 9 Plan 1 successfully extracted core recipe state and display functions to js/features/recipe-manager.js (500 lines). The module uses dependency injection pattern for Recipe access and UI dependencies. Internal event handlers moved with their consuming functions. All tests pass. app.js now at 993 lines (reduced by 274 lines).
+Phase 9 modularization complete. Plan 09-02 extracted event handlers (onRecipeScaled, ToggleIngredientScale) and recipe sums calculation (UpdateRecipeSums, UpdateRecipeInfo, CheckRecipe) to recipe-manager.js. The module is now self-contained with 753 lines. app.js reduced to 795 lines. All tests pass. Total extraction: 472 lines moved from app.js to recipe-manager.js across both plans.
 
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Completed 09-01-PLAN.md
+Stopped at: Completed 09-02-PLAN.md - Phase 9 complete
 Resume file: None
