@@ -3,9 +3,9 @@
 ## Current Position
 
 Phase: 9 of 9 (Extract Recipe Manager)
-Plan: 2 of 2 in current phase
-Status: Plan 09-02 complete - Phase 9 complete
-Last activity: 2026-01-13 - Completed 09-02-PLAN.md
+Plan: 3 of 3 in current phase
+Status: Plan 09-03 complete - Phase 9 fully complete
+Last activity: 2026-01-13 - Completed 09-03-PLAN.md
 
 Progress: ██████████ 100%
 
@@ -19,6 +19,7 @@ Progress: ██████████ 100%
 | 08 | Inject RecipeDataColumns via getRecipeDataColumns | Avoid circular dependency with future recipe-manager |
 | 09 | Accessor functions for module state | Allow app.js to interact with RecipeBackup/RecipeStack/sortBy owned by recipe-manager |
 | 09 | Self-contained recipe-manager module | UpdateRecipeSums now internal, no callback injection needed |
+| 09 | initRecipeButtons for button handlers | Keeps handler implementations in recipe-manager module |
 
 ## Deferred Issues
 
@@ -37,10 +38,10 @@ None - Phase 9 complete. Modularization roadmap finished.
 
 ## Brief Alignment Status
 
-Phase 9 modularization complete. Plan 09-02 extracted event handlers (onRecipeScaled, ToggleIngredientScale) and recipe sums calculation (UpdateRecipeSums, UpdateRecipeInfo, CheckRecipe) to recipe-manager.js. The module is now self-contained with 753 lines. app.js reduced to 795 lines. All tests pass. Total extraction: 472 lines moved from app.js to recipe-manager.js across both plans.
+Phase 9 modularization fully complete. Plan 09-03 extracted optimization functions (OptimizeRecipe, RestoreRecipe, CategorizeRecipe) and button handlers to recipe-manager.js via initRecipeButtons(). recipe-manager.js now at 1140 lines. app.js reduced to 496 lines. All tests pass. Total extraction across all 3 plans: ~759 lines moved from app.js to recipe-manager.js.
 
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Completed 09-02-PLAN.md - Phase 9 complete
+Stopped at: Completed 09-03-PLAN.md - Phase 9 fully complete
 Resume file: None
