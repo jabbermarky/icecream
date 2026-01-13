@@ -22,6 +22,16 @@
             onDownloadIngredientData,
             initIngredients
         } from './features/ingredients.js';
+        import {
+            initUIComponents,
+            initTabs,
+            showModal,
+            hideModal,
+            Info,
+            Warning,
+            ErrorMsg,
+            getCSS
+        } from './ui/components.js';
 
         const VERSION = "0.4.0 beta";
 
@@ -36,23 +46,10 @@
             return this.replace(new RegExp(find.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g'), replace);
         };
 
-        // Init tab handlers
-        {
-            function tabHandler(event) {
-                Array.from(document.getElementsByClassName("tablink")).forEach(function (tablink) {
-                    if (tablink.dataset.tabgrp == event.currentTarget.dataset.tabgrp)
-                        tablink.className = tablink.className.replace(" active", "");
-                });
-
-                Array.from(document.getElementsByClassName("tabcontent")).forEach(function (tabcontent) {
-                    if (tabcontent.dataset.tabgrp == event.currentTarget.dataset.tabgrp)
-                        tabcontent.style.display = "none";
-                });
-
-                document.getElementById(event.currentTarget.dataset.tabid).style.display = "block";
-                event.currentTarget.className += " active";
-
-                switch (event.currentTarget.dataset.tabid) {
+        // Init tab handlers with callback for tab-specific actions
+        initUIComponents({
+            onTabSwitch: (tabId) => {
+                switch (tabId) {
                     case "Recipe":
                         DisplayRecipe(); // required to add e.g. new items from ingredients list to drop down edits for recipe ingredient items
                         break;
@@ -67,10 +64,8 @@
                         break;
                 }
             }
-            Array.from(document.getElementsByClassName("tablink")).forEach(tablink => {
-                tablink.onclick = tabHandler;
-            });
-        }
+        });
+        initTabs();
 
         // cIngredient, Ingredients, loadIngredients, IngredientNames, SortIngredients
         // are now imported from features/ingredients.js
@@ -1627,72 +1622,7 @@
         function LToG(value) { return 1100. * value; }
 
         // filterPosNumberInput, filterNumberInput are now imported from helpers.js
-
-        function showModal(content, buttons = null) {
-            console.assert(content != null && ["string", "object"].includes(typeof content));
-
-            var modal = document.getElementById("Modal");
-            modal.style.display = "block";
-
-
-            var buttonEl = document.getElementById("ModalButtons");
-            buttonEl.innerHTML = "";
-            if (buttons == null) {
-                var closeButton = document.createElement("button");
-                closeButton.innerText = "Close";
-                closeButton.style = "width: 100%;";
-                closeButton.onclick = hideModal;
-                buttonEl.appendChild(closeButton);
-                window.onclick = function (event) {
-                    if (event.target == modal)
-                        hideModal();
-                };
-            } else {
-                buttonEl.appendChild(buttons);
-            }
-
-            var conentEl = document.getElementById("ModalContent");
-
-            switch (typeof content) {
-                case "string":
-                    conentEl.innerHTML = content;
-                    break;
-                case "object":
-                    conentEl.innerHTML = ""; // remove current content
-                    conentEl.appendChild(content);
-                    break;
-            }
-
-
-        }
-        function hideModal() {
-            document.getElementById("Modal").style.display = "none";
-            window.onclick = null;
-        }
-
-        function getCSS(element, property) {
-            return getComputedStyle(element).getPropertyValue(property);
-        }
-
-        function Info(message, timeout = 3) { SetStatusBarMessage("💡 " + message, timeout); }
-        function Warning(message, timeout = 6) { SetStatusBarMessage("⚠️ " + message, timeout, "var(--contrast)"); }
-        function ErrorMsg(message, timeout = 10) { SetStatusBarMessage("⛔ " + message, timeout, "red"); }
-        function SetStatusBarMessage(message, timeout = 5, color = '') {
-            var statusbar = document.getElementById("statusBar");
-            statusbar.style = color == "" ? "" : ("background-color: " + color + ";");
-            statusbar.innerText = message;
-            if (timeout > 0) {
-                if (SetStatusBarMessage.timeOutID !== undefined && SetStatusBarMessage.timeOutID !== 0)
-                    clearTimeout(SetStatusBarMessage.timeOutID);
-                SetStatusBarMessage.timeOutID = setTimeout(() => {
-                    SetStatusBarMessage.timeOutID = 0;
-                    statusbar.innerText = " ";
-                    statusbar.style = "";
-                }, timeout * 1000);
-            }
-
-        }
-
+        // showModal, hideModal, getCSS, Info, Warning, ErrorMsg, SetStatusBarMessage are now imported from ui/components.js
         // round, nGenerator, objIsEmpty, DamerauLevenshteinDistance are now imported from helpers.js
 
         const pickerOpts = {

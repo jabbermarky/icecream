@@ -788,6 +788,130 @@ const tests = {
     return results.downloadButtonExists && results.functionExists && results.fuzzyMatchExists;
   },
 
+  // Recipe Optimization Tests
+  async testOptimizeRecipe() {
+    logSection('Recipe Optimization Tests');
+
+    await page.click('button:has-text("Recipe")');
+    await page.waitForTimeout(200);
+
+    // Load the test recipe first (fresh load for this test)
+    const [fileChooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.click('#btnLoadRecipe')
+    ]);
+    await fileChooser.setFiles('test-recipe.ier');
+    await page.waitForTimeout(1500);
+
+    // Check recipe was loaded (use startsWith since name might get modified)
+    const recipeName = await page.$eval('#edRecipeName', el => el.value);
+    const recipeLoaded = recipeName === 'Test-Recipe' || recipeName.includes('Test');
+    logTest('Test recipe loaded for optimization', recipeLoaded,
+      `Found: "${recipeName}"`);
+
+    // Capture initial ingredient amounts (ingredients with amounts > 0)
+    const initialAmounts = await page.evaluate(() => {
+      const amounts = {};
+      const rows = document.querySelectorAll('#tblRecipe tbody:not(tfoot) tr');
+      for (const row of rows) {
+        const select = row.querySelector('select');
+        const input = row.querySelector('input[type="number"]');
+        if (select && input && select.value && parseFloat(input.value) > 0) {
+          amounts[select.value] = parseFloat(input.value);
+        }
+      }
+      return amounts;
+    });
+    const ingredientCount = Object.keys(initialAmounts).length;
+    logTest('Captured initial amounts', ingredientCount >= 5,
+      `Found ${ingredientCount} ingredients with amounts`);
+
+    // Check that Restore button is initially disabled
+    const restoreDisabledBefore = await page.$eval('#btnRestoreRecipe', el => el.disabled);
+    logTest('Restore button initially disabled', restoreDisabledBefore);
+
+    // Click Optimize Mean button
+    await page.click('#btnOptimizeMean');
+    await page.waitForTimeout(500); // Optimization runs synchronously
+
+    // Check if a modal appeared (optimization shows comparison table in modal)
+    const modalVisible = await page.evaluate(() => {
+      const modal = document.getElementById('Modal');
+      return modal && modal.style.display === 'block';
+    });
+    logTest('Optimization modal shown', modalVisible);
+
+    // Modal must be closed to trigger UI update (SortRecipe is called on close)
+    if (modalVisible) {
+      // Click the "Close" button in the modal
+      await page.click('#ModalButtons button:has-text("Close")', { timeout: 2000 });
+      await page.waitForTimeout(500); // Wait for UI update after modal closes
+    }
+
+    // Capture amounts after optimization (DOM is now updated)
+    const optimizedAmounts = await page.evaluate(() => {
+      const amounts = {};
+      const rows = document.querySelectorAll('#tblRecipe tbody:not(tfoot) tr');
+      for (const row of rows) {
+        const select = row.querySelector('select');
+        const input = row.querySelector('input[type="number"]');
+        if (select && input && select.value && parseFloat(input.value) > 0) {
+          amounts[select.value] = parseFloat(input.value);
+        }
+      }
+      return amounts;
+    });
+
+    // Check if any amounts changed
+    let changedCount = 0;
+    for (const [name, oldAmount] of Object.entries(initialAmounts)) {
+      if (optimizedAmounts[name] && Math.abs(optimizedAmounts[name] - oldAmount) > 0.01) {
+        changedCount++;
+      }
+    }
+    logTest('Optimization changed ingredient amounts', changedCount > 0,
+      `${changedCount} ingredients changed`);
+
+    // Check that Restore button is now enabled
+    const restoreEnabled = await page.$eval('#btnRestoreRecipe', el => !el.disabled);
+    logTest('Restore button enabled after optimization', restoreEnabled);
+
+    // Test Restore functionality
+    if (restoreEnabled) {
+      await page.click('#btnRestoreRecipe');
+      await page.waitForTimeout(300);
+
+      // Capture amounts after restore
+      const restoredAmounts = await page.evaluate(() => {
+        const amounts = {};
+        const rows = document.querySelectorAll('#tblRecipe tbody:not(tfoot) tr');
+        for (const row of rows) {
+          const select = row.querySelector('select');
+          const input = row.querySelector('input[type="number"]');
+          if (select && input && select.value && parseFloat(input.value) > 0) {
+            amounts[select.value] = parseFloat(input.value);
+          }
+        }
+        return amounts;
+      });
+
+      // Check if amounts are back to original
+      let restoredCorrectly = true;
+      for (const [name, oldAmount] of Object.entries(initialAmounts)) {
+        if (restoredAmounts[name] && Math.abs(restoredAmounts[name] - oldAmount) > 0.01) {
+          restoredCorrectly = false;
+          break;
+        }
+      }
+      logTest('Restore button restores original values', restoredCorrectly);
+
+      return recipeLoaded && ingredientCount >= 5 &&
+             changedCount > 0 && restoreEnabled && restoredCorrectly;
+    }
+
+    return recipeLoaded && ingredientCount >= 5 && changedCount > 0;
+  },
+
   // Console Error Check (final verification)
   async testNoConsoleErrors() {
     logSection('Final Console Check');
