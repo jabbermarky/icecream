@@ -161,6 +161,11 @@
         // Load ingredients before continuing (top-level await)
         await loadIngredients();
 
+        // Expose key objects to window for testing
+        window.Ingredients = Ingredients;
+        window.IngredientNames = IngredientNames;
+        window.SortIngredients = SortIngredients;
+
         class cTargetValue {
             constructor(min, max) {
                 this.Min = min;
@@ -2389,4 +2394,11 @@
             // get file contents
             const fileData = await fileHandle.getFile();
         }
+
+        // Expose additional objects to window for testing
+        window.Recipe = Recipe;
+        window.isIngredientUsed = isIngredientUsed;
+        window.diffIngredients = diffIngredients;
+        window.onDownloadIngredientData = onDownloadIngredientData;
+        window.DamerauLevenshteinDistance = DamerauLevenshteinDistance;
 
