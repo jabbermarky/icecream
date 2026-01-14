@@ -42,6 +42,7 @@ Progress: ██████████ 100%
 - Added strict mode audit as pre-requisite for Phases 8-9
 - Created STRICT-MODE-AUDIT.md reference guide
 - Future extractions will scan for undeclared variables before moving code
+- Audit magic numbers when touching modules (e.g., RECIPE_COLS pattern from Phase 10)
 
 ## Blockers/Concerns Carried Forward
 
