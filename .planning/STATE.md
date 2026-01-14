@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Ice cream recipe formulation with full user control
-**Current focus:** v1.1 Recipe Organization
+**Current focus:** v1.1 Recipe Organization (Complete)
 
 ## Current Position
 
-Phase: 10 of 11 (drag-drop-reorder)
-Plan: 10-01 complete
-Status: Ready for Phase 11
-Last activity: 2026-01-13 — Phase 10 drag-drop UI complete
+Phase: 11 of 11 (order-persistence)
+Plan: 11-01 complete
+Status: v1.1 Recipe Organization milestone complete
+Last activity: 2026-01-13 — Phase 11 order persistence complete
 
-Progress: █████░░░░░ 50%
+Progress: ██████████ 100%
 
 ## Accumulated Decisions
 
@@ -30,6 +30,8 @@ Progress: █████░░░░░ 50%
 | 09 | Remove Check for Updates feature | Deprecated feature with strict mode bug, cleaner to remove than fix |
 | 10 | RECIPE_COLS constant for column indices | Avoid magic numbers; safer when columns change |
 | 10 | Mousedown tracking for drag handle restriction | dragstart target is always the row, not clicked element |
+| 11 | Clear sortBy on drag-drop reorder | Prevent misleading sort indicator after manual reorder |
+| 11 | DOM-based test verification | window.Recipe reference becomes stale after setRecipe() calls |
 
 ## Deferred Issues
 
@@ -52,5 +54,5 @@ v1.1 Recipe Organization milestone created 2026-01-13. Focus: drag-drop ingredie
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Phase 10 complete, ready for Phase 11 planning
+Stopped at: v1.1 Recipe Organization milestone complete
 Resume file: None

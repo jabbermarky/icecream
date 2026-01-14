@@ -5,11 +5,11 @@
 ## Milestones
 
 - ✅ **v1.0 Modularization** - [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) (Phases 7-9, shipped 2026-01-13)
-- 🚧 **v1.1 Recipe Organization** - Phases 10-11 (in progress)
+- ✅ **v1.1 Recipe Organization** - Phases 10-11 (shipped 2026-01-13)
 
 ## Phases
 
-### 🚧 v1.1 Recipe Organization (In Progress)
+### ✅ v1.1 Recipe Organization (Complete)
 
 **Milestone Goal:** Give users control over ingredient display order in recipes
 
@@ -28,17 +28,17 @@ Plans:
 **Goal**: Persist order in recipe data structure and file format, sort button integration
 **Depends on**: Phase 10
 **Research**: Unlikely (internal data structure work)
-**Plans**: TBD
+**Plans**: 1
 
 Plans:
-- [ ] 11-01: TBD (run /gsd:plan-phase 11 to break down)
+- [x] 11-01: Sort indicator clearing, order persistence test
 
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
 | 10. drag-drop-reorder | v1.1 | 1/1 | Complete | 2026-01-13 |
-| 11. order-persistence | v1.1 | 0/? | Not started | - |
+| 11. order-persistence | v1.1 | 1/1 | Complete | 2026-01-13 |
 
 ## References
 
