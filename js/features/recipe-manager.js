@@ -219,14 +219,26 @@ export function SortRecipe(event = null) {
 /**
  * Create a table row for a recipe ingredient
  * @param {string[]|null} ingredientNames - Array of ingredient names, or null to generate
+ * @param {boolean} isDraggable - Whether this row should be draggable (false for empty "add new" row)
  * @returns {HTMLTableRowElement} The created table row
  */
-export function CreateRecipeRow(ingredientNames = null) {
+export function CreateRecipeRow(ingredientNames = null, isDraggable = true) {
     const RecipeDataColumns = getRecipeDataColumns();
 
     var row = document.createElement('tr');
 
+    // Add drag handle cell as first cell
     var cell = document.createElement('td');
+    cell.classList.add('drag-handle');
+    cell.classList.add('noprint');
+    if (isDraggable) {
+        cell.textContent = '\u2630';  // Hamburger menu icon (☰)
+        row.draggable = true;
+        row.classList.add('draggable-row');
+    }
+    row.appendChild(cell);
+
+    cell = document.createElement('td');
     var select = document.createElement('select');
 
     if (ingredientNames == null)
@@ -315,6 +327,10 @@ export function DisplayRecipe() {
     // --- table head ---
     var tableHead = document.createElement('thead');
     var row = document.createElement('tr');
+    // Add empty header cell for drag handle column
+    var dragHandleHeader = document.createElement('th');
+    dragHandleHeader.classList.add('noprint');
+    row.appendChild(dragHandleHeader);
     for (const columnName of RecipeColumns) {
         var cell = document.createElement('th');
         cell.innerHTML = columnName;
@@ -337,17 +353,17 @@ export function DisplayRecipe() {
     var tableBody = document.createElement('tbody');
     const ingredientNames = IngredientNames();
     Recipe.Ingredients.forEach((ingredient, i) => {
-        var row = CreateRecipeRow(ingredientNames);
+        var row = CreateRecipeRow(ingredientNames, true);  // draggable ingredient row
         row.Name = ingredient.Name;
-        row.childNodes[0].firstChild.value = ingredient.Name;
-        row.childNodes[1].firstChild.value = round(ingredient.Amount);
+        row.childNodes[1].firstChild.value = ingredient.Name;  // index 1 = ingredient select (after drag handle)
+        row.childNodes[2].firstChild.value = round(ingredient.Amount);  // index 2 = amount input
 
         row = tableBody.appendChild(row);
         UpdateRecipeRow(row, i);
     });
-    var row = CreateRecipeRow(ingredientNames); // empty line for adding new ingredients
+    var row = CreateRecipeRow(ingredientNames, false); // empty line for adding new ingredients (not draggable)
     row.Name = "";
-    row.childNodes[0].firstChild.value = "";
+    row.childNodes[1].firstChild.value = "";  // index 1 = ingredient select (after drag handle)
     tableBody.appendChild(row);
     table.appendChild(tableBody);
 
@@ -407,7 +423,11 @@ function onIngredientChanged(element) {
     } else {
         // New ingredient -> add to recipe data
         Recipe.addIngredient(element.target.value, toFloat(amountInput.value));
-        row.parentNode.appendChild(CreateRecipeRow()); // add new empty row to table
+        // Make the current row draggable since it now has an ingredient
+        row.draggable = true;
+        row.classList.add('draggable-row');
+        row.childNodes[0].textContent = '\u2630';  // Add hamburger icon to drag handle
+        row.parentNode.appendChild(CreateRecipeRow(null, false)); // add new empty row to table (not draggable)
     }
     SetRecipeModified();
     UpdateRecipeRow(row);
