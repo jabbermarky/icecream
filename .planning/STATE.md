@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Ice cream recipe formulation with full user control
-**Current focus:** v1.2 Recipe Library - local storage with pluggable backend
+**Current focus:** v1.2 complete - ready for next milestone planning
 
 ## Current Position
 
@@ -68,5 +68,5 @@ v1.2 Recipe Library milestone completed 2026-01-14. Delivered: local storage wit
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: Completed Phase 15 (polish), v1.2 milestone complete
+Stopped at: v1.2 milestone archived and tagged
 Resume file: None
