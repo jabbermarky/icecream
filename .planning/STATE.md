@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 ## Current Position
 
 Phase: 12 of 15 (storage-interface)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-01-14 — Milestone v1.2 Recipe Library created
+Plan: 1 of 1 in current phase
+Status: Phase complete
+Last activity: 2026-01-14 — Completed 12-01-PLAN.md
 
-Progress: ░░░░░░░░░░ 0%
+Progress: █░░░░░░░░░ 25%
 
 ## Accumulated Decisions
 
@@ -32,6 +32,9 @@ Progress: ░░░░░░░░░░ 0%
 | 10 | Mousedown tracking for drag handle restriction | dragstart target is always the row, not clicked element |
 | 11 | Clear sortBy on drag-drop reorder | Prevent misleading sort indicator after manual reorder |
 | 11 | DOM-based test verification | window.Recipe reference becomes stale after setRecipe() calls |
+| 12 | idb library from ESM CDN | No npm install or bundler needed, lightweight |
+| 12 | Storage interface pattern | Enables future backend swaps (cloud sync) without changing consumers |
+| 12 | Graceful error handling in storage | Return null/empty array on failure, matches existing parseRecipeFile pattern |
 
 ## Deferred Issues
 
@@ -55,5 +58,5 @@ v1.2 Recipe Library milestone created 2026-01-14. Focus: local storage with plug
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: Milestone v1.2 Recipe Library initialization
+Stopped at: Completed 12-01-PLAN.md (Phase 12 complete)
 Resume file: None
