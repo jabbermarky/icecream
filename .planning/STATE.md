@@ -55,7 +55,7 @@ Progress: ██████████ 100%
 
 ## Pending Todos
 
-3 todos in `.planning/todos/pending/`
+2 todos in `.planning/todos/pending/`
 
 ## Blockers/Concerns Carried Forward
 
