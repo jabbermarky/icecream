@@ -181,6 +181,39 @@
             max-width: 5em;
         }
 
+        /* Drag handle styling */
+        #tblRecipe .drag-handle {
+            cursor: grab;
+            user-select: none;
+            text-align: center;
+            color: var(--mid-grey);
+            opacity: 0.5;
+            width: 1.5em;
+        }
+
+        #tblRecipe .drag-handle:hover {
+            opacity: 1;
+        }
+
+        /* Dragging row state */
+        #tblRecipe tr.dragging {
+            opacity: 0.5;
+        }
+
+        /* Drop target indicator */
+        #tblRecipe tr.drag-over {
+            border-top: 2px solid var(--accent);
+        }
+
+        /* Draggable row cursor */
+        #tblRecipe tr.draggable-row:hover .drag-handle {
+            cursor: grab;
+        }
+
+        #tblRecipe tr.draggable-row:active .drag-handle {
+            cursor: grabbing;
+        }
+
         #RecipeData>tbody>tr>td:nth-child(2) {
             vertical-align: top;
             padding-left: 4em;
@@ -377,7 +410,8 @@
             footer,
             input[type=range],
             .tab,
-            .noprint {
+            .noprint,
+            .drag-handle {
                 display: none;
             }
 
