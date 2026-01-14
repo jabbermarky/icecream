@@ -1088,6 +1088,162 @@ const tests = {
            notFoundAfterDelete && !hasRecipeAfterDelete;
   },
 
+  // Recipe Library Modal Tests (open, load, delete workflows)
+  async testRecipeLibrary() {
+    logSection('Recipe Library Tests');
+
+    // Pre-populate storage with test recipes
+    const testRecipe1 = {
+      name: 'Library Test Recipe',
+      data: {
+        Recipe: {
+          Name: 'Library Test Recipe',
+          Notes: 'Test notes',
+          Type: 'Standard',
+          ServingTemperature: -18,
+          Hardness: 0.75,
+          Overrun: 0.3,
+          Ingredients: []
+        },
+        Ingredients: {}
+      }
+    };
+
+    const testRecipe2 = {
+      name: 'Recipe To Delete',
+      data: {
+        Recipe: {
+          Name: 'Recipe To Delete',
+          Notes: 'Will be deleted',
+          Type: 'Standard',
+          ServingTemperature: -18,
+          Hardness: 0.75,
+          Overrun: 0.3,
+          Ingredients: []
+        },
+        Ingredients: {}
+      }
+    };
+
+    // Save test recipes to storage
+    await page.evaluate(async (recipes) => {
+      const storage = window.getRecipeStorage();
+      for (const recipe of recipes) {
+        await storage.saveRecipe(recipe);
+      }
+    }, [testRecipe1, testRecipe2]);
+    logTest('Test recipes saved to storage', true);
+
+    // Navigate to Recipe tab first
+    await page.click('button:has-text("Recipe")');
+    await page.waitForTimeout(200);
+
+    // Test 1: Library modal opens
+    await page.click('#btnRecipeLibrary');
+    await page.waitForTimeout(300);
+
+    const modalVisible = await page.evaluate(() => {
+      const modal = document.getElementById('Modal');
+      return modal && modal.style.display === 'block';
+    });
+    logTest('Library modal opens', modalVisible);
+
+    // Check if recipe names appear in the modal
+    const recipeInList = await page.evaluate(() => {
+      const modal = document.getElementById('ModalContent');
+      return modal && modal.innerHTML.includes('Library Test Recipe');
+    });
+    logTest('Recipe name appears in list', recipeInList);
+
+    // Test 2: Load functionality
+    // Find and click Load button for "Library Test Recipe"
+    const loadClicked = await page.evaluate(() => {
+      const rows = document.querySelectorAll('.recipe-library-list tbody tr');
+      for (const row of rows) {
+        const nameCell = row.querySelector('td');
+        if (nameCell && nameCell.textContent === 'Library Test Recipe') {
+          const loadBtn = row.querySelector('button');
+          if (loadBtn && loadBtn.textContent === 'Load') {
+            loadBtn.click();
+            return true;
+          }
+        }
+      }
+      return false;
+    });
+    logTest('Load button clicked', loadClicked);
+
+    await page.waitForTimeout(500);
+
+    // Check modal closed after load
+    const modalClosedAfterLoad = await page.evaluate(() => {
+      const modal = document.getElementById('Modal');
+      return modal && modal.style.display !== 'block';
+    });
+    logTest('Modal closes after load', modalClosedAfterLoad);
+
+    // Check recipe name was loaded into input
+    const recipeNameLoaded = await page.$eval('#edRecipeName', el => el.value);
+    logTest('Recipe name loaded into input', recipeNameLoaded === 'Library Test Recipe',
+      `Found: "${recipeNameLoaded}"`);
+
+    // Test 3: Delete functionality
+    // Re-open library modal
+    await page.click('#btnRecipeLibrary');
+    await page.waitForTimeout(300);
+
+    // Set up dialog handler for confirm dialog
+    page.once('dialog', async dialog => {
+      await dialog.accept();
+    });
+
+    // Find and click Delete button for "Recipe To Delete"
+    const deleteClicked = await page.evaluate(() => {
+      const rows = document.querySelectorAll('.recipe-library-list tbody tr');
+      for (const row of rows) {
+        const nameCell = row.querySelector('td');
+        if (nameCell && nameCell.textContent === 'Recipe To Delete') {
+          const buttons = row.querySelectorAll('button');
+          for (const btn of buttons) {
+            if (btn.textContent === 'Delete') {
+              btn.click();
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    });
+    logTest('Delete button clicked', deleteClicked);
+
+    await page.waitForTimeout(500);
+
+    // Check modal closed after delete
+    const modalClosedAfterDelete = await page.evaluate(() => {
+      const modal = document.getElementById('Modal');
+      return modal && modal.style.display !== 'block';
+    });
+    logTest('Modal closes after delete', modalClosedAfterDelete);
+
+    // Verify recipe was deleted from storage
+    const recipeDeleted = await page.evaluate(async () => {
+      const storage = window.getRecipeStorage();
+      return !(await storage.hasRecipe('Recipe To Delete'));
+    });
+    logTest('Recipe removed from storage', recipeDeleted);
+
+    // Clean up: delete test recipe that was loaded
+    await page.evaluate(async () => {
+      const storage = window.getRecipeStorage();
+      await storage.deleteRecipe('Library Test Recipe');
+    });
+    logTest('Test recipes cleaned up', true);
+
+    return modalVisible && recipeInList && loadClicked && modalClosedAfterLoad &&
+           recipeNameLoaded === 'Library Test Recipe' && deleteClicked &&
+           modalClosedAfterDelete && recipeDeleted;
+  },
+
   // Console Error Check (final verification)
   async testNoConsoleErrors() {
     logSection('Final Console Check');
