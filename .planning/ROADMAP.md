@@ -6,7 +6,7 @@
 
 - ✅ **v1.0 Modularization** - [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) (Phases 7-9, shipped 2026-01-13)
 - ✅ **v1.1 Recipe Organization** - [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) (Phases 10-11, shipped 2026-01-13)
-- 🚧 **v1.2 Recipe Library** - Phases 12-15 (in progress)
+- ✅ **v1.2 Recipe Library** - Phases 12-15 (shipped 2026-01-14)
 
 ## Phases
 
@@ -22,7 +22,7 @@ See [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) for full details.
 
 </details>
 
-### 🚧 v1.2 Recipe Library (In Progress)
+### ✅ v1.2 Recipe Library (Shipped 2026-01-14)
 
 **Milestone Goal:** Move from download/upload file mechanics to a proper recipe library with local storage, architected for future cloud sync
 
@@ -54,15 +54,14 @@ Plans:
 Plans:
 - [x] 14-01: Save workflow integration (save to library, export to file)
 
-#### Phase 15: polish
+#### Phase 15: polish ✅
 
 **Goal**: Polish and handle edge cases for the recipe library feature
 **Depends on**: Phase 14
-**Research**: Unlikely (internal patterns)
-**Plans**: TBD
+**Status**: Complete (2026-01-14)
 
 Plans:
-- [ ] 15-01: TBD
+- [x] 15-01: Storage feedback, scrollable list, layout fix
 
 ## Progress
 
@@ -73,7 +72,7 @@ Plans:
 | 12. storage-interface | v1.2 | 1/1 | Complete | 2026-01-14 |
 | 13. recipe-library-ui | v1.2 | 2/2 | Complete | 2026-01-14 |
 | 14. save-workflow | v1.2 | 1/1 | Complete | 2026-01-14 |
-| 15. polish | v1.2 | 0/? | Not started | - |
+| 15. polish | v1.2 | 1/1 | Complete | 2026-01-14 |
 
 ## References
 

@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 
 ## Current Position
 
-Phase: 14 of 15 (save-workflow)
+Phase: 15 of 15 (polish)
 Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-01-14 — Completed Phase 14 (save workflow integration)
+Status: Milestone complete
+Last activity: 2026-01-14 — Completed Phase 15 (polish), v1.2 Recipe Library milestone complete
 
-Progress: ████████░░ 75%
+Progress: ██████████ 100%
 
 ## Accumulated Decisions
 
@@ -40,6 +40,7 @@ Progress: ████████░░ 75%
 | 13 | Close modal after delete | Cleaner than refreshing list in place |
 | 14 | Save to library as default | Primary action for most users; file export as secondary |
 | 14 | Port detection in test runner | Piggyback on VSCode Live Server (5500) when available |
+| 15 | Storage methods return boolean | Enables caller to check success/failure and show appropriate feedback |
 
 ## Deferred Issues
 
@@ -62,10 +63,10 @@ None.
 
 ## Brief Alignment Status
 
-v1.2 Recipe Library milestone created 2026-01-14. Focus: local storage with pluggable backend, recipe library UI, save workflow. 4 phases (12-15).
+v1.2 Recipe Library milestone completed 2026-01-14. Delivered: local storage with pluggable backend, recipe library UI, save workflow, polish. 4 phases (12-15).
 
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: Completed Phase 14 (save-workflow)
+Stopped at: Completed Phase 15 (polish), v1.2 milestone complete
 Resume file: None
