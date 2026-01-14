@@ -257,12 +257,14 @@
                             DisplayRecipe();
                             SetRecipeModified(false);
                             Info(`Loaded "${name}" from library`);
+                        } else {
+                            Warning(`Recipe "${name}" not found`);
                         }
                     });
                 },
-                onDelete: (name) => {
-                    // Delete callback will be fully wired in 13-02
-                    console.log('Delete requested for:', name);
+                onDelete: async (name) => {
+                    await recipeStorage.deleteRecipe(name);
+                    Info(`Deleted "${name}" from library`);
                 }
             });
         };

@@ -85,9 +85,12 @@ export async function showRecipeLibrary(storage, callbacks = {}) {
             deleteBtn.textContent = 'Delete';
             deleteBtn.title = 'Delete this recipe';
             deleteBtn.style.marginLeft = '4px';
-            deleteBtn.onclick = () => {
-                if (onDelete) {
-                    onDelete(recipe.name);
+            deleteBtn.onclick = async () => {
+                if (confirm(`Delete "${recipe.name}"? This cannot be undone.`)) {
+                    if (onDelete) {
+                        await onDelete(recipe.name);
+                    }
+                    hideModal();
                 }
             };
             actionsCell.appendChild(deleteBtn);
