@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 
 ## Current Position
 
-Phase: 13 of 15 (recipe-library-ui)
-Plan: 2 of 2 in current phase
+Phase: 14 of 15 (save-workflow)
+Plan: 1 of 1 in current phase
 Status: Phase complete
-Last activity: 2026-01-14 — Completed Phase 13 (parallel execution)
+Last activity: 2026-01-14 — Completed Phase 14 (save workflow integration)
 
-Progress: ██████░░░░ 50%
+Progress: ████████░░ 75%
 
 ## Accumulated Decisions
 
@@ -38,6 +38,8 @@ Progress: ██████░░░░ 50%
 | 13 | Callback pattern for library actions | onLoad/onDelete callbacks allow flexible action handling |
 | 13 | Browser confirm() for delete | Simpler than custom modal, effective UX |
 | 13 | Close modal after delete | Cleaner than refreshing list in place |
+| 14 | Save to library as default | Primary action for most users; file export as secondary |
+| 14 | Port detection in test runner | Piggyback on VSCode Live Server (5500) when available |
 
 ## Deferred Issues
 
@@ -61,5 +63,5 @@ v1.2 Recipe Library milestone created 2026-01-14. Focus: local storage with plug
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: Completed Phase 13 (recipe-library-ui) via parallel execution
+Stopped at: Completed Phase 14 (save-workflow)
 Resume file: None

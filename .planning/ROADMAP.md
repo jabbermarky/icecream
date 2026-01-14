@@ -45,15 +45,14 @@ Plans:
 - [x] 13-01: Recipe library UI module and button
 - [x] 13-02: Load/delete functionality with tests
 
-#### Phase 14: save-workflow
+#### Phase 14: save-workflow ✅
 
 **Goal**: Integrate save workflow to save to library instead of download
 **Depends on**: Phase 13
-**Research**: Unlikely (internal patterns)
-**Plans**: TBD
+**Status**: Complete (2026-01-14)
 
 Plans:
-- [ ] 14-01: TBD
+- [x] 14-01: Save workflow integration (save to library, export to file)
 
 #### Phase 15: polish
 
@@ -73,7 +72,7 @@ Plans:
 | 11. order-persistence | v1.1 | 1/1 | Complete | 2026-01-13 |
 | 12. storage-interface | v1.2 | 1/1 | Complete | 2026-01-14 |
 | 13. recipe-library-ui | v1.2 | 2/2 | Complete | 2026-01-14 |
-| 14. save-workflow | v1.2 | 0/? | Not started | - |
+| 14. save-workflow | v1.2 | 1/1 | Complete | 2026-01-14 |
 | 15. polish | v1.2 | 0/? | Not started | - |
 
 ## References
