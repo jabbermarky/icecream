@@ -404,20 +404,36 @@
             }
 
             #NotesGraph {
-                display: block;
-                padding-left: 2em;
+                display: flex;
+                flex-direction: row;
+                align-items: flex-start;
+                gap: 1em;
+                padding-left: 1em;
+            }
+
+            #NotesGraph > div:first-child {
+                flex: 0 0 auto;
+            }
+
+            #NotesGraph > div:last-child {
+                flex: 1 1 auto;
+            }
+
+            #cvFreezingGraph {
+                width: 450px;
+                height: auto;
+                margin-left: 0;
             }
 
             #taRecipeNotes {
                 border: none;
+                width: auto !important;
+                min-width: 200px;
+                margin-top: 0 !important;
             }
 
             [contentEditable=true]:empty:not(:focus):before {
                 display: none;
-            }
-
-            #cvFreezingGraph {
-                margin-left: -35px;
             }
 
 
