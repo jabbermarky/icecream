@@ -385,6 +385,40 @@
 
         .recipe-library-list {
             width: 100%;
+            display: block;
+        }
+
+        .recipe-library-list thead {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        .recipe-library-list tbody {
+            display: block;
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+
+        .recipe-library-list tbody tr {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        .recipe-library-list th:first-child,
+        .recipe-library-list td:first-child {
+            width: 50%;
+        }
+
+        .recipe-library-list th:nth-child(2),
+        .recipe-library-list td:nth-child(2) {
+            width: 25%;
+        }
+
+        .recipe-library-list th:nth-child(3),
+        .recipe-library-list td:nth-child(3) {
+            width: 25%;
         }
 
         .recipe-library-list button {
