@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Ice cream recipe formulation with full user control
-**Current focus:** Planning next milestone
+**Current focus:** v1.2 Recipe Library - local storage with pluggable backend
 
 ## Current Position
 
-Phase: 11 of 11 (order-persistence) — v1.1 complete
-Plan: All plans complete
-Status: Ready for next milestone
-Last activity: 2026-01-13 — v1.1 Recipe Organization shipped
+Phase: 12 of 15 (storage-interface)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-01-14 — Milestone v1.2 Recipe Library created
 
-Progress: ██████████ 100% (v1.1 complete)
+Progress: ░░░░░░░░░░ 0%
 
 ## Accumulated Decisions
 
@@ -50,10 +50,10 @@ None.
 
 ## Brief Alignment Status
 
-v1.1 Recipe Organization milestone created 2026-01-13. Focus: drag-drop ingredient reordering with order persistence. 2 phases (10-11).
+v1.2 Recipe Library milestone created 2026-01-14. Focus: local storage with pluggable backend, recipe library UI, save workflow. 4 phases (12-15).
 
 ## Session Continuity
 
-Last session: 2026-01-13
-Stopped at: v1.1 Recipe Organization shipped, ready for next milestone
+Last session: 2026-01-14
+Stopped at: Milestone v1.2 Recipe Library initialization
 Resume file: None

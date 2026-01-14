@@ -6,6 +6,7 @@
 
 - ✅ **v1.0 Modularization** - [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) (Phases 7-9, shipped 2026-01-13)
 - ✅ **v1.1 Recipe Organization** - [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) (Phases 10-11, shipped 2026-01-13)
+- 🚧 **v1.2 Recipe Library** - Phases 12-15 (in progress)
 
 ## Phases
 
@@ -21,12 +22,61 @@ See [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) for full details.
 
 </details>
 
+### 🚧 v1.2 Recipe Library (In Progress)
+
+**Milestone Goal:** Move from download/upload file mechanics to a proper recipe library with local storage, architected for future cloud sync
+
+#### Phase 12: storage-interface
+
+**Goal**: Create pluggable storage interface with IndexedDB implementation
+**Depends on**: Phase 11 (previous milestone complete)
+**Research**: Likely (IndexedDB API is new to this project)
+**Research topics**: IndexedDB API patterns, storage abstraction design
+**Plans**: TBD
+
+Plans:
+- [ ] 12-01: TBD (run /gsd:plan-phase 12 to break down)
+
+#### Phase 13: recipe-library-ui
+
+**Goal**: Build recipe library UI with list view, load, and delete functionality
+**Depends on**: Phase 12
+**Research**: Unlikely (internal UI patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 13-01: TBD
+
+#### Phase 14: save-workflow
+
+**Goal**: Integrate save workflow to save to library instead of download
+**Depends on**: Phase 13
+**Research**: Unlikely (internal patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 14-01: TBD
+
+#### Phase 15: polish
+
+**Goal**: Polish and handle edge cases for the recipe library feature
+**Depends on**: Phase 14
+**Research**: Unlikely (internal patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 15-01: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
 | 10. drag-drop-reorder | v1.1 | 1/1 | Complete | 2026-01-13 |
 | 11. order-persistence | v1.1 | 1/1 | Complete | 2026-01-13 |
+| 12. storage-interface | v1.2 | 0/? | Not started | - |
+| 13. recipe-library-ui | v1.2 | 0/? | Not started | - |
+| 14. save-workflow | v1.2 | 0/? | Not started | - |
+| 15. polish | v1.2 | 0/? | Not started | - |
 
 ## References
 
