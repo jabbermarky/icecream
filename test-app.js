@@ -11,10 +11,11 @@
 import { chromium } from 'playwright';
 import { spawn } from 'child_process';
 
-const PORT = 8080;
-const BASE_URL = `http://localhost:${PORT}`;
+const PORTS = [5500, 8080]; // Check VSCode Live Server first, then fallback
 const TIMEOUT = 5000;
 
+let activePort = null;
+let BASE_URL = null;
 let server;
 let browser;
 let context;
@@ -48,10 +49,37 @@ function logSection(title) {
   log('─'.repeat(60), 'gray');
 }
 
-// Start HTTP server
+// Check if a server is already running on a port
+async function checkPort(port) {
+  try {
+    const response = await fetch(`http://localhost:${port}/index.html`, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(1000)
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Find running server or start one
 async function startServer() {
+  // Check if any server is already running
+  for (const port of PORTS) {
+    if (await checkPort(port)) {
+      activePort = port;
+      BASE_URL = `http://localhost:${port}`;
+      log(`[Setup] Found existing server on port ${port}`, 'green');
+      return;
+    }
+  }
+
+  // No server found, start our own on port 8080
+  activePort = 8080;
+  BASE_URL = `http://localhost:${activePort}`;
+
   return new Promise((resolve, reject) => {
-    server = spawn('python3', ['-m', 'http.server', PORT.toString()], {
+    server = spawn('python3', ['-m', 'http.server', activePort.toString()], {
       stdio: 'pipe',
       cwd: process.cwd()
     });
@@ -917,7 +945,7 @@ const tests = {
     logSection('Order Persistence Tests');
 
     // Reload page to get fresh state (previous tests may have modified Recipe)
-    await page.goto(`http://localhost:${PORT}`, {
+    await page.goto(BASE_URL, {
       waitUntil: 'domcontentloaded',
       timeout: 15000
     });
@@ -1244,6 +1272,98 @@ const tests = {
            modalClosedAfterDelete && recipeDeleted;
   },
 
+  // Save Workflow Tests (Save to library, overwrite confirmation, export to file)
+  async testSaveWorkflow() {
+    logSection('Save Workflow Tests');
+
+    await page.click('button:has-text("Recipe")');
+    await page.waitForTimeout(200);
+
+    // Test 1: Save new recipe to library
+    // Create new recipe
+    await page.click('#btnNewRecipe');
+    await page.waitForTimeout(300);
+
+    await page.fill('#edRecipeName', 'Save Workflow Test');
+    await page.waitForTimeout(100);
+
+    // Add an ingredient to make it a valid recipe
+    await page.evaluate(() => {
+      const selects = document.querySelectorAll('#tblRecipe select');
+      if (selects.length > 0) {
+        selects[0].value = 'Whole Milk 3.3%';
+        selects[0].dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    await page.waitForTimeout(200);
+
+    // Click Save button (should save to library)
+    await page.click('#btnSaveRecipe');
+    await page.waitForTimeout(500);
+
+    // Verify recipe appears in library
+    await page.click('#btnRecipeLibrary');
+    await page.waitForTimeout(300);
+
+    const recipeInLibrary = await page.evaluate(() => {
+      const rows = document.querySelectorAll('.recipe-library-list tbody tr');
+      for (const row of rows) {
+        const nameCell = row.querySelector('td');
+        if (nameCell && nameCell.textContent === 'Save Workflow Test') {
+          return true;
+        }
+      }
+      return false;
+    });
+    logTest('Recipe saved to library', recipeInLibrary);
+
+    // Close modal
+    await page.click('#Modal button:has-text("Close")');
+    await page.waitForTimeout(200);
+
+    // Test 2: Overwrite confirmation
+    // Modify recipe and save again with same name
+    await page.evaluate(() => {
+      const amountInputs = document.querySelectorAll('#tblRecipe input[type="text"]');
+      if (amountInputs.length > 0) {
+        amountInputs[0].value = '500';
+        amountInputs[0].dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    await page.waitForTimeout(100);
+
+    // Set up dialog handler for overwrite confirm
+    let confirmShown = false;
+    page.once('dialog', async dialog => {
+      confirmShown = dialog.type() === 'confirm' && dialog.message().includes('already exists');
+      await dialog.accept();
+    });
+
+    await page.click('#btnSaveRecipe');
+    await page.waitForTimeout(500);
+
+    logTest('Overwrite confirmation shown', confirmShown);
+
+    // Test 3: Export to file works
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 10000 }),
+      page.click('#btnExportRecipe')
+    ]);
+
+    const fileName = download.suggestedFilename();
+    const exportWorked = fileName === 'Save Workflow Test.ier';
+    logTest('Export to file works', exportWorked, `Filename: "${fileName}"`);
+
+    // Clean up: delete test recipe from storage
+    await page.evaluate(async () => {
+      const storage = window.getRecipeStorage();
+      await storage.deleteRecipe('Save Workflow Test');
+    });
+    logTest('Test recipe cleaned up', true);
+
+    return recipeInLibrary && confirmShown && exportWorked;
+  },
+
   // Console Error Check (final verification)
   async testNoConsoleErrors() {
     logSection('Final Console Check');
@@ -1280,7 +1400,7 @@ async function runTests() {
     // Setup
     log('\n[Setup] Starting HTTP server...', 'yellow');
     await startServer();
-    log('[Setup] Server started on port ' + PORT, 'green');
+    log('[Setup] Server ready on port ' + activePort, 'green');
 
     log('[Setup] Launching browser...', 'yellow');
     await initBrowser();
