@@ -616,6 +616,17 @@ function onDrop(event) {
         return newOrder.indexOf(a.Name) - newOrder.indexOf(b.Name);
     });
 
+    // Clear sort state since user manually reordered
+    sortBy = null;
+
+    // Remove sort indicator from header
+    const header = document.querySelector('#tblRecipe thead tr');
+    header.querySelectorAll('th span.noprint').forEach(span => {
+        if (span.textContent.includes('▲') || span.textContent.includes('▼')) {
+            span.remove();
+        }
+    });
+
     SetRecipeModified();
 }
 
