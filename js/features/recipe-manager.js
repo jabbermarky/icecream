@@ -16,6 +16,7 @@ let RecipeBackup = [];  // backups recipe states on optimization
 let RecipeStack = {};   // keeps previous recipes when loading or creating new recipes
 let sortBy = null;
 let sortAsc = false;
+let draggedRow = null;  // tracks the row being dragged during drag-drop reordering
 
 // Dependency references (injected via initRecipeManager)
 let getRecipe = null;
@@ -235,6 +236,13 @@ export function CreateRecipeRow(ingredientNames = null, isDraggable = true) {
         cell.textContent = '\u2630';  // Hamburger menu icon (☰)
         row.draggable = true;
         row.classList.add('draggable-row');
+        // Wire up drag-drop event handlers
+        row.ondragstart = onDragStart;
+        row.ondragover = onDragOver;
+        row.ondragenter = onDragEnter;
+        row.ondragleave = onDragLeave;
+        row.ondrop = onDrop;
+        row.ondragend = onDragEnd;
     }
     row.appendChild(cell);
 
@@ -427,6 +435,13 @@ function onIngredientChanged(element) {
         row.draggable = true;
         row.classList.add('draggable-row');
         row.childNodes[0].textContent = '\u2630';  // Add hamburger icon to drag handle
+        // Wire up drag-drop event handlers
+        row.ondragstart = onDragStart;
+        row.ondragover = onDragOver;
+        row.ondragenter = onDragEnter;
+        row.ondragleave = onDragLeave;
+        row.ondrop = onDrop;
+        row.ondragend = onDragEnd;
         row.parentNode.appendChild(CreateRecipeRow(null, false)); // add new empty row to table (not draggable)
     }
     SetRecipeModified();
@@ -485,6 +500,105 @@ function onScaleInputKeyUp(event) {
         document.getElementById("btnScale").click();
         return false;
     }
+}
+
+// --- Drag-Drop Event Handlers ---
+
+/**
+ * Handle drag start event for recipe row reordering
+ * @param {DragEvent} event - The drag event
+ */
+function onDragStart(event) {
+    draggedRow = this;
+    this.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', '');  // Required for Firefox
+}
+
+/**
+ * Handle drag over event to allow drop
+ * @param {DragEvent} event - The drag event
+ */
+function onDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+}
+
+/**
+ * Handle drag enter event to show drop target indicator
+ * @param {DragEvent} event - The drag event
+ */
+function onDragEnter(event) {
+    const targetRow = event.target.closest('tr');
+    if (targetRow && targetRow !== draggedRow && targetRow.classList.contains('draggable-row')) {
+        targetRow.classList.add('drag-over');
+    }
+}
+
+/**
+ * Handle drag leave event to remove drop target indicator
+ * @param {DragEvent} event - The drag event
+ */
+function onDragLeave(event) {
+    const targetRow = event.target.closest('tr');
+    if (targetRow) {
+        targetRow.classList.remove('drag-over');
+    }
+}
+
+/**
+ * Handle drop event to reorder rows
+ * @param {DragEvent} event - The drag event
+ */
+function onDrop(event) {
+    event.preventDefault();
+    const targetRow = event.target.closest('tr');
+
+    if (!targetRow || targetRow === draggedRow || !targetRow.classList.contains('draggable-row')) {
+        return;
+    }
+
+    targetRow.classList.remove('drag-over');
+
+    const tbody = targetRow.closest('tbody');
+    const Recipe = getRecipe();
+
+    // Determine if dropping above or below target
+    const targetRect = targetRow.getBoundingClientRect();
+    const dropY = event.clientY;
+    const dropAbove = dropY < targetRect.top + targetRect.height / 2;
+
+    // Reorder DOM
+    if (dropAbove) {
+        tbody.insertBefore(draggedRow, targetRow);
+    } else {
+        tbody.insertBefore(draggedRow, targetRow.nextSibling);
+    }
+
+    // Reorder Recipe.Ingredients array to match new DOM order
+    const rows = Array.from(tbody.querySelectorAll('tr.draggable-row'));
+    const newOrder = rows.map(row => row.Name);
+
+    Recipe.Ingredients.sort((a, b) => {
+        return newOrder.indexOf(a.Name) - newOrder.indexOf(b.Name);
+    });
+
+    SetRecipeModified();
+}
+
+/**
+ * Handle drag end event to clean up drag state
+ * @param {DragEvent} event - The drag event
+ */
+function onDragEnd(event) {
+    if (draggedRow) {
+        draggedRow.classList.remove('dragging');
+    }
+    // Remove drag-over class from all rows (cleanup)
+    document.querySelectorAll('#tblRecipe tr.drag-over').forEach(row => {
+        row.classList.remove('drag-over');
+    });
+    draggedRow = null;
 }
 
 // --- State Access Functions ---
