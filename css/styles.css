@@ -167,6 +167,7 @@
 
         table.layout>tbody>tr>td {
             border: none;
+            vertical-align: top;
         }
 
         #tblRecipe thead th {
