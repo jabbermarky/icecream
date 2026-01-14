@@ -1,5 +1,33 @@
 # Project Milestones: Ice Ed Modularization
 
+## v1.1 Recipe Organization (Shipped: 2026-01-13)
+
+**Delivered:** Drag-drop ingredient reordering with visual feedback and order persistence.
+
+**Phases completed:** 10-11 (2 plans total)
+
+**Key accomplishments:**
+
+- Drag-drop UI for reordering recipe ingredients with handles
+- Visual feedback during drag (opacity, drop target highlighting)
+- Sort indicator (▲/▼) clears when user manually reorders
+- Order persistence through save/load cycle (verified by test)
+- RECIPE_COLS constant pattern for avoiding magic numbers
+- New testOrderPersistence() test method
+
+**Stats:**
+
+- 11 files created/modified
+- +963 lines changed
+- 2 phases, 2 plans
+- 1 day from start to ship
+
+**Git range:** `968a98f` to `02257bb`
+
+**What's next:** Future milestones may include additional recipe organization features, performance improvements, or new functionality.
+
+---
+
 ## v1.0 Modularization (Shipped: 2026-01-13)
 
 **Delivered:** Complete modularization of Ice Ed from monolithic app.js to 9-module ES6 architecture.

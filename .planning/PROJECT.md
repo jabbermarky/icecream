@@ -1,7 +1,7 @@
 # Ice Ed Modularization - Project Definition
 
 **Created:** 2026-01-13
-**Status:** v1.0 Complete
+**Status:** v1.1 Complete
 
 ## Vision
 
@@ -11,14 +11,20 @@ Complete the modularization of Ice Ed from a partially-extracted codebase to a f
 
 Ice Ed is an ice cream recipe formulation tool that calculates PAC (freezing point depression), POD (sweetening power), fat content, and other properties. The codebase originated as a single HTML file and has been incrementally modularized through 9 extraction steps.
 
-## Current State (v1.0 Shipped)
+## Current State (v1.1 Shipped)
 
-Shipped v1.0 Modularization on 2026-01-13.
+Shipped v1.1 Recipe Organization on 2026-01-13.
 
 **Codebase:**
-- `js/app.js`: 364 lines (78% reduction from 1,666)
-- 9 specialized modules totaling 3,419 lines
-- Test suite: 21 test methods in Playwright
+- `js/app.js`: 364 lines (78% reduction from original 1,666)
+- 9 specialized modules totaling ~3,600 lines
+- Test suite: 22 test methods in Playwright
+- `js/features/recipe-manager.js`: 1,325 lines (includes drag-drop)
+
+**v1.1 Features:**
+- Drag-drop ingredient reordering with visual handles
+- Sort indicator clears on manual reorder
+- Order persistence through save/load cycle
 
 **Architecture:**
 - `js/utils/helpers.js` (127 lines) — Utility functions
@@ -29,7 +35,7 @@ Shipped v1.0 Modularization on 2026-01-13.
 - `js/models/core.js` (155 lines) — Core data models
 - `js/features/calculations.js` (98 lines) — Recipe calculations
 - `js/features/ingredients.js` (749 lines) — Ingredient management
-- `js/features/recipe-manager.js` (1,140 lines) — Recipe operations
+- `js/features/recipe-manager.js` (1,325 lines) — Recipe operations + drag-drop
 
 ## Requirements
 
@@ -39,6 +45,8 @@ Shipped v1.0 Modularization on 2026-01-13.
 - R2: Extract Core Models — v1.0
 - R3: Extract Recipe Manager — v1.0
 - R4: Clean Up app.js — v1.0 (364 lines, slightly over 200-line target)
+- R5: Drag-drop ingredient reordering — v1.1
+- R6: Order persistence through save/load — v1.1
 
 ### Out of Scope
 
@@ -72,6 +80,9 @@ Use the same patterns established in Steps 1-6:
 | Self-contained recipe-manager module | UpdateRecipeSums internal, no callback needed | Good |
 | Remove Check for Updates feature | Deprecated with strict mode bug, cleaner to remove | Good |
 | Accessor functions for module state | Allow app.js to interact with module-owned state | Good |
+| RECIPE_COLS constant for column indices | Avoid magic numbers; safer when columns change | Good |
+| Mousedown tracking for drag handle | dragstart target is always the row, not clicked element | Good |
+| Clear sortBy on drag-drop reorder | Prevent misleading sort indicator after manual reorder | Good |
 
 ## References
 
@@ -81,4 +92,4 @@ Use the same patterns established in Steps 1-6:
 - `.planning/MILESTONES.md` - Shipped milestones
 
 ---
-*Last updated: 2026-01-13 after v1.0 milestone*
+*Last updated: 2026-01-13 after v1.1 milestone*

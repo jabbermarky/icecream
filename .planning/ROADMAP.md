@@ -5,33 +5,21 @@
 ## Milestones
 
 - ✅ **v1.0 Modularization** - [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) (Phases 7-9, shipped 2026-01-13)
-- ✅ **v1.1 Recipe Organization** - Phases 10-11 (shipped 2026-01-13)
+- ✅ **v1.1 Recipe Organization** - [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) (Phases 10-11, shipped 2026-01-13)
 
 ## Phases
 
-### ✅ v1.1 Recipe Organization (Complete)
+<details>
+<summary>✅ v1.1 Recipe Organization (Phases 10-11) — SHIPPED 2026-01-13</summary>
 
 **Milestone Goal:** Give users control over ingredient display order in recipes
 
-#### Phase 10: drag-drop-reorder
+- [x] Phase 10: drag-drop-reorder (1/1 plans) — 2026-01-13
+- [x] Phase 11: order-persistence (1/1 plans) — 2026-01-13
 
-**Goal**: Implement drag-drop UI for table rows (visual reordering)
-**Depends on**: v1.0 complete
-**Research**: Unlikely (HTML5 drag-drop is established, internal UI patterns)
-**Plans**: 1
+See [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) for full details.
 
-Plans:
-- [x] 10-01: Drag-drop UI implementation
-
-#### Phase 11: order-persistence
-
-**Goal**: Persist order in recipe data structure and file format, sort button integration
-**Depends on**: Phase 10
-**Research**: Unlikely (internal data structure work)
-**Plans**: 1
-
-Plans:
-- [x] 11-01: Sort indicator clearing, order persistence test
+</details>
 
 ## Progress
 
