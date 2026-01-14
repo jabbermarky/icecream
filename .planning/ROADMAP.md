@@ -21,7 +21,7 @@
 **Plans**: 1
 
 Plans:
-- [ ] 10-01: Drag-drop UI implementation
+- [x] 10-01: Drag-drop UI implementation
 
 #### Phase 11: order-persistence
 
@@ -37,7 +37,7 @@ Plans:
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
-| 10. drag-drop-reorder | v1.1 | 0/1 | Planned | - |
+| 10. drag-drop-reorder | v1.1 | 1/1 | Complete | 2026-01-13 |
 | 11. order-persistence | v1.1 | 0/? | Not started | - |
 
 ## References

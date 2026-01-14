@@ -2,11 +2,18 @@
 
 Enhancements discovered during execution. Not critical - address in future phases.
 
-## Open Enhancements
+## Open Issues
 
-None
+### ISS-003: Scale button enabled without valid input
 
-## Closed Enhancements
+- **Discovered:** Phase 10 UAT (2026-01-13)
+- **Type:** Bug
+- **Description:** The Scale button is enabled by default. Clicking it without selecting the "By Ingredient" checkbox or entering a value in the Scale Amount input causes odd behavior: an error message appears at the bottom, and the Sum amount is displayed in the Scale Amount text field.
+- **Expected:** Scale button should be disabled by default, and only enabled when:
+  - A value has been entered in the Scale Amount input, OR
+  - The "By Ingredient" checkbox is checked AND a value has been entered into one of the ingredient scale amount text inputs
+
+## Closed Issues
 
 ### ISS-001: Remove Check for Updates functionality
 

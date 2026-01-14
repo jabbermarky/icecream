@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 ## Current Position
 
 Phase: 10 of 11 (drag-drop-reorder)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-01-13 — Milestone v1.1 created
+Plan: 10-01 complete
+Status: Ready for Phase 11
+Last activity: 2026-01-13 — Phase 10 drag-drop UI complete
 
-Progress: ░░░░░░░░░░ 0%
+Progress: █████░░░░░ 50%
 
 ## Accumulated Decisions
 
@@ -28,10 +28,12 @@ Progress: ░░░░░░░░░░ 0%
 | 09 | Self-contained recipe-manager module | UpdateRecipeSums now internal, no callback injection needed |
 | 09 | initRecipeButtons for button handlers | Keeps handler implementations in recipe-manager module |
 | 09 | Remove Check for Updates feature | Deprecated feature with strict mode bug, cleaner to remove than fix |
+| 10 | RECIPE_COLS constant for column indices | Avoid magic numbers; safer when columns change |
+| 10 | Mousedown tracking for drag handle restriction | dragstart target is always the row, not clicked element |
 
 ## Deferred Issues
 
-None - All issues resolved.
+- ISS-003: Scale button enabled without valid input (pre-existing bug, logged for future fix)
 
 ## Process Improvements
 
@@ -50,5 +52,5 @@ v1.1 Recipe Organization milestone created 2026-01-13. Focus: drag-drop ingredie
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Milestone v1.1 initialization
+Stopped at: Phase 10 complete, ready for Phase 11 planning
 Resume file: None
