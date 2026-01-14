@@ -224,6 +224,7 @@
             btnNewRecipe: document.getElementById('btnNewRecipe'),
             btnStoreAsIngredient: document.getElementById('btnStoreAsIngredient'),
             btnSaveRecipe: document.getElementById('btnSaveRecipe'),
+            btnExportRecipe: document.getElementById('btnExportRecipe'),
             btnLoadRecipe: document.getElementById('btnLoadRecipe'),
             inputLoadRecipe: document.getElementById('inputLoadRecipe'),
             btnPrintRecipe: document.getElementById('btnPrintRecipe'),
@@ -235,7 +236,8 @@
             cbxScaleByIngredient: document.getElementById('cbxScaleByIngredient'),
             edTargetWeight: document.getElementById('edTargetWeight'),
             selTargetWeightMode: document.getElementById('selTargetWeightMode'),
-            edRecipeName: document.getElementById('edRecipeName')
+            edRecipeName: document.getElementById('edRecipeName'),
+            storage: recipeStorage
         });
 
         // Wire up Recipe Library button

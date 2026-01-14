@@ -271,10 +271,10 @@ const tests = {
     await page.fill('#edRecipeName', 'Test Save Recipe');
     await page.waitForTimeout(200);
 
-    // Set up download handler and click save
+    // Set up download handler and click Export (Save now saves to library)
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.click('#btnSaveRecipe')
+      page.click('#btnExportRecipe')
     ]);
 
     // Verify download was triggered
@@ -955,10 +955,10 @@ const tests = {
       return false;
     }
 
-    // Save the recipe (without modifying order - just verify round-trip preserves order)
+    // Export the recipe (without modifying order - just verify round-trip preserves order)
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.click('#btnSaveRecipe')
+      page.click('#btnExportRecipe')
     ]);
 
     const savedFilePath = await download.path();
