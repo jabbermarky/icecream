@@ -35,15 +35,15 @@ See [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) for full details.
 Plans:
 - [x] 12-01: Storage interface and IndexedDB implementation
 
-#### Phase 13: recipe-library-ui
+#### Phase 13: recipe-library-ui ✅
 
 **Goal**: Build recipe library UI with list view, load, and delete functionality
 **Depends on**: Phase 12
-**Research**: Unlikely (internal UI patterns)
-**Plans**: TBD
+**Status**: Complete (2026-01-14)
 
 Plans:
-- [ ] 13-01: TBD
+- [x] 13-01: Recipe library UI module and button
+- [x] 13-02: Load/delete functionality with tests
 
 #### Phase 14: save-workflow
 
@@ -72,7 +72,7 @@ Plans:
 | 10. drag-drop-reorder | v1.1 | 1/1 | Complete | 2026-01-13 |
 | 11. order-persistence | v1.1 | 1/1 | Complete | 2026-01-13 |
 | 12. storage-interface | v1.2 | 1/1 | Complete | 2026-01-14 |
-| 13. recipe-library-ui | v1.2 | 0/? | Not started | - |
+| 13. recipe-library-ui | v1.2 | 2/2 | Complete | 2026-01-14 |
 | 14. save-workflow | v1.2 | 0/? | Not started | - |
 | 15. polish | v1.2 | 0/? | Not started | - |
 
