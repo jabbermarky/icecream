@@ -18,10 +18,10 @@
 **Goal**: Implement drag-drop UI for table rows (visual reordering)
 **Depends on**: v1.0 complete
 **Research**: Unlikely (HTML5 drag-drop is established, internal UI patterns)
-**Plans**: TBD
+**Plans**: 1
 
 Plans:
-- [ ] 10-01: TBD (run /gsd:plan-phase 10 to break down)
+- [ ] 10-01: Drag-drop UI implementation
 
 #### Phase 11: order-persistence
 
@@ -37,7 +37,7 @@ Plans:
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
-| 10. drag-drop-reorder | v1.1 | 0/? | Not started | - |
+| 10. drag-drop-reorder | v1.1 | 0/1 | Planned | - |
 | 11. order-persistence | v1.1 | 0/? | Not started | - |
 
 ## References
