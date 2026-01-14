@@ -912,6 +912,89 @@ const tests = {
     return recipeLoaded && ingredientCount >= 5 && changedCount > 0;
   },
 
+  // Order Persistence Tests (drag-drop order persists through save/load)
+  async testOrderPersistence() {
+    logSection('Order Persistence Tests');
+
+    // Reload page to get fresh state (previous tests may have modified Recipe)
+    await page.goto(`http://localhost:${PORT}`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 15000
+    });
+    await page.waitForTimeout(2000); // Wait for ingredients to load
+
+    await page.click('button:has-text("Recipe")');
+    await page.waitForTimeout(200);
+
+    // Load the test recipe file
+    const [fileChooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.click('#btnLoadRecipe')
+    ]);
+    await fileChooser.setFiles('test-recipe.ier');
+    await page.waitForTimeout(2000);
+
+    // Verify recipe was loaded by checking recipe name
+    const recipeName = await page.$eval('#edRecipeName', el => el.value);
+    logTest('Recipe file loaded', recipeName === 'Test-Recipe',
+      `Recipe name: "${recipeName}"`);
+
+    // Get the original ingredient order from DOM (select dropdowns show ingredient names)
+    const originalOrder = await page.evaluate(() => {
+      const rows = document.querySelectorAll('#tblRecipe tbody:not(tfoot) tr');
+      return Array.from(rows).map(row => {
+        const select = row.querySelector('select');
+        return select ? select.value : '';
+      }).filter(name => name !== '');
+    });
+
+    logTest('Recipe has ingredients', originalOrder.length >= 3,
+      `Found ${originalOrder.length} ingredients: ${originalOrder.slice(0, 3).join(', ')}...`);
+
+    if (originalOrder.length < 3) {
+      return false;
+    }
+
+    // Save the recipe (without modifying order - just verify round-trip preserves order)
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.click('#btnSaveRecipe')
+    ]);
+
+    const savedFilePath = await download.path();
+    logTest('Recipe saved', savedFilePath !== null);
+
+    // Create new recipe to clear state
+    await page.click('#btnNewRecipe');
+    await page.waitForTimeout(500);
+
+    // Load the saved file
+    const [fileChooser2] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.click('#btnLoadRecipe')
+    ]);
+    await fileChooser2.setFiles(savedFilePath);
+    await page.waitForTimeout(1500);
+
+    // Check the order is preserved by reading from DOM
+    const loadedOrder = await page.evaluate(() => {
+      const rows = document.querySelectorAll('#tblRecipe tbody:not(tfoot) tr');
+      return Array.from(rows).map(row => {
+        const select = row.querySelector('select');
+        return select ? select.value : '';
+      }).filter(name => name !== '');
+    });
+
+    // Verify the order matches what we originally loaded
+    const orderPreserved = loadedOrder.length === originalOrder.length &&
+                           originalOrder.every((name, i) => loadedOrder[i] === name);
+
+    logTest('Order persisted through save/load', orderPreserved,
+      `Original: [${originalOrder.slice(0, 3).join(', ')}...], Loaded: [${loadedOrder.slice(0, 3).join(', ')}...]`);
+
+    return originalOrder.length >= 3 && orderPreserved;
+  },
+
   // Console Error Check (final verification)
   async testNoConsoleErrors() {
     logSection('Final Console Check');
