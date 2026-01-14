@@ -44,6 +44,9 @@ let Info = null;
 let Warning = null;
 let ErrorMsg = null;
 
+// Storage reference (injected via initRecipeButtons)
+let recipeStorage = null;
+
 /**
  * Initialize recipe manager module with dependencies
  * @param {Object} deps - Dependencies object
@@ -1173,9 +1176,57 @@ function handleStoreAsIngredient() {
 
 /**
  * Handle save recipe button click
- * Saves current recipe to file
+ * Saves current recipe to library (IndexedDB)
  */
-function handleSaveRecipe() {
+async function handleSaveRecipe() {
+    const Recipe = getRecipe();
+    const Ingredients = getIngredients();
+
+    if (Recipe.Name == "") {
+        Warning("Please add a recipe name.");
+        document.getElementById("edRecipeName").focus();
+        return;
+    }
+
+    // Build container with recipe and its ingredients
+    var container = {
+        Recipe: Recipe,
+        Ingredients: {}
+    };
+    for (const ingredient of Recipe.Ingredients)
+        if (Ingredients.hasOwnProperty(ingredient.Name)) {
+            container.Ingredients[ingredient.Name] = Ingredients[ingredient.Name].copy();
+            for (const key in container.Ingredients[ingredient.Name])
+                if (container.Ingredients[ingredient.Name][key] == 0.0)
+                    delete container.Ingredients[ingredient.Name][key];
+        } else
+            Warning("Recipe is using undefined ingredient " + ingredient.Name);
+
+    // Check if recipe already exists and prompt for overwrite
+    if (recipeStorage) {
+        const exists = await recipeStorage.hasRecipe(Recipe.Name);
+        if (exists) {
+            if (!confirm(`Recipe "${Recipe.Name}" already exists. Overwrite?`)) {
+                return;
+            }
+        }
+
+        // Save to library
+        await recipeStorage.saveRecipe({ name: Recipe.Name, data: container });
+        Info(`Saved "${Recipe.Name}" to library`);
+        SetRecipeModified(false);
+    } else {
+        // Fallback to file download if storage not available
+        saveToFile(container, Recipe.Name + ".ier", "IER", 1);
+        SetRecipeModified(false);
+    }
+}
+
+/**
+ * Handle export recipe button click
+ * Exports current recipe to a file for backup or sharing
+ */
+function handleExportRecipe() {
     const Recipe = getRecipe();
     const Ingredients = getIngredients();
 
@@ -1199,7 +1250,6 @@ function handleSaveRecipe() {
             Warning("Recipe is using undefined ingredient " + ingredient.Name);
 
     saveToFile(container, Recipe.Name + ".ier", "IER", 1);
-    SetRecipeModified(false);
 }
 
 /**
@@ -1278,6 +1328,7 @@ function handleLoadRecipeFile(event) {
  * @param {HTMLButtonElement} buttons.btnNewRecipe - New recipe button
  * @param {HTMLButtonElement} buttons.btnStoreAsIngredient - Store as ingredient button
  * @param {HTMLButtonElement} buttons.btnSaveRecipe - Save recipe button
+ * @param {HTMLButtonElement} buttons.btnExportRecipe - Export recipe to file button
  * @param {HTMLButtonElement} buttons.btnLoadRecipe - Load recipe button
  * @param {HTMLInputElement} buttons.inputLoadRecipe - Load recipe file input
  * @param {HTMLButtonElement} buttons.btnPrintRecipe - Print recipe button
@@ -1290,12 +1341,14 @@ function handleLoadRecipeFile(event) {
  * @param {HTMLInputElement} buttons.edTargetWeight - Target weight input
  * @param {HTMLSelectElement} buttons.selTargetWeightMode - Target weight mode select
  * @param {HTMLInputElement} buttons.edRecipeName - Recipe name input
+ * @param {Object} buttons.storage - Recipe storage instance for library persistence
  */
 export function initRecipeButtons(buttons) {
     const {
         btnNewRecipe,
         btnStoreAsIngredient,
         btnSaveRecipe,
+        btnExportRecipe,
         btnLoadRecipe,
         inputLoadRecipe,
         btnPrintRecipe,
@@ -1307,12 +1360,19 @@ export function initRecipeButtons(buttons) {
         cbxScaleByIngredient,
         edTargetWeight,
         selTargetWeightMode,
-        edRecipeName
+        edRecipeName,
+        storage
     } = buttons;
+
+    // Store storage reference at module level for handleSaveRecipe
+    recipeStorage = storage;
 
     btnNewRecipe.onclick = handleNewRecipe;
     btnStoreAsIngredient.onclick = handleStoreAsIngredient;
     btnSaveRecipe.onclick = handleSaveRecipe;
+    if (btnExportRecipe) {
+        btnExportRecipe.onclick = handleExportRecipe;
+    }
     btnLoadRecipe.onclick = () => { clickOn(inputLoadRecipe); };
     inputLoadRecipe.onchange = handleLoadRecipeFile;
     btnPrintRecipe.onclick = () => { window.print(); };
