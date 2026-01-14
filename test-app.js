@@ -995,6 +995,99 @@ const tests = {
     return originalOrder.length >= 3 && orderPreserved;
   },
 
+  // Recipe Storage Tests (IndexedDB save/load/list/delete cycle)
+  async testRecipeStorage() {
+    logSection('Recipe Storage Tests');
+
+    // Test that storage is initialized
+    const storageInitialized = await page.evaluate(() => {
+      return typeof window.getRecipeStorage === 'function' && window.getRecipeStorage() !== null;
+    });
+
+    if (!storageInitialized) {
+      logTest('Recipe storage initialized', false, 'Storage not available');
+      return false;
+    }
+    logTest('Recipe storage initialized', true);
+
+    // Test save/load/list/delete cycle
+    const testRecipe = {
+      name: 'Test Storage Recipe',
+      data: {
+        Recipe: {
+          Name: 'Test Storage Recipe',
+          Notes: 'Test notes',
+          Type: 'Standard',
+          ServingTemperature: -18,
+          Hardness: 0.75,
+          Overrun: 0.3,
+          Ingredients: []
+        },
+        Ingredients: {}
+      }
+    };
+
+    // Save
+    await page.evaluate(async (recipe) => {
+      const storage = window.getRecipeStorage();
+      await storage.saveRecipe(recipe);
+    }, testRecipe);
+    logTest('Recipe saved to storage', true);
+
+    // List - should include test recipe
+    const listAfterSave = await page.evaluate(async () => {
+      const storage = window.getRecipeStorage();
+      return await storage.listRecipes();
+    });
+
+    const foundInList = listAfterSave.some(r => r.name === 'Test Storage Recipe');
+    logTest('Recipe found in list after save', foundInList,
+      `Found ${listAfterSave.length} recipes`);
+
+    // Load
+    const loaded = await page.evaluate(async () => {
+      const storage = window.getRecipeStorage();
+      return await storage.loadRecipe('Test Storage Recipe');
+    });
+
+    const loadedCorrectly = loaded && loaded.data && loaded.data.Recipe.Name === 'Test Storage Recipe';
+    logTest('Recipe loaded from storage', loadedCorrectly,
+      loaded ? `Recipe name: "${loaded.data.Recipe.Name}"` : 'Load returned null');
+
+    // hasRecipe check
+    const hasRecipe = await page.evaluate(async () => {
+      const storage = window.getRecipeStorage();
+      return await storage.hasRecipe('Test Storage Recipe');
+    });
+    logTest('hasRecipe returns true for existing recipe', hasRecipe);
+
+    // Delete
+    await page.evaluate(async () => {
+      const storage = window.getRecipeStorage();
+      await storage.deleteRecipe('Test Storage Recipe');
+    });
+    logTest('Recipe deleted from storage', true);
+
+    // Verify deleted
+    const listAfterDelete = await page.evaluate(async () => {
+      const storage = window.getRecipeStorage();
+      return await storage.listRecipes();
+    });
+
+    const notFoundAfterDelete = !listAfterDelete.some(r => r.name === 'Test Storage Recipe');
+    logTest('Recipe not in list after delete', notFoundAfterDelete);
+
+    // hasRecipe should return false after delete
+    const hasRecipeAfterDelete = await page.evaluate(async () => {
+      const storage = window.getRecipeStorage();
+      return await storage.hasRecipe('Test Storage Recipe');
+    });
+    logTest('hasRecipe returns false after delete', !hasRecipeAfterDelete);
+
+    return storageInitialized && foundInList && loadedCorrectly && hasRecipe &&
+           notFoundAfterDelete && !hasRecipeAfterDelete;
+  },
+
   // Console Error Check (final verification)
   async testNoConsoleErrors() {
     logSection('Final Console Check');
