@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Ice cream recipe formulation with full user control
-**Current focus:** v1.2 complete - ready for next milestone planning
+**Current focus:** v1.3 Ingredient Persistence - persist master ingredient list in IndexedDB
 
 ## Current Position
 
-Phase: 15 of 15 (polish)
-Plan: 1 of 1 in current phase
-Status: Milestone complete
-Last activity: 2026-01-14 — Completed Phase 15 (polish), v1.2 Recipe Library milestone complete
+Phase: 16 of 18 (ingredient-storage)
+Plan: Not started
+Status: Ready to discuss (research needed first)
+Last activity: 2026-01-14 — Milestone v1.3 created
 
-Progress: ██████████ 100%
+Progress: ░░░░░░░░░░ 0%
 
 ## Accumulated Decisions
 
@@ -63,10 +63,10 @@ None.
 
 ## Brief Alignment Status
 
-v1.2 Recipe Library milestone completed 2026-01-14. Delivered: local storage with pluggable backend, recipe library UI, save workflow, polish. 4 phases (12-15).
+v1.3 Ingredient Persistence milestone created 2026-01-14. Goal: persist master ingredient list in IndexedDB. 3 phases (16-18). Research needed to understand existing ingredient loading and merge behavior before planning.
 
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: v1.2 milestone archived and tagged
+Stopped at: Milestone v1.3 created, ready for /gsd:discuss-phase 16
 Resume file: None

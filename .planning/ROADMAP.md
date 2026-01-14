@@ -6,7 +6,8 @@
 
 - ✅ **v1.0 Modularization** - [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) (Phases 7-9, shipped 2026-01-13)
 - ✅ **v1.1 Recipe Organization** - [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) (Phases 10-11, shipped 2026-01-13)
-- ✅ **v1.2 Recipe Library** - Phases 12-15 (shipped 2026-01-14)
+- ✅ **v1.2 Recipe Library** - [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) (Phases 12-15, shipped 2026-01-14)
+- 🚧 **v1.3 Ingredient Persistence** - Phases 16-18 (in progress)
 
 ## Phases
 
@@ -22,46 +23,58 @@ See [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) for full details.
 
 </details>
 
-### ✅ v1.2 Recipe Library (Shipped 2026-01-14)
+<details>
+<summary>✅ v1.2 Recipe Library (Phases 12-15) — SHIPPED 2026-01-14</summary>
 
 **Milestone Goal:** Move from download/upload file mechanics to a proper recipe library with local storage, architected for future cloud sync
 
-#### Phase 12: storage-interface ✅
+- [x] Phase 12: storage-interface (1/1 plans) — 2026-01-14
+- [x] Phase 13: recipe-library-ui (2/2 plans) — 2026-01-14
+- [x] Phase 14: save-workflow (1/1 plans) — 2026-01-14
+- [x] Phase 15: polish (1/1 plans) — 2026-01-14
 
-**Goal**: Create pluggable storage interface with IndexedDB implementation
-**Depends on**: Phase 11 (previous milestone complete)
-**Status**: Complete (2026-01-14)
+See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) for full details.
 
-Plans:
-- [x] 12-01: Storage interface and IndexedDB implementation
+</details>
 
-#### Phase 13: recipe-library-ui ✅
+### 🚧 v1.3 Ingredient Persistence (In Progress)
 
-**Goal**: Build recipe library UI with list view, load, and delete functionality
-**Depends on**: Phase 12
-**Status**: Complete (2026-01-14)
+**Milestone Goal:** Persist master ingredient list in IndexedDB so custom ingredients survive browser sessions
 
-Plans:
-- [x] 13-01: Recipe library UI module and button
-- [x] 13-02: Load/delete functionality with tests
+**Key context:**
+- App has default ingredient list (JSON) used for first recipe / new recipes
+- Once library ingredients exist, they become the master list for new recipes
+- Existing merge behavior when loading recipes needs investigation
 
-#### Phase 14: save-workflow ✅
+#### Phase 16: ingredient-storage
 
-**Goal**: Integrate save workflow to save to library instead of download
-**Depends on**: Phase 13
-**Status**: Complete (2026-01-14)
-
-Plans:
-- [x] 14-01: Save workflow integration (save to library, export to file)
-
-#### Phase 15: polish ✅
-
-**Goal**: Polish and handle edge cases for the recipe library feature
-**Depends on**: Phase 14
-**Status**: Complete (2026-01-14)
+**Goal**: Add ingredients store to IndexedDB, load library ingredients on startup (fall back to default JSON)
+**Depends on**: Phase 15 (v1.2 complete)
+**Research**: Likely (need to understand existing ingredient loading and merge behavior first)
+**Status**: Not started
 
 Plans:
-- [x] 15-01: Storage feedback, scrollable list, layout fix
+- [ ] 16-01: TBD (run /gsd:discuss-phase 16 first)
+
+#### Phase 17: ingredient-sync
+
+**Goal**: Auto-sync ingredient changes to storage when user modifies ingredients
+**Depends on**: Phase 16
+**Research**: Likely (need to identify all ingredient modification points)
+**Status**: Not started
+
+Plans:
+- [ ] 17-01: TBD
+
+#### Phase 18: recipe-ingredient-merge
+
+**Goal**: Handle ingredient conflicts when loading recipes (leverage existing merge behavior)
+**Depends on**: Phase 17
+**Research**: Likely (UX decision on conflict handling)
+**Status**: Not started
+
+Plans:
+- [ ] 18-01: TBD
 
 ## Progress
 
@@ -73,6 +86,9 @@ Plans:
 | 13. recipe-library-ui | v1.2 | 2/2 | Complete | 2026-01-14 |
 | 14. save-workflow | v1.2 | 1/1 | Complete | 2026-01-14 |
 | 15. polish | v1.2 | 1/1 | Complete | 2026-01-14 |
+| 16. ingredient-storage | v1.3 | 0/? | Not started | - |
+| 17. ingredient-sync | v1.3 | 0/? | Not started | - |
+| 18. recipe-ingredient-merge | v1.3 | 0/? | Not started | - |
 
 ## References
 
