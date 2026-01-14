@@ -52,6 +52,10 @@ Progress: ████████░░ 75%
 - Future extractions will scan for undeclared variables before moving code
 - Audit magic numbers when touching modules (e.g., RECIPE_COLS pattern from Phase 10)
 
+## Pending Todos
+
+2 todos in `.planning/todos/pending/`
+
 ## Blockers/Concerns Carried Forward
 
 None.
