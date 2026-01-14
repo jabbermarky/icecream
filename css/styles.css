@@ -383,6 +383,15 @@
             margin-top: 0px;
         }
 
+        .recipe-library-list {
+            width: 100%;
+        }
+
+        .recipe-library-list button {
+            font-size: 100%;
+            padding: 4px 8px;
+        }
+
         .ModifiedIndicator {
             background: var(--accent);
             border-radius: 50%;

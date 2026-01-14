@@ -28,6 +28,7 @@
             Warning,
             ErrorMsg
         } from './ui/components.js';
+        import { showRecipeLibrary } from './ui/recipe-library.js';
         import { initTools, initPACPODCalculator, initGMolCalculator, initYolkCalculator, Sugars, eggTypes, cEgg } from './utils/tools.js';
         import { initModels, Targets, cRecipe } from './models/core.js';
         import {
@@ -236,6 +237,35 @@
             selTargetWeightMode: document.getElementById('selTargetWeightMode'),
             edRecipeName: document.getElementById('edRecipeName')
         });
+
+        // Wire up Recipe Library button
+        document.getElementById('btnRecipeLibrary').onclick = () => {
+            showRecipeLibrary(recipeStorage, {
+                onLoad: (name) => {
+                    recipeStorage.loadRecipe(name).then(data => {
+                        if (data) {
+                            // Import ingredients from stored recipe
+                            importIngredients(data.data.Ingredients);
+                            // Create new recipe and copy properties
+                            const newRecipe = new cRecipe("");
+                            for (const key in newRecipe) {
+                                if (data.data.Recipe.hasOwnProperty(key)) {
+                                    newRecipe[key] = data.data.Recipe[key];
+                                }
+                            }
+                            Recipe = newRecipe;
+                            DisplayRecipe();
+                            SetRecipeModified(false);
+                            Info(`Loaded "${name}" from library`);
+                        }
+                    });
+                },
+                onDelete: (name) => {
+                    // Delete callback will be fully wired in 13-02
+                    console.log('Delete requested for:', name);
+                }
+            });
+        };
 
         // Target weight input handlers (remain here as they affect DOM elements outside recipe-manager)
         document.getElementById('edTargetWeight').onkeyup = (event) => {
