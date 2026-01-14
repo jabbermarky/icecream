@@ -18,13 +18,13 @@ export const IndexedDBStorage = {
   /**
    * Save recipe to IndexedDB
    * @param {Object} recipe - Recipe object with name and data properties
-   * @returns {Promise<void>}
+   * @returns {Promise<boolean>} True on success, false on error
    */
   async saveRecipe(recipe) {
     try {
       if (!this.db) {
         console.error('IndexedDB not initialized');
-        return;
+        return false;
       }
       const record = {
         name: recipe.name,
@@ -32,8 +32,10 @@ export const IndexedDBStorage = {
         data: recipe.data
       };
       await this.db.put(STORE_NAME, record);
+      return true;
     } catch (error) {
       console.error('Failed to save recipe:', error);
+      return false;
     }
   },
 
@@ -78,17 +80,19 @@ export const IndexedDBStorage = {
   /**
    * Delete recipe by name from IndexedDB
    * @param {string} name - Recipe name to delete
-   * @returns {Promise<void>}
+   * @returns {Promise<boolean>} True on success, false on error
    */
   async deleteRecipe(name) {
     try {
       if (!this.db) {
         console.error('IndexedDB not initialized');
-        return;
+        return false;
       }
       await this.db.delete(STORE_NAME, name);
+      return true;
     } catch (error) {
       console.error('Failed to delete recipe:', error);
+      return false;
     }
   },
 
@@ -138,10 +142,10 @@ export async function initIndexedDBStorage() {
     console.error('Failed to initialize IndexedDB:', error);
     // Return a non-functional storage that won't throw but logs errors
     return createStorage({
-      async saveRecipe() { console.error('Storage not available'); },
+      async saveRecipe() { console.error('Storage not available'); return false; },
       async loadRecipe() { console.error('Storage not available'); return null; },
       async listRecipes() { console.error('Storage not available'); return []; },
-      async deleteRecipe() { console.error('Storage not available'); },
+      async deleteRecipe() { console.error('Storage not available'); return false; },
       async hasRecipe() { console.error('Storage not available'); return false; }
     });
   }

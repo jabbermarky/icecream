@@ -1212,9 +1212,13 @@ async function handleSaveRecipe() {
         }
 
         // Save to library
-        await recipeStorage.saveRecipe({ name: Recipe.Name, data: container });
-        Info(`Saved "${Recipe.Name}" to library`);
-        SetRecipeModified(false);
+        const success = await recipeStorage.saveRecipe({ name: Recipe.Name, data: container });
+        if (success) {
+            Info(`Saved "${Recipe.Name}" to library`);
+            SetRecipeModified(false);
+        } else {
+            ErrorMsg('Failed to save recipe. Please try again.');
+        }
     } else {
         // Fallback to file download if storage not available
         saveToFile(container, Recipe.Name + ".ier", "IER", 1);

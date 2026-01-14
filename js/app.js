@@ -265,8 +265,12 @@
                     });
                 },
                 onDelete: async (name) => {
-                    await recipeStorage.deleteRecipe(name);
-                    Info(`Deleted "${name}" from library`);
+                    const success = await recipeStorage.deleteRecipe(name);
+                    if (success) {
+                        Info(`Deleted "${name}" from library`);
+                    } else {
+                        ErrorMsg('Failed to delete recipe.');
+                    }
                 }
             });
         };
