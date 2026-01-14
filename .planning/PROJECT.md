@@ -1,7 +1,7 @@
 # Ice Ed Modularization - Project Definition
 
 **Created:** 2026-01-13
-**Status:** v1.1 Complete
+**Status:** v1.2 Complete
 
 ## Vision
 
@@ -11,20 +11,23 @@ Complete the modularization of Ice Ed from a partially-extracted codebase to a f
 
 Ice Ed is an ice cream recipe formulation tool that calculates PAC (freezing point depression), POD (sweetening power), fat content, and other properties. The codebase originated as a single HTML file and has been incrementally modularized through 9 extraction steps.
 
-## Current State (v1.1 Shipped)
+## Current State (v1.2 Shipped)
 
-Shipped v1.1 Recipe Organization on 2026-01-13.
+Shipped v1.2 Recipe Library on 2026-01-14.
 
 **Codebase:**
 - `js/app.js`: 364 lines (78% reduction from original 1,666)
-- 9 specialized modules totaling ~3,600 lines
-- Test suite: 22 test methods in Playwright
-- `js/features/recipe-manager.js`: 1,325 lines (includes drag-drop)
+- 12 specialized modules totaling ~4,100 lines
+- Test suite: 25 test methods in Playwright
+- `js/features/recipe-manager.js`: 1,350 lines (includes drag-drop + save workflow)
 
-**v1.1 Features:**
-- Drag-drop ingredient reordering with visual handles
-- Sort indicator clears on manual reorder
-- Order persistence through save/load cycle
+**v1.2 Features:**
+- Recipe library with IndexedDB persistence
+- Save to library with overwrite confirmation
+- Load recipes from library modal
+- Delete recipes with confirmation
+- Export to file as secondary action
+- Error feedback for storage failures
 
 **Architecture:**
 - `js/utils/helpers.js` (127 lines) — Utility functions
@@ -32,10 +35,13 @@ Shipped v1.1 Recipe Organization on 2026-01-13.
 - `js/utils/tools.js` (396 lines) — Calculator tools
 - `js/ui/components.js` (180 lines) — UI components
 - `js/ui/graph.js` (118 lines) — Freezing curve graph
+- `js/ui/recipe-library.js` (116 lines) — Recipe library modal
 - `js/models/core.js` (155 lines) — Core data models
+- `js/storage/storage.js` (51 lines) — Storage interface
+- `js/storage/indexeddb-storage.js` (152 lines) — IndexedDB implementation
 - `js/features/calculations.js` (98 lines) — Recipe calculations
 - `js/features/ingredients.js` (749 lines) — Ingredient management
-- `js/features/recipe-manager.js` (1,325 lines) — Recipe operations + drag-drop
+- `js/features/recipe-manager.js` (1,350 lines) — Recipe operations + drag-drop + save
 
 ## Requirements
 
@@ -47,14 +53,17 @@ Shipped v1.1 Recipe Organization on 2026-01-13.
 - R4: Clean Up app.js — v1.0 (364 lines, slightly over 200-line target)
 - R5: Drag-drop ingredient reordering — v1.1
 - R6: Order persistence through save/load — v1.1
+- R7: Pluggable storage interface — v1.2
+- R8: IndexedDB recipe library — v1.2
+- R9: Recipe library UI (list, load, delete) — v1.2
+- R10: Save to library workflow — v1.2
 
 ### Out of Scope
 
 The following are explicitly deferred:
-- File/data store API changes (keep browser upload/download)
+- Cloud sync storage backend
 - Ingredient workflow improvements (research/calculation process)
 - Performance optimizations
-- New features
 
 ## Constraints
 
@@ -83,6 +92,11 @@ Use the same patterns established in Steps 1-6:
 | RECIPE_COLS constant for column indices | Avoid magic numbers; safer when columns change | Good |
 | Mousedown tracking for drag handle | dragstart target is always the row, not clicked element | Good |
 | Clear sortBy on drag-drop reorder | Prevent misleading sort indicator after manual reorder | Good |
+| idb library from ESM CDN | No npm install or bundler needed, lightweight | Good |
+| Storage interface pattern | Enables future backend swaps without changing consumers | Good |
+| Callback pattern for library actions | Flexible action handling for load/delete | Good |
+| Save to library as default | Primary action for users; file export as secondary | Good |
+| Storage methods return boolean | Enables caller to show appropriate feedback | Good |
 
 ## References
 
@@ -92,4 +106,4 @@ Use the same patterns established in Steps 1-6:
 - `.planning/MILESTONES.md` - Shipped milestones
 
 ---
-*Last updated: 2026-01-13 after v1.1 milestone*
+*Last updated: 2026-01-14 after v1.2 milestone*
