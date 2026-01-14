@@ -17,6 +17,17 @@ let RecipeStack = {};   // keeps previous recipes when loading or creating new r
 let sortBy = null;
 let sortAsc = false;
 let draggedRow = null;  // tracks the row being dragged during drag-drop reordering
+let dragStartElement = null;  // tracks the element where mousedown occurred (for drag-handle check)
+
+// Recipe table column indices (0-based for childNodes, CSS nth-child uses 1-based)
+const RECIPE_COLS = {
+    DRAG_HANDLE: 0,
+    INGREDIENT: 1,
+    AMOUNT: 2,
+    SCALE: 3,
+    // CSS nth-child is 1-based
+    nthChild: (index) => index + 1
+};
 
 // Dependency references (injected via initRecipeManager)
 let getRecipe = null;
@@ -237,6 +248,7 @@ export function CreateRecipeRow(ingredientNames = null, isDraggable = true) {
         row.draggable = true;
         row.classList.add('draggable-row');
         // Wire up drag-drop event handlers
+        row.onmousedown = onRowMouseDown;
         row.ondragstart = onDragStart;
         row.ondragover = onDragOver;
         row.ondragenter = onDragEnter;
@@ -363,15 +375,15 @@ export function DisplayRecipe() {
     Recipe.Ingredients.forEach((ingredient, i) => {
         var row = CreateRecipeRow(ingredientNames, true);  // draggable ingredient row
         row.Name = ingredient.Name;
-        row.childNodes[1].firstChild.value = ingredient.Name;  // index 1 = ingredient select (after drag handle)
-        row.childNodes[2].firstChild.value = round(ingredient.Amount);  // index 2 = amount input
+        row.childNodes[RECIPE_COLS.INGREDIENT].firstChild.value = ingredient.Name;
+        row.childNodes[RECIPE_COLS.AMOUNT].firstChild.value = round(ingredient.Amount);
 
         row = tableBody.appendChild(row);
         UpdateRecipeRow(row, i);
     });
     var row = CreateRecipeRow(ingredientNames, false); // empty line for adding new ingredients (not draggable)
     row.Name = "";
-    row.childNodes[1].firstChild.value = "";  // index 1 = ingredient select (after drag handle)
+    row.childNodes[RECIPE_COLS.INGREDIENT].firstChild.value = "";
     tableBody.appendChild(row);
     table.appendChild(tableBody);
 
@@ -434,8 +446,9 @@ function onIngredientChanged(element) {
         // Make the current row draggable since it now has an ingredient
         row.draggable = true;
         row.classList.add('draggable-row');
-        row.childNodes[0].textContent = '\u2630';  // Add hamburger icon to drag handle
+        row.childNodes[RECIPE_COLS.DRAG_HANDLE].textContent = '\u2630';  // Add hamburger icon
         // Wire up drag-drop event handlers
+        row.onmousedown = onRowMouseDown;
         row.ondragstart = onDragStart;
         row.ondragover = onDragOver;
         row.ondragenter = onDragEnter;
@@ -505,10 +518,30 @@ function onScaleInputKeyUp(event) {
 // --- Drag-Drop Event Handlers ---
 
 /**
+ * Track mousedown target for drag-handle verification
+ * @param {MouseEvent} event - The mouse event
+ */
+function onRowMouseDown(event) {
+    dragStartElement = event.target;
+}
+
+/**
  * Handle drag start event for recipe row reordering
  * @param {DragEvent} event - The drag event
  */
 function onDragStart(event) {
+    // Only allow drag to start from the drag handle
+    // Use the mousedown target since dragstart target is always the row
+    const target = dragStartElement?.nodeType === Node.ELEMENT_NODE
+        ? dragStartElement
+        : dragStartElement?.parentElement;
+    const handle = target && target.closest('.drag-handle');
+    dragStartElement = null;  // Reset for next drag attempt
+
+    if (!handle) {
+        event.preventDefault();
+        return;
+    }
     draggedRow = this;
     this.classList.add('dragging');
     event.dataTransfer.effectAllowed = 'move';
@@ -673,6 +706,13 @@ export function UpdateRecipeSums() {
     tableFoot.innerHTML = ""; // remove all childs
     var rows = [...nGenerator(3, () => { return document.createElement('tr'); })];
 
+    // Add empty cell for drag handle column in each footer row
+    rows.forEach(row => {
+        const emptyCell = document.createElement('th');
+        emptyCell.classList.add('noprint');
+        row.appendChild(emptyCell);
+    });
+
     for (const columnName of RecipeColumns) {
         var cells = [...nGenerator(3, () => { return document.createElement('th'); })];
         if (sums.hasOwnProperty(columnName)) {
@@ -832,7 +872,7 @@ export function onRecipeScaled() {
     if (document.getElementById('cbxScaleByIngredient').checked) {
         const inputs = (() => {
             const table = document.getElementById('RecipeData');
-            const inputs = table.querySelectorAll('tr>*:nth-child(3)>input[type="number"]');
+            const inputs = table.querySelectorAll(`tr>*:nth-child(${RECIPE_COLS.nthChild(RECIPE_COLS.SCALE)})>input[type="number"]`);
             var result = [];
             for (var input of inputs.values()) {
                 const tgtValue = toFloat(input.value);
@@ -882,7 +922,7 @@ export function ToggleIngredientScale(event) {
     const checked = event.target.checked;
     document.getElementById('edTargetWeight').disabled = checked;
     document.getElementById('selTargetWeightMode').disabled = checked;
-    document.getElementById('RecipeData').querySelectorAll('tr>*:nth-child(3)').forEach(cell => {
+    document.getElementById('RecipeData').querySelectorAll(`tr>*:nth-child(${RECIPE_COLS.nthChild(RECIPE_COLS.SCALE)})`).forEach(cell => {
         cell.hidden = !checked;
     });
 }

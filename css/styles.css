@@ -181,17 +181,20 @@
             max-width: 5em;
         }
 
-        /* Drag handle styling */
+        /* Drag handle styling - only for draggable rows */
         #tblRecipe .drag-handle {
-            cursor: grab;
             user-select: none;
             text-align: center;
             color: var(--mid-grey);
-            opacity: 0.5;
             width: 1.5em;
         }
 
-        #tblRecipe .drag-handle:hover {
+        #tblRecipe tr.draggable-row .drag-handle {
+            cursor: grab;
+            opacity: 0.5;
+        }
+
+        #tblRecipe tr.draggable-row .drag-handle:hover {
             opacity: 1;
         }
 
@@ -205,12 +208,8 @@
             border-top: 2px solid var(--accent);
         }
 
-        /* Draggable row cursor */
-        #tblRecipe tr.draggable-row:hover .drag-handle {
-            cursor: grab;
-        }
-
-        #tblRecipe tr.draggable-row:active .drag-handle {
+        /* Grabbing cursor when actively dragging */
+        #tblRecipe tr.dragging .drag-handle {
             cursor: grabbing;
         }
 
