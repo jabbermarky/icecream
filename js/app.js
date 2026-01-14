@@ -41,8 +41,20 @@
             UpdateRecipeSums,
             UpdateRecipeInfo
         } from './features/recipe-manager.js';
+        import { initIndexedDBStorage } from './storage/indexeddb-storage.js';
 
         const VERSION = "0.4.0 beta";
+
+        // Module-level variable to hold storage instance
+        let recipeStorage = null;
+
+        /**
+         * Get the recipe storage instance for other modules
+         * @returns {Object|null} Storage instance or null if not initialized
+         */
+        export function getRecipeStorage() {
+            return recipeStorage;
+        }
 
         // Variable to hold InitYolkTable function from tools module
         // Initialized after Recipe is defined
@@ -83,6 +95,9 @@
 
         // Load ingredients before continuing (top-level await)
         await loadIngredients();
+
+        // Initialize recipe storage (IndexedDB)
+        recipeStorage = await initIndexedDBStorage();
 
         // --- Recipe -----------------------------------------------------------
         document.getElementById("JavscriptWarning").style = "display: none;";
@@ -360,5 +375,6 @@
             Sugars
         });
 
-        // Expose Recipe to window for testing
+        // Expose Recipe and storage to window for testing
         window.Recipe = Recipe;
+        window.getRecipeStorage = getRecipeStorage;
