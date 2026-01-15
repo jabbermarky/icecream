@@ -5,8 +5,9 @@ import { openDB } from 'https://esm.sh/idb@8';
 import { createStorage } from './storage.js';
 
 const DB_NAME = 'ice-ed-recipes';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'recipes';
+const STORE_NAME_INGREDIENTS = 'ingredients';
 
 /**
  * IndexedDB storage implementation for recipes
@@ -113,6 +114,68 @@ export const IndexedDBStorage = {
       console.error('Failed to check recipe:', error);
       return false;
     }
+  },
+
+  // --- Ingredient Storage Methods ---
+
+  /**
+   * Save ingredients to IndexedDB
+   * @param {Object} ingredients - Ingredients object to save
+   * @returns {Promise<boolean>} True on success, false on error
+   */
+  async saveIngredients(ingredients) {
+    try {
+      if (!this.db) {
+        console.error('IndexedDB not initialized');
+        return false;
+      }
+      const record = {
+        name: 'library',
+        updatedAt: new Date().toISOString(),
+        data: ingredients
+      };
+      await this.db.put(STORE_NAME_INGREDIENTS, record);
+      return true;
+    } catch (error) {
+      console.error('Failed to save ingredients:', error);
+      return false;
+    }
+  },
+
+  /**
+   * Load ingredients from IndexedDB
+   * @returns {Promise<Object|null>} Ingredients object or null if not found
+   */
+  async loadIngredients() {
+    try {
+      if (!this.db) {
+        console.error('IndexedDB not initialized');
+        return null;
+      }
+      const record = await this.db.get(STORE_NAME_INGREDIENTS, 'library');
+      return record ? record.data : null;
+    } catch (error) {
+      console.error('Failed to load ingredients:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Check if library ingredients exist in IndexedDB
+   * @returns {Promise<boolean>} True if library ingredients exist
+   */
+  async hasIngredients() {
+    try {
+      if (!this.db) {
+        console.error('IndexedDB not initialized');
+        return false;
+      }
+      const record = await this.db.get(STORE_NAME_INGREDIENTS, 'library');
+      return record !== undefined;
+    } catch (error) {
+      console.error('Failed to check ingredients:', error);
+      return false;
+    }
   }
 };
 
@@ -129,6 +192,10 @@ export async function initIndexedDBStorage() {
           const store = db.createObjectStore(STORE_NAME, { keyPath: 'name' });
           // Create index on updatedAt for sorting by recent
           store.createIndex('updatedAt', 'updatedAt');
+        }
+        // Create ingredients object store with name as key (v2)
+        if (!db.objectStoreNames.contains(STORE_NAME_INGREDIENTS)) {
+          db.createObjectStore(STORE_NAME_INGREDIENTS, { keyPath: 'name' });
         }
       }
     });
