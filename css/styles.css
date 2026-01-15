@@ -447,6 +447,34 @@
         }
 
 
+/* Cloud sync status indicator */
+        .sync-status {
+            display: inline-block;
+            margin-left: 0.5em;
+            font-size: 0.9em;
+        }
+
+        .sync-status.syncing {
+            animation: pulse 1.5s infinite;
+        }
+
+        .sync-status.synced {
+            color: var(--success-green, #28a745);
+        }
+
+        .sync-status.error {
+            color: var(--error-red, #dc3545);
+        }
+
+        .sync-status.offline {
+            color: var(--mid-grey);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
         @media print {
 
             button,
