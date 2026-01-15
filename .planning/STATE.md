@@ -61,7 +61,7 @@ Progress: Milestone complete
 
 ## Pending Todos
 
-7 todos in `.planning/todos/pending/`
+8 todos in `.planning/todos/pending/`
 
 ## Blockers/Concerns Carried Forward
 
