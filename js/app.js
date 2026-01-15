@@ -5,6 +5,8 @@
         import {
             Ingredients,
             loadIngredients,
+            loadIngredientsFromStorage,
+            saveIngredientsToStorage,
             IngredientNames,
             SortIngredients,
             isIngredientUsed,
@@ -94,11 +96,16 @@
         });
         initTabs();
 
-        // Load ingredients before continuing (top-level await)
-        await loadIngredients();
-
-        // Initialize recipe storage (IndexedDB)
+        // Initialize recipe storage (IndexedDB) - needs to be ready for ingredient loading
         recipeStorage = await initIndexedDBStorage();
+
+        // Load ingredients: try library first, fall back to JSON
+        const loadedFromLibrary = await loadIngredientsFromStorage(recipeStorage);
+        if (!loadedFromLibrary) {
+            // First run: load from JSON and bootstrap library
+            await loadIngredients();
+            await saveIngredientsToStorage(recipeStorage);
+        }
 
         // --- Recipe -----------------------------------------------------------
         document.getElementById("JavscriptWarning").style = "display: none;";

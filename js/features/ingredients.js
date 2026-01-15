@@ -138,6 +138,51 @@ export async function loadIngredients() {
 }
 
 /**
+ * Load ingredients from storage (library)
+ * @param {Object} storage - Storage instance with loadIngredients method
+ * @returns {Promise<boolean>} True if loaded from storage, false otherwise
+ */
+export async function loadIngredientsFromStorage(storage) {
+    try {
+        const data = await storage.loadIngredients();
+        if (!data || Object.keys(data).length === 0) {
+            return false;
+        }
+        // Clear existing ingredients and populate with loaded data
+        // (mutate in place to preserve window.Ingredients reference)
+        for (const key in Ingredients) {
+            delete Ingredients[key];
+        }
+        for (const key in data) {
+            Ingredients[key] = Object.assign(new cIngredient(), data[key]);
+        }
+        SortIngredients();
+        // Update window reference after loading
+        if (typeof window !== 'undefined') {
+            window.Ingredients = Ingredients;
+        }
+        return true;
+    } catch (error) {
+        console.error('Error loading ingredients from storage:', error);
+        return false;
+    }
+}
+
+/**
+ * Save ingredients to storage (library)
+ * @param {Object} storage - Storage instance with saveIngredients method
+ * @returns {Promise<boolean>} True on success, false on failure
+ */
+export async function saveIngredientsToStorage(storage) {
+    try {
+        return await storage.saveIngredients(Ingredients);
+    } catch (error) {
+        console.error('Error saving ingredients to storage:', error);
+        return false;
+    }
+}
+
+/**
  * Get sorted array of ingredient names
  * @returns {string[]} Array of ingredient names
  */
