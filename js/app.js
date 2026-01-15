@@ -254,7 +254,12 @@
                     recipeStorage.loadRecipe(name).then(data => {
                         if (data) {
                             // Import ingredients from stored recipe
-                            importIngredients(data.data.Ingredients);
+                            importIngredients(
+                                data.data.Ingredients,
+                                false,
+                                "This recipe was saved with different ingredient values than your current library. The library reflects your latest research.",
+                                { current: "Library", imported: "Recipe" }
+                            );
                             // Create new recipe and copy properties
                             const newRecipe = new cRecipe("");
                             for (const key in newRecipe) {

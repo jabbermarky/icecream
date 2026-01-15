@@ -1272,7 +1272,12 @@ function handleLoadRecipeFile(event) {
         }
 
         function loadRecipe() {
-            importIngredients(dataObj.data.Ingredients);
+            importIngredients(
+                dataObj.data.Ingredients,
+                false,
+                "This recipe was saved with different ingredient values than your current library. The library reflects your latest research.",
+                { current: "Library", imported: "Recipe" }
+            );
 
             RecipeBackup = [];
             const newRecipe = new cRecipe("");
