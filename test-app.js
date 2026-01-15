@@ -1023,6 +1023,90 @@ const tests = {
     return originalOrder.length >= 3 && orderPreserved;
   },
 
+  // Ingredient Storage Tests (IndexedDB save/load/hasIngredients cycle)
+  async testIngredientStorage() {
+    logSection('Ingredient Storage Tests');
+
+    // Test that storage is initialized
+    const storageInitialized = await page.evaluate(() => {
+      return typeof window.getRecipeStorage === 'function' && window.getRecipeStorage() !== null;
+    });
+
+    if (!storageInitialized) {
+      logTest('Storage initialized for ingredient tests', false, 'Storage not available');
+      return false;
+    }
+    logTest('Storage initialized for ingredient tests', true);
+
+    // Test that app bootstrapped ingredients into library on first load
+    const hasLibraryIngredients = await page.evaluate(async () => {
+      const storage = window.getRecipeStorage();
+      return await storage.hasIngredients();
+    });
+    logTest('Library ingredients exist after app load', hasLibraryIngredients);
+
+    // Test loadIngredients returns data with expected structure
+    const loadedIngredients = await page.evaluate(async () => {
+      const storage = window.getRecipeStorage();
+      return await storage.loadIngredients();
+    });
+
+    const hasExpectedStructure = loadedIngredients &&
+      typeof loadedIngredients === 'object' &&
+      Object.keys(loadedIngredients).length > 0;
+    logTest('loadIngredients returns data object', hasExpectedStructure,
+      hasExpectedStructure ? `Found ${Object.keys(loadedIngredients).length} ingredients` : 'No data');
+
+    // Check that loaded ingredients have expected properties (Water, Fat, etc.)
+    const hasExpectedProperties = loadedIngredients &&
+      loadedIngredients['Whole Milk 3.5%'] &&
+      typeof loadedIngredients['Whole Milk 3.5%'].Water === 'number';
+    logTest('Ingredients have expected properties', hasExpectedProperties);
+
+    // Test data roundtrip (save modified → load → compare)
+    const roundtripPassed = await page.evaluate(async () => {
+      const storage = window.getRecipeStorage();
+
+      // Create test ingredient data
+      const testIngredients = {
+        'Test Ingredient': {
+          Water: 0.5,
+          Fat: 0.1,
+          Sugar: 0.2,
+          Solids: 0.5
+        }
+      };
+
+      // Save test ingredients (this overwrites library!)
+      await storage.saveIngredients(testIngredients);
+
+      // Load back
+      const loaded = await storage.loadIngredients();
+
+      // Verify roundtrip
+      const passed = loaded &&
+        loaded['Test Ingredient'] &&
+        loaded['Test Ingredient'].Water === 0.5 &&
+        loaded['Test Ingredient'].Fat === 0.1;
+
+      // Restore original ingredients (from window.Ingredients which is still in memory)
+      await storage.saveIngredients(window.Ingredients);
+
+      return passed;
+    });
+    logTest('Ingredient data roundtrip works', roundtripPassed);
+
+    // Verify hasIngredients returns true after save
+    const hasIngredientsAfterRestore = await page.evaluate(async () => {
+      const storage = window.getRecipeStorage();
+      return await storage.hasIngredients();
+    });
+    logTest('hasIngredients returns true after restore', hasIngredientsAfterRestore);
+
+    return storageInitialized && hasLibraryIngredients && hasExpectedStructure &&
+           hasExpectedProperties && roundtripPassed && hasIngredientsAfterRestore;
+  },
+
   // Recipe Storage Tests (IndexedDB save/load/list/delete cycle)
   async testRecipeStorage() {
     logSection('Recipe Storage Tests');
