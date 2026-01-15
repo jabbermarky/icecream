@@ -417,7 +417,8 @@
             Info,
             DisplayRecipe,
             getRecipeContext: () => ({ Recipe, RecipeBackup: getRecipeBackup(), RecipeStack: getRecipeStack() }),
-            Sugars
+            Sugars,
+            storage: recipeStorage
         });
 
         // Expose Recipe and storage to window for testing
