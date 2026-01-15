@@ -185,10 +185,10 @@ export async function saveIngredientsToStorage(storage) {
 }
 
 /**
- * Internal helper - sync ingredients to storage after modification
+ * Sync ingredients to storage after modification
  * Logs errors but doesn't interrupt user workflow
  */
-async function syncIngredientsToStorage() {
+export async function syncIngredientsToStorage() {
     if (!storage) return;
     const success = await saveIngredientsToStorage(storage);
     if (!success) {
@@ -320,6 +320,9 @@ export function onIngredientEdit(element) {
     if (row.rowIndex == 1 && ingredientName != "") {
         row.parentNode.insertBefore(createIngredientRow(), row);
     }
+
+    // Sync changes to storage (fire-and-forget)
+    syncIngredientsToStorage();
 }
 
 /**
@@ -339,6 +342,9 @@ export function onIngredientDeleted(element) {
 
     delete Ingredients[ingredientName];
     element.currentTarget.closest('tr').remove();
+
+    // Sync changes to storage (fire-and-forget)
+    syncIngredientsToStorage();
 }
 
 // --- Display & Filtering ---
@@ -575,6 +581,7 @@ export function importIngredients(dataObj, overrideExisting = false, mergeMessag
             hideModal();
             DisplayRecipe();
             DisplayIngredients();
+            syncIngredientsToStorage();
         };
         if (multi) {
             buttons[2].innerText = "Apply";
@@ -596,6 +603,7 @@ export function importIngredients(dataObj, overrideExisting = false, mergeMessag
                 hideModal();
                 DisplayRecipe();
                 DisplayIngredients();
+                syncIngredientsToStorage();
             };
         }
 
@@ -605,6 +613,7 @@ export function importIngredients(dataObj, overrideExisting = false, mergeMessag
     } else {
         DisplayRecipe();
         DisplayIngredients();
+        syncIngredientsToStorage();
     }
 }
 

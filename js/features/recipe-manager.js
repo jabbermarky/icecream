@@ -5,7 +5,7 @@
 
 import { toFloat, round, nGenerator, filterPosNumberInput, clickOn } from '../utils/helpers.js';
 import { cRecipe, cTargetValue, Targets } from '../models/core.js';
-import { IngredientNames, IngredientDataFields, cIngredient, importIngredients } from './ingredients.js';
+import { IngredientNames, IngredientDataFields, cIngredient, importIngredients, syncIngredientsToStorage } from './ingredients.js';
 import { GetIdealPAC, Fitness } from './calculations.js';
 import { DrawFreezingGraph } from '../ui/graph.js';
 import { getCSS } from '../ui/components.js';
@@ -1148,7 +1148,8 @@ function handleStoreAsIngredient() {
         for (const val in sums)
             sums[val] /= amount;
         Ingredients[Recipe.Name] = new cIngredient(sums.Water, sums.Sugar, sums.Fat, sums.Solids, sums.MSNF, sums.PAC, sums.POD, sums.kcal);
-        Info("Mixture added. Do not forget to save the ingredient data.");
+        syncIngredientsToStorage();
+        Info("Mixture added to ingredients.");
     }
 
     if (!Ingredients.hasOwnProperty(Recipe.Name)) {
