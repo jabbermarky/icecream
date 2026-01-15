@@ -1,7 +1,7 @@
 # Ice Ed Modularization - Project Definition
 
 **Created:** 2026-01-13
-**Status:** v1.2 Complete
+**Status:** v1.3 Complete
 
 ## Vision
 
@@ -11,23 +11,23 @@ Complete the modularization of Ice Ed from a partially-extracted codebase to a f
 
 Ice Ed is an ice cream recipe formulation tool that calculates PAC (freezing point depression), POD (sweetening power), fat content, and other properties. The codebase originated as a single HTML file and has been incrementally modularized through 9 extraction steps.
 
-## Current State (v1.2 Shipped)
+## Current State (v1.3 Shipped)
 
-Shipped v1.2 Recipe Library on 2026-01-14.
+Shipped v1.3 Ingredient Persistence on 2026-01-15.
 
 **Codebase:**
 - `js/app.js`: 364 lines (78% reduction from original 1,666)
-- 12 specialized modules totaling ~4,100 lines
-- Test suite: 25 test methods in Playwright
-- `js/features/recipe-manager.js`: 1,350 lines (includes drag-drop + save workflow)
+- 12 specialized modules totaling ~4,400 lines
+- Test suite: 27 test methods in Playwright
+- `js/features/recipe-manager.js`: 1,363 lines (includes drag-drop + save workflow)
 
-**v1.2 Features:**
-- Recipe library with IndexedDB persistence
-- Save to library with overwrite confirmation
-- Load recipes from library modal
-- Delete recipes with confirmation
-- Export to file as secondary action
-- Error feedback for storage failures
+**v1.3 Features:**
+- Ingredient library persisted in IndexedDB
+- Auto-sync ingredient changes (edits, deletes, imports)
+- Library-first loading on app startup
+- Context-aware merge dialog when loading recipes
+- Clear Library/Recipe column labels in merge conflicts
+- Keep Library/Use Recipe action buttons
 
 **Architecture:**
 - `js/utils/helpers.js` (127 lines) — Utility functions
@@ -38,9 +38,9 @@ Shipped v1.2 Recipe Library on 2026-01-14.
 - `js/ui/recipe-library.js` (116 lines) — Recipe library modal
 - `js/models/core.js` (155 lines) — Core data models
 - `js/storage/storage.js` (51 lines) — Storage interface
-- `js/storage/indexeddb-storage.js` (152 lines) — IndexedDB implementation
+- `js/storage/indexeddb-storage.js` (221 lines) — IndexedDB implementation (recipes + ingredients)
 - `js/features/calculations.js` (98 lines) — Recipe calculations
-- `js/features/ingredients.js` (749 lines) — Ingredient management
+- `js/features/ingredients.js` (827 lines) — Ingredient management + storage sync
 - `js/features/recipe-manager.js` (1,350 lines) — Recipe operations + drag-drop + save
 
 ## Requirements
@@ -57,6 +57,9 @@ Shipped v1.2 Recipe Library on 2026-01-14.
 - R8: IndexedDB recipe library — v1.2
 - R9: Recipe library UI (list, load, delete) — v1.2
 - R10: Save to library workflow — v1.2
+- R11: Ingredient library persistence — v1.3
+- R12: Auto-sync ingredient changes — v1.3
+- R13: Context-aware merge dialog — v1.3
 
 ### Out of Scope
 
@@ -97,6 +100,9 @@ Use the same patterns established in Steps 1-6:
 | Callback pattern for library actions | Flexible action handling for load/delete | Good |
 | Save to library as default | Primary action for users; file export as secondary | Good |
 | Storage methods return boolean | Enables caller to show appropriate feedback | Good |
+| Single 'library' record for ingredients | Simpler than individual records, sufficient for needs | Good |
+| Fire-and-forget sync | Don't block user workflow for storage operations | Good |
+| Configurable dialog labels | Parameter objects with defaults for context-specific UX | Good |
 
 ## References
 
@@ -106,4 +112,4 @@ Use the same patterns established in Steps 1-6:
 - `.planning/MILESTONES.md` - Shipped milestones
 
 ---
-*Last updated: 2026-01-14 after v1.2 milestone*
+*Last updated: 2026-01-15 after v1.3 milestone*

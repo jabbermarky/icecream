@@ -7,7 +7,7 @@
 - ✅ **v1.0 Modularization** - [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) (Phases 7-9, shipped 2026-01-13)
 - ✅ **v1.1 Recipe Organization** - [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) (Phases 10-11, shipped 2026-01-13)
 - ✅ **v1.2 Recipe Library** - [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) (Phases 12-15, shipped 2026-01-14)
-- 🚧 **v1.3 Ingredient Persistence** - Phases 16-18 (complete, pending archive)
+- ✅ **v1.3 Ingredient Persistence** - [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) (Phases 16-18, shipped 2026-01-15)
 
 ## Phases
 
@@ -37,43 +37,18 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) for full details.
 
 </details>
 
-### 🚧 v1.3 Ingredient Persistence (In Progress)
+<details>
+<summary>✅ v1.3 Ingredient Persistence (Phases 16-18) — SHIPPED 2026-01-15</summary>
 
 **Milestone Goal:** Persist master ingredient list in IndexedDB so custom ingredients survive browser sessions
 
-**Key context:**
-- App has default ingredient list (JSON) used for first recipe / new recipes
-- Once library ingredients exist, they become the master list for new recipes
-- Existing merge behavior when loading recipes needs investigation
+- [x] Phase 16: ingredient-storage (1/1 plans) — 2026-01-15
+- [x] Phase 17: ingredient-sync (1/1 plans) — 2026-01-15
+- [x] Phase 18: recipe-ingredient-merge (1/1 plans) — 2026-01-15
 
-#### Phase 16: ingredient-storage
+See [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) for full details.
 
-**Goal**: Add ingredients store to IndexedDB, load library ingredients on startup (fall back to default JSON)
-**Depends on**: Phase 15 (v1.2 complete)
-**Status**: Complete
-
-Plans:
-- [x] 16-01: Ingredient storage infrastructure (2026-01-15)
-
-#### Phase 17: ingredient-sync
-
-**Goal**: Auto-sync ingredient changes to storage when user modifies ingredients
-**Depends on**: Phase 16
-**Research**: None needed (followed established patterns)
-**Status**: Complete
-
-Plans:
-- [x] 17-01: Ingredient sync implementation (2026-01-15)
-
-#### Phase 18: recipe-ingredient-merge
-
-**Goal**: Handle ingredient conflicts when loading recipes (leverage existing merge behavior)
-**Depends on**: Phase 17
-**Research**: None needed (UX refinement during execution)
-**Status**: Complete
-
-Plans:
-- [x] 18-01: Ingredient merge UX improvements (2026-01-15)
+</details>
 
 ## Progress
 
