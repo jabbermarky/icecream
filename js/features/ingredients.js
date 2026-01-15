@@ -503,8 +503,9 @@ export function diffIngredients(A, B) {
  * @param {boolean} overrideExisting - Whether to override existing ingredients
  * @param {string} mergeMessageMtml - Optional HTML message for merge dialog
  * @param {object} columnLabels - Column label overrides for merge dialog { current: "Current", imported: "Imported" }
+ * @param {object} buttonLabels - Button label overrides for merge dialog { keep: "Keep", replace: "Replace" }
  */
-export function importIngredients(dataObj, overrideExisting = false, mergeMessageMtml = null, columnLabels = { current: "Current", imported: "Imported" }) {
+export function importIngredients(dataObj, overrideExisting = false, mergeMessageMtml = null, columnLabels = { current: "Current", imported: "Imported" }, buttonLabels = { keep: "Keep", replace: "Replace" }) {
     var mergeList = {};
     for (const [key, data] of Object.entries(dataObj)) {
         dataObj[key] = Object.assign(new cIngredient(), dataObj[key]);
@@ -573,9 +574,9 @@ export function importIngredients(dataObj, overrideExisting = false, mergeMessag
 
         var buttonBar = document.createElement("div");
         var buttons = [...nGenerator(multi ? 3 : 2, () => { return document.createElement('button'); })];
-        buttons[0].innerText = multi ? "Keep All" : "Keep";
+        buttons[0].innerText = buttonLabels.keep;
         buttons[0].onclick = hideModal;
-        buttons[1].innerText = multi ? "Replace All" : "Replace";
+        buttons[1].innerText = buttonLabels.replace;
         buttons[1].onclick = function () {
             for (const [key, data] of Object.entries(mergeList))
                 Ingredients[key] = dataObj[key];

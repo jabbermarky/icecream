@@ -1276,7 +1276,8 @@ function handleLoadRecipeFile(event) {
                 dataObj.data.Ingredients,
                 false,
                 "This recipe was saved with different ingredient values than your current library. The library reflects your latest research.",
-                { current: "Library", imported: "Recipe" }
+                { current: "Library", imported: "Recipe" },
+                { keep: "Keep Library", replace: "Use Recipe" }
             );
 
             RecipeBackup = [];
