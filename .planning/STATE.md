@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 ## Current Position
 
 Phase: 19 of 20 (github-pages-deployment)
-Plan: Not yet planned
-Status: Milestone started, phase needs planning
-Last activity: 2026-01-15 — Created v1.4 milestone
+Plan: 1 of 1 complete
+Status: Phase complete, ready for Phase 20
+Last activity: 2026-01-15 — Completed 19-01-PLAN.md
 
-Progress: ░░░░░░░░░░ 0%
+Progress: █████░░░░░ 50%
 
 ## Accumulated Decisions
 
@@ -47,6 +47,8 @@ Progress: ░░░░░░░░░░ 0%
 | 17 | Export sync function for recipe-manager | Allow cross-module sync when storing recipe as ingredient |
 | 18 | columnLabels/buttonLabels parameters | Configurable dialog labels via parameter objects with defaults |
 | 18 | Recipe-specific merge context | Library/Recipe columns + Keep Library/Use Recipe buttons |
+| 19 | Made repository public | Free GitHub Pages hosting; user data stays in browser IndexedDB |
+| 19 | Relative paths in webmanifest | Icons in same directory, use filenames for subdirectory compatibility |
 
 ## Deferred Issues
 
@@ -69,18 +71,18 @@ None.
 
 ## Brief Alignment Status
 
-v1.4 Multi-Device Access milestone STARTED.
+v1.4 Multi-Device Access milestone IN PROGRESS (50%).
 
 **Goal:** Deploy to GitHub Pages with Google Drive sync so app and data are accessible from any device/browser.
 
 **Phases:**
-- Phase 19: GitHub Pages deployment
-- Phase 20: Google Drive cloud sync
+- Phase 19: GitHub Pages deployment ✅ COMPLETE
+- Phase 20: Google Drive cloud sync (next)
 
-**Why this milestone:** User wants to start using the app regularly. Without deployment + cloud sync, data is trapped in one browser on one device.
+**Deployed URL:** https://jabbermarky.github.io/icecream/
 
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: v1.4 milestone created, ready to plan Phase 19
+Stopped at: Completed Phase 19, ready for Phase 20 planning
 Resume file: None
