@@ -47,6 +47,9 @@ let ErrorMsg = null;
 // Storage reference (injected via initRecipeButtons)
 let recipeStorage = null;
 
+// Cloud sync callback (injected via initRecipeButtons)
+let pushRecipeToCloud = null;
+
 /**
  * Initialize recipe manager module with dependencies
  * @param {Object} deps - Dependencies object
@@ -1215,6 +1218,10 @@ async function handleSaveRecipe() {
         // Save to library
         const success = await recipeStorage.saveRecipe({ name: Recipe.Name, data: container });
         if (success) {
+            // Push to cloud if signed in (fire-and-forget)
+            if (pushRecipeToCloud) {
+                pushRecipeToCloud({ name: Recipe.Name, data: container });
+            }
             Info(`Saved "${Recipe.Name}" to library`);
             SetRecipeModified(false);
         } else {
@@ -1372,11 +1379,15 @@ export function initRecipeButtons(buttons) {
         edTargetWeight,
         selTargetWeightMode,
         edRecipeName,
-        storage
+        storage,
+        pushRecipe
     } = buttons;
 
     // Store storage reference at module level for handleSaveRecipe
     recipeStorage = storage;
+
+    // Store cloud sync callback
+    pushRecipeToCloud = pushRecipe || null;
 
     btnNewRecipe.onclick = handleNewRecipe;
     btnStoreAsIngredient.onclick = handleStoreAsIngredient;

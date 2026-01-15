@@ -45,6 +45,8 @@
             UpdateRecipeInfo
         } from './features/recipe-manager.js';
         import { initIndexedDBStorage } from './storage/indexeddb-storage.js';
+        import { initCloudSync, setSyncStatus } from './ui/cloud-sync.js';
+        import { initSyncManager, pushRecipe, pushIngredients, deleteRecipeFromCloud } from './storage/sync-manager.js';
 
         const VERSION = "0.4.0 beta";
 
@@ -106,6 +108,11 @@
             await loadIngredients();
             await saveIngredientsToStorage(recipeStorage);
         }
+
+        // Initialize sync manager with local storage (listens for auth changes)
+        initSyncManager(recipeStorage, {
+            onSyncStatusChange: setSyncStatus
+        });
 
         // --- Recipe -----------------------------------------------------------
         document.getElementById("JavscriptWarning").style = "display: none;";
@@ -244,7 +251,19 @@
             edTargetWeight: document.getElementById('edTargetWeight'),
             selTargetWeightMode: document.getElementById('selTargetWeightMode'),
             edRecipeName: document.getElementById('edRecipeName'),
-            storage: recipeStorage
+            storage: recipeStorage,
+            pushRecipe  // Cloud sync callback
+        });
+
+        // Initialize cloud sync UI
+        initCloudSync({
+            btnCloudSync: document.getElementById('btnCloudSync'),
+            syncStatus: document.getElementById('syncStatus'),
+            Info,
+            Warning,
+            ErrorMsg,
+            showModal,
+            hideModal
         });
 
         // Wire up Recipe Library button
@@ -280,6 +299,8 @@
                 onDelete: async (name) => {
                     const success = await recipeStorage.deleteRecipe(name);
                     if (success) {
+                        // Also delete from cloud (fire-and-forget)
+                        deleteRecipeFromCloud(name);
                         Info(`Deleted "${name}" from library`);
                     } else {
                         ErrorMsg('Failed to delete recipe.');
@@ -424,7 +445,8 @@
             DisplayRecipe,
             getRecipeContext: () => ({ Recipe, RecipeBackup: getRecipeBackup(), RecipeStack: getRecipeStack() }),
             Sugars,
-            storage: recipeStorage
+            storage: recipeStorage,
+            pushIngredients  // Cloud sync callback
         });
 
         // Expose Recipe and storage to window for testing

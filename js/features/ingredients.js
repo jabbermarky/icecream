@@ -28,6 +28,7 @@ let DisplayRecipe = null;
 let getRecipeContext = null;  // Function to get Recipe, RecipeBackup, RecipeStack
 let Sugars = null;  // Sugars reference table for USDA calculations
 let storage = null;  // Storage instance for syncing ingredient changes
+let pushIngredientsToCloud = null;  // Cloud sync callback
 
 /**
  * Initialize ingredients module with UI dependencies
@@ -42,6 +43,7 @@ export function initIngredients(deps) {
     getRecipeContext = deps.getRecipeContext;
     Sugars = deps.Sugars;
     storage = deps.storage;
+    pushIngredientsToCloud = deps.pushIngredients || null;
 }
 
 /**
@@ -191,7 +193,12 @@ export async function saveIngredientsToStorage(storage) {
 export async function syncIngredientsToStorage() {
     if (!storage) return;
     const success = await saveIngredientsToStorage(storage);
-    if (!success) {
+    if (success) {
+        // Push to cloud if signed in (fire-and-forget)
+        if (pushIngredientsToCloud) {
+            pushIngredientsToCloud(Ingredients);
+        }
+    } else {
         console.error('Failed to sync ingredients to storage');
     }
 }
