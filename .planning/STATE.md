@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 
 ## Current Position
 
-Phase: 16 of 18 (ingredient-storage)
+Phase: 17 of 18 (ingredient-sync)
 Plan: 1 of 1 in current phase
 Status: Phase complete
-Last activity: 2026-01-15 — Completed 16-01-PLAN.md
+Last activity: 2026-01-15 — Completed 17-01-PLAN.md
 
-Progress: █░░░░░░░░░ 10%
+Progress: █████░░░░░ 50%
 
 ## Accumulated Decisions
 
@@ -43,6 +43,8 @@ Progress: █░░░░░░░░░ 10%
 | 15 | Storage methods return boolean | Enables caller to check success/failure and show appropriate feedback |
 | 16 | Single 'library' record for ingredients | Simpler than individual records, sufficient for current needs |
 | 16 | Storage-first initialization | Enable library-first loading pattern |
+| 17 | Fire-and-forget sync (no await) | Don't block user workflow for storage operations |
+| 17 | Export sync function for recipe-manager | Allow cross-module sync when storing recipe as ingredient |
 
 ## Deferred Issues
 
@@ -65,10 +67,10 @@ None.
 
 ## Brief Alignment Status
 
-v1.3 Ingredient Persistence milestone in progress. Phase 16 complete - ingredient storage infrastructure with library-first loading. Ready for Phase 17 (ingredient-sync) to auto-sync ingredient changes.
+v1.3 Ingredient Persistence milestone in progress. Phase 17 complete - auto-sync ingredient changes to IndexedDB. Ready for Phase 18 (recipe-ingredient-merge) to handle conflicts when loading recipes.
 
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Phase 16 complete, ready for /gsd:plan-phase 17
+Stopped at: Phase 17 complete, ready for /gsd:plan-phase 18
 Resume file: None

@@ -59,11 +59,11 @@ Plans:
 
 **Goal**: Auto-sync ingredient changes to storage when user modifies ingredients
 **Depends on**: Phase 16
-**Research**: Likely (need to identify all ingredient modification points)
-**Status**: Not started
+**Research**: None needed (followed established patterns)
+**Status**: Complete
 
 Plans:
-- [ ] 17-01: TBD
+- [x] 17-01: Ingredient sync implementation (2026-01-15)
 
 #### Phase 18: recipe-ingredient-merge
 
@@ -86,7 +86,7 @@ Plans:
 | 14. save-workflow | v1.2 | 1/1 | Complete | 2026-01-14 |
 | 15. polish | v1.2 | 1/1 | Complete | 2026-01-14 |
 | 16. ingredient-storage | v1.3 | 1/1 | Complete | 2026-01-15 |
-| 17. ingredient-sync | v1.3 | 0/? | Not started | - |
+| 17. ingredient-sync | v1.3 | 1/1 | Complete | 2026-01-15 |
 | 18. recipe-ingredient-merge | v1.3 | 0/? | Not started | - |
 
 ## References

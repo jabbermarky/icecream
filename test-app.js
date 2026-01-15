@@ -1107,6 +1107,94 @@ const tests = {
            hasExpectedProperties && roundtripPassed && hasIngredientsAfterRestore;
   },
 
+  // Ingredient Sync Tests (auto-sync after modification)
+  async testIngredientSync() {
+    logSection('Ingredient Sync Tests');
+
+    // Test 1: Edit ingredient property and verify sync
+    // First, find a known ingredient and change a value
+    const editSyncPassed = await page.evaluate(async () => {
+      const storage = window.getRecipeStorage();
+
+      // Get current value for a known ingredient
+      const originalIngredients = await storage.loadIngredients();
+      const originalWater = originalIngredients['Water'] ? originalIngredients['Water'].Water : null;
+
+      // Modify an ingredient property in memory
+      // Adding a unique test value to verify sync
+      const testValue = 0.999;
+      if (window.Ingredients['Water']) {
+        window.Ingredients['Water'].Water = testValue;
+      } else {
+        return { passed: false, reason: 'Water ingredient not found' };
+      }
+
+      // Trigger the sync by importing (which calls syncIngredientsToStorage)
+      // We'll use a direct save to test the sync mechanism works
+      const { syncIngredientsToStorage } = await import('./js/features/ingredients.js');
+      await syncIngredientsToStorage();
+
+      // Wait a moment for async save to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Reload from storage and verify
+      const reloadedIngredients = await storage.loadIngredients();
+      const syncedValue = reloadedIngredients['Water'] ? reloadedIngredients['Water'].Water : null;
+
+      // Restore original value
+      if (window.Ingredients['Water'] && originalWater !== null) {
+        window.Ingredients['Water'].Water = originalWater;
+        await syncIngredientsToStorage();
+      }
+
+      return {
+        passed: syncedValue === testValue,
+        reason: syncedValue === testValue ? `Value synced: ${syncedValue}` : `Expected ${testValue}, got ${syncedValue}`
+      };
+    });
+
+    const editPassed = editSyncPassed.passed;
+    logTest('Ingredient edit syncs to storage', editPassed, editSyncPassed.reason);
+
+    // Test 2: Verify sync persists through page reload
+    const persistencePassed = await (async () => {
+      // Modify an ingredient
+      const testKey = 'SyncTestIngredient' + Date.now();
+      await page.evaluate(async (key) => {
+        const { cIngredient, Ingredients, syncIngredientsToStorage } = await import('./js/features/ingredients.js');
+        Ingredients[key] = new cIngredient(0.123, 0.456, 0.789);
+        await syncIngredientsToStorage();
+        // Wait for sync
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }, testKey);
+
+      // Reload page
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      // Check if ingredient persisted
+      const persistedValue = await page.evaluate(async (key) => {
+        const storage = window.getRecipeStorage();
+        const ingredients = await storage.loadIngredients();
+        return ingredients[key] ? ingredients[key].Water : null;
+      }, testKey);
+
+      // Cleanup - remove test ingredient
+      await page.evaluate(async (key) => {
+        const { Ingredients, syncIngredientsToStorage } = await import('./js/features/ingredients.js');
+        delete Ingredients[key];
+        await syncIngredientsToStorage();
+      }, testKey);
+
+      return persistedValue === 0.123;
+    })();
+
+    logTest('Ingredient changes persist through page reload', persistencePassed,
+      persistencePassed ? 'Value survived reload' : 'Value did not persist');
+
+    return editPassed && persistencePassed;
+  },
+
   // Recipe Storage Tests (IndexedDB save/load/list/delete cycle)
   async testRecipeStorage() {
     logSection('Recipe Storage Tests');
