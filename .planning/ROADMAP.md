@@ -8,6 +8,7 @@
 - ✅ **v1.1 Recipe Organization** - [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) (Phases 10-11, shipped 2026-01-13)
 - ✅ **v1.2 Recipe Library** - [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) (Phases 12-15, shipped 2026-01-14)
 - ✅ **v1.3 Ingredient Persistence** - [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) (Phases 16-18, shipped 2026-01-15)
+- 🚧 **v1.4 Multi-Device Access** - Phases 19-20 (in progress)
 
 ## Phases
 
@@ -50,6 +51,34 @@ See [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) for full details.
 
 </details>
 
+### 🚧 v1.4 Multi-Device Access (In Progress)
+
+**Milestone Goal:** Deploy to GitHub Pages with Google Drive sync so the app and data are accessible from any device/browser
+
+**Why this milestone:** Enable regular app usage. Without deployment + cloud sync, data is trapped in one browser on one device.
+
+**Key context:**
+- App currently only works locally via Live Server
+- IndexedDB data is trapped in one browser on one device
+- Storage interface pattern from v1.2 enables pluggable backends
+
+#### Phase 19: github-pages-deployment
+
+**Goal**: Deploy app to GitHub Pages, ensure all paths and modules work in production
+**Depends on**: None
+**Status**: Not started
+
+Plans: TBD
+
+#### Phase 20: cloud-sync-google-drive
+
+**Goal**: Implement Google Drive storage backend for recipes and ingredients with sync
+**Depends on**: Phase 19 (need deployed app to test OAuth redirect)
+**Research**: Google Drive API, OAuth 2.0 flow for SPAs
+**Status**: Not started
+
+Plans: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
@@ -63,6 +92,8 @@ See [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) for full details.
 | 16. ingredient-storage | v1.3 | 1/1 | Complete | 2026-01-15 |
 | 17. ingredient-sync | v1.3 | 1/1 | Complete | 2026-01-15 |
 | 18. recipe-ingredient-merge | v1.3 | 1/1 | Complete | 2026-01-15 |
+| 19. github-pages-deployment | v1.4 | TBD | Not started | - |
+| 20. cloud-sync-google-drive | v1.4 | TBD | Not started | - |
 
 ## References
 

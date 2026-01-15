@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-15)
 
 **Core value:** Ice cream recipe formulation with full user control
-**Current focus:** Between milestones - v1.3 shipped
+**Current focus:** v1.4 Multi-Device Access - Deploy to GitHub Pages with Google Drive sync
 
 ## Current Position
 
-Phase: None active
-Plan: None active
-Status: v1.3 shipped, ready for next milestone
-Last activity: 2026-01-15 — Archived v1.3 milestone
+Phase: 19 of 20 (github-pages-deployment)
+Plan: Not yet planned
+Status: Milestone started, phase needs planning
+Last activity: 2026-01-15 — Created v1.4 milestone
 
-Progress: Milestone complete
+Progress: ░░░░░░░░░░ 0%
 
 ## Accumulated Decisions
 
@@ -61,7 +61,7 @@ Progress: Milestone complete
 
 ## Pending Todos
 
-11 todos in `.planning/todos/pending/`
+9 todos in `.planning/todos/pending/`
 
 ## Blockers/Concerns Carried Forward
 
@@ -69,18 +69,18 @@ None.
 
 ## Brief Alignment Status
 
-v1.3 Ingredient Persistence milestone SHIPPED and archived.
+v1.4 Multi-Device Access milestone STARTED.
 
-Milestones shipped:
-- v1.0 Modularization (Phases 7-9) — 2026-01-13
-- v1.1 Recipe Organization (Phases 10-11) — 2026-01-13
-- v1.2 Recipe Library (Phases 12-15) — 2026-01-14
-- v1.3 Ingredient Persistence (Phases 16-18) — 2026-01-15
+**Goal:** Deploy to GitHub Pages with Google Drive sync so app and data are accessible from any device/browser.
 
-Ready for /gsd:new-milestone or /gsd:discuss-milestone to define next work.
+**Phases:**
+- Phase 19: GitHub Pages deployment
+- Phase 20: Google Drive cloud sync
+
+**Why this milestone:** User wants to start using the app regularly. Without deployment + cloud sync, data is trapped in one browser on one device.
 
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: v1.3 milestone archived
+Stopped at: v1.4 milestone created, ready to plan Phase 19
 Resume file: None
