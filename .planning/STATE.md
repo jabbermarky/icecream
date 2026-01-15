@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 ## Current Position
 
 Phase: 20 of 20 (cloud-sync-google-drive)
-Plan: 2 of 4 complete
+Plan: 3 of 4 complete
 Status: In progress
-Last activity: 2026-01-15 — Completed 20-02-PLAN.md
+Last activity: 2026-01-15 — Completed 20-03-PLAN.md
 
-Progress: █████░░░░░ 57%
+Progress: ██████░░░░ 60%
 
 ## Accumulated Decisions
 
@@ -49,6 +49,8 @@ Progress: █████░░░░░ 57%
 | 18 | Recipe-specific merge context | Library/Recipe columns + Keep Library/Use Recipe buttons |
 | 19 | Made repository public | Free GitHub Pages hosting; user data stays in browser IndexedDB |
 | 19 | Relative paths in webmanifest | Icons in same directory, use filenames for subdirectory compatibility |
+| 20-03 | Right-click for sign-out | Keep UI clean - primary button action is sync/sign-in |
+| 20-03 | Status indicator with 4 states | syncing/synced/error/offline for clear visual feedback |
 
 ## Deferred Issues
 
@@ -84,5 +86,5 @@ v1.4 Multi-Device Access milestone IN PROGRESS (50%).
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Completed 20-02-PLAN.md (Google Drive storage implementation)
+Stopped at: Completed 20-03-PLAN.md (Cloud sync UI)
 Resume file: None

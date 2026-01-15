@@ -75,7 +75,7 @@ Plans: 1/1 complete (19-01-PLAN.md)
 
 **Goal**: Implement Google Drive storage backend for recipes and ingredients with sync
 **Depends on**: Phase 19 (need deployed app URL for OAuth redirect)
-**Status**: In progress (1/4 plans complete)
+**Status**: In progress (3/4 plans complete)
 
 **Research findings (2026-01-15):**
 
@@ -98,7 +98,7 @@ Ice Ed (GitHub Pages) → Google OAuth popup → Access token
                       → gapi.client.drive.files.* → User's Google Drive
 ```
 
-Plans: 2/4 complete (20-01, 20-02)
+Plans: 3/4 complete (20-01, 20-02, 20-03)
 
 ## Progress
 
@@ -114,7 +114,7 @@ Plans: 2/4 complete (20-01, 20-02)
 | 17. ingredient-sync | v1.3 | 1/1 | Complete | 2026-01-15 |
 | 18. recipe-ingredient-merge | v1.3 | 1/1 | Complete | 2026-01-15 |
 | 19. github-pages-deployment | v1.4 | 1/1 | Complete | 2026-01-15 |
-| 20. cloud-sync-google-drive | v1.4 | 2/4 | In progress | - |
+| 20. cloud-sync-google-drive | v1.4 | 3/4 | In progress | - |
 
 ## References
 
