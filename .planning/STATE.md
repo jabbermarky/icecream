@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 
 ## Current Position
 
-Phase: 17 of 18 (ingredient-sync)
+Phase: 18 of 18 (recipe-ingredient-merge)
 Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-01-15 — Completed 17-01-PLAN.md
+Status: Milestone complete
+Last activity: 2026-01-15 — Completed 18-01-PLAN.md
 
-Progress: █████░░░░░ 50%
+Progress: ██████████ 100%
 
 ## Accumulated Decisions
 
@@ -45,6 +45,8 @@ Progress: █████░░░░░ 50%
 | 16 | Storage-first initialization | Enable library-first loading pattern |
 | 17 | Fire-and-forget sync (no await) | Don't block user workflow for storage operations |
 | 17 | Export sync function for recipe-manager | Allow cross-module sync when storing recipe as ingredient |
+| 18 | columnLabels/buttonLabels parameters | Configurable dialog labels via parameter objects with defaults |
+| 18 | Recipe-specific merge context | Library/Recipe columns + Keep Library/Use Recipe buttons |
 
 ## Deferred Issues
 
@@ -67,10 +69,15 @@ None.
 
 ## Brief Alignment Status
 
-v1.3 Ingredient Persistence milestone in progress. Phase 17 complete - auto-sync ingredient changes to IndexedDB. Ready for Phase 18 (recipe-ingredient-merge) to handle conflicts when loading recipes.
+v1.3 Ingredient Persistence milestone COMPLETE. All three phases delivered:
+- Phase 16: Ingredient storage infrastructure
+- Phase 17: Auto-sync ingredient changes to IndexedDB
+- Phase 18: Context-aware merge dialog for recipe loading
+
+Ready for /gsd:complete-milestone to archive and prepare for next version.
 
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Phase 17 complete, ready for /gsd:plan-phase 18
+Stopped at: v1.3 milestone complete, ready for /gsd:complete-milestone
 Resume file: None

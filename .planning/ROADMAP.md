@@ -7,7 +7,7 @@
 - ✅ **v1.0 Modularization** - [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) (Phases 7-9, shipped 2026-01-13)
 - ✅ **v1.1 Recipe Organization** - [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) (Phases 10-11, shipped 2026-01-13)
 - ✅ **v1.2 Recipe Library** - [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) (Phases 12-15, shipped 2026-01-14)
-- 🚧 **v1.3 Ingredient Persistence** - Phases 16-18 (in progress)
+- 🚧 **v1.3 Ingredient Persistence** - Phases 16-18 (complete, pending archive)
 
 ## Phases
 
@@ -69,11 +69,11 @@ Plans:
 
 **Goal**: Handle ingredient conflicts when loading recipes (leverage existing merge behavior)
 **Depends on**: Phase 17
-**Research**: Likely (UX decision on conflict handling)
-**Status**: Not started
+**Research**: None needed (UX refinement during execution)
+**Status**: Complete
 
 Plans:
-- [ ] 18-01: TBD
+- [x] 18-01: Ingredient merge UX improvements (2026-01-15)
 
 ## Progress
 
@@ -87,7 +87,7 @@ Plans:
 | 15. polish | v1.2 | 1/1 | Complete | 2026-01-14 |
 | 16. ingredient-storage | v1.3 | 1/1 | Complete | 2026-01-15 |
 | 17. ingredient-sync | v1.3 | 1/1 | Complete | 2026-01-15 |
-| 18. recipe-ingredient-merge | v1.3 | 0/? | Not started | - |
+| 18. recipe-ingredient-merge | v1.3 | 1/1 | Complete | 2026-01-15 |
 
 ## References
 
