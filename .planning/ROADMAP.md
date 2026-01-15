@@ -98,7 +98,7 @@ Ice Ed (GitHub Pages) → Google OAuth popup → Access token
                       → gapi.client.drive.files.* → User's Google Drive
 ```
 
-Plans: 1/4 complete (20-01-PLAN.md)
+Plans: 2/4 complete (20-01, 20-02)
 
 ## Progress
 
@@ -114,7 +114,7 @@ Plans: 1/4 complete (20-01-PLAN.md)
 | 17. ingredient-sync | v1.3 | 1/1 | Complete | 2026-01-15 |
 | 18. recipe-ingredient-merge | v1.3 | 1/1 | Complete | 2026-01-15 |
 | 19. github-pages-deployment | v1.4 | 1/1 | Complete | 2026-01-15 |
-| 20. cloud-sync-google-drive | v1.4 | 1/4 | In progress | - |
+| 20. cloud-sync-google-drive | v1.4 | 2/4 | In progress | - |
 
 ## References
 
