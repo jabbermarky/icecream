@@ -66,16 +66,36 @@ See [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) for full details.
 
 **Goal**: Deploy app to GitHub Pages, ensure all paths and modules work in production
 **Depends on**: None
-**Status**: Not started
+**Status**: Planned
 
-Plans: TBD
+Plans: 1 (19-01-PLAN.md)
 
 #### Phase 20: cloud-sync-google-drive
 
 **Goal**: Implement Google Drive storage backend for recipes and ingredients with sync
-**Depends on**: Phase 19 (need deployed app to test OAuth redirect)
-**Research**: Google Drive API, OAuth 2.0 flow for SPAs
+**Depends on**: Phase 19 (need deployed app URL for OAuth redirect)
 **Status**: Not started
+
+**Research findings (2026-01-15):**
+
+| Aspect | Status | Notes |
+|--------|--------|-------|
+| OAuth from browser | ✅ Works | Google Identity Services supports SPAs |
+| List/create/update files | ✅ Works | Standard Drive API operations |
+| Download file content | ⚠️ CORS issues | Use gapi library (handles internally) or proxy |
+| App verification | ✅ Not needed | With `drive.file` scope (only app's files) |
+
+**Recommended approach:**
+- Use Google Identity Services + gapi client library
+- Use `drive.file` scope (no Google verification required)
+- Store recipes/ingredients as JSON files in user's Drive
+- If download CORS issues occur, add Cloudflare Worker proxy
+
+**Architecture:**
+```
+Ice Ed (GitHub Pages) → Google OAuth popup → Access token
+                      → gapi.client.drive.files.* → User's Google Drive
+```
 
 Plans: TBD
 
@@ -92,7 +112,7 @@ Plans: TBD
 | 16. ingredient-storage | v1.3 | 1/1 | Complete | 2026-01-15 |
 | 17. ingredient-sync | v1.3 | 1/1 | Complete | 2026-01-15 |
 | 18. recipe-ingredient-merge | v1.3 | 1/1 | Complete | 2026-01-15 |
-| 19. github-pages-deployment | v1.4 | TBD | Not started | - |
+| 19. github-pages-deployment | v1.4 | 1 | Planned | - |
 | 20. cloud-sync-google-drive | v1.4 | TBD | Not started | - |
 
 ## References
@@ -102,3 +122,4 @@ Plans: TBD
 - `.planning/codebase/` - Codebase analysis
 - `.planning/STRICT-MODE-AUDIT.md` - Strict mode compatibility checklist
 - `.planning/ISSUES.md` - Deferred issues log
+- `.planning/RESEARCH-LLM-INTEGRATION.md` - LLM API integration research (future)
