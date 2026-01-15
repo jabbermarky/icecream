@@ -502,8 +502,9 @@ export function diffIngredients(A, B) {
  * @param {object} dataObj - Ingredients data to import
  * @param {boolean} overrideExisting - Whether to override existing ingredients
  * @param {string} mergeMessageMtml - Optional HTML message for merge dialog
+ * @param {object} columnLabels - Column label overrides for merge dialog { current: "Current", imported: "Imported" }
  */
-export function importIngredients(dataObj, overrideExisting = false, mergeMessageMtml = null) {
+export function importIngredients(dataObj, overrideExisting = false, mergeMessageMtml = null, columnLabels = { current: "Current", imported: "Imported" }) {
     var mergeList = {};
     for (const [key, data] of Object.entries(dataObj)) {
         dataObj[key] = Object.assign(new cIngredient(), dataObj[key]);
@@ -539,7 +540,7 @@ export function importIngredients(dataObj, overrideExisting = false, mergeMessag
         var table = document.createElement("table");
         var th = document.createElement("thead");
         var tr = document.createElement('tr');
-        for (const name of ["Ingredient", "Current", "Imported"]) {
+        for (const name of ["Ingredient", columnLabels.current, columnLabels.imported]) {
             var cell = document.createElement('th');
             cell.innerText = name;
             tr.appendChild(cell);
