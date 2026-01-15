@@ -2,12 +2,14 @@
 // Uses gapi client library for Drive API access
 // Implements StorageInterface pattern from storage.js
 //
+// Storage location: IceCream App Data/ folder in user's Drive
+//
 // File naming convention:
-//   Recipes: ice-ed-recipe-{name}.json (one file per recipe)
-//   Ingredients: ice-ed-ingredients.json (single file)
+//   Recipes: recipe-{name}.json (one file per recipe)
+//   Ingredients: ingredients.json (single file)
 //
 // File metadata (appProperties):
-//   app: 'ice-ed' - identifies files as belonging to this app
+//   app: 'icecream' - identifies files as belonging to this app
 //   type: 'recipe' | 'ingredients' - file type for filtering
 //
 // File content structure (same as IndexedDB for consistency):
@@ -20,15 +22,20 @@
 import { createStorage } from './storage.js';
 import { isSignedIn } from './google-auth.js';
 
-// File naming conventions for Ice Ed files in Drive
-const RECIPE_PREFIX = 'ice-ed-recipe-';
-const INGREDIENTS_FILE = 'ice-ed-ingredients.json';
+// Folder and file naming conventions
+const APP_FOLDER_NAME = 'IceCream App Data';
+const RECIPE_PREFIX = 'recipe-';
+const INGREDIENTS_FILE = 'ingredients.json';
 const MIME_TYPE = 'application/json';
+const FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder';
 
-// App properties for identifying Ice Ed files (used in queries)
+// App properties for identifying app files (used in queries)
 const APP_PROPERTIES = {
-  app: 'ice-ed'
+  app: 'icecream'
 };
+
+// Cached folder ID (avoids repeated lookups)
+let appFolderId = null;
 
 /**
  * Google Drive storage implementation for recipes and ingredients
@@ -64,7 +71,7 @@ export const GoogleDriveStorage = {
         // Update existing file
         await updateFile(existingFile.id, fileContent);
       } else {
-        // Create new file
+        // Create new file in app folder
         await uploadFile(fileName, fileContent, 'recipe');
       }
 
@@ -113,8 +120,14 @@ export const GoogleDriveStorage = {
         return [];
       }
 
-      // Query for all Ice Ed recipe files using appProperties for precise identification
-      const query = `name contains '${RECIPE_PREFIX}' and mimeType='${MIME_TYPE}' and trashed=false and appProperties has { key='app' and value='ice-ed' }`;
+      // Ensure we have the folder ID
+      const folderId = await getOrCreateAppFolder();
+      if (!folderId) {
+        return [];
+      }
+
+      // Query for all recipe files in the app folder
+      const query = `'${folderId}' in parents and name contains '${RECIPE_PREFIX}' and mimeType='${MIME_TYPE}' and trashed=false and appProperties has { key='app' and value='icecream' }`;
 
       const response = await gapi.client.drive.files.list({
         q: query,
@@ -126,7 +139,7 @@ export const GoogleDriveStorage = {
 
       // Parse file metadata to extract recipe info
       return files.map(file => {
-        // Extract recipe name from filename: ice-ed-recipe-{name}.json -> {name}
+        // Extract recipe name from filename: recipe-{name}.json -> {name}
         const recipeName = file.name
           .replace(RECIPE_PREFIX, '')
           .replace('.json', '');
@@ -222,7 +235,7 @@ export const GoogleDriveStorage = {
         // Update existing file
         await updateFile(existingFile.id, fileContent);
       } else {
-        // Create new file
+        // Create new file in app folder
         await uploadFile(INGREDIENTS_FILE, fileContent, 'ingredients');
       }
 
@@ -281,14 +294,69 @@ export const GoogleDriveStorage = {
 // --- Helper Functions ---
 
 /**
- * Find a file in Drive by exact name
+ * Get or create the app folder in Drive
+ * @returns {Promise<string|null>} Folder ID or null on error
+ */
+async function getOrCreateAppFolder() {
+  // Return cached ID if available
+  if (appFolderId) {
+    return appFolderId;
+  }
+
+  try {
+    // Search for existing folder
+    const query = `name='${APP_FOLDER_NAME}' and mimeType='${FOLDER_MIME_TYPE}' and trashed=false`;
+
+    const response = await gapi.client.drive.files.list({
+      q: query,
+      fields: 'files(id, name)',
+      pageSize: 1
+    });
+
+    const files = response.result.files || [];
+
+    if (files.length > 0) {
+      // Folder exists - cache and return ID
+      appFolderId = files[0].id;
+      console.log('Found app folder:', appFolderId);
+      return appFolderId;
+    }
+
+    // Create folder
+    const folderMetadata = {
+      name: APP_FOLDER_NAME,
+      mimeType: FOLDER_MIME_TYPE
+    };
+
+    const createResponse = await gapi.client.drive.files.create({
+      resource: folderMetadata,
+      fields: 'id'
+    });
+
+    appFolderId = createResponse.result.id;
+    console.log('Created app folder:', appFolderId);
+    return appFolderId;
+  } catch (error) {
+    console.error('Failed to get/create app folder:', error);
+    return null;
+  }
+}
+
+/**
+ * Find a file in Drive by exact name (within app folder)
  * @param {string} name - Exact filename to search for
  * @returns {Promise<Object|null>} File metadata or null if not found
  */
 async function findFileByName(name) {
   try {
-    // Use appProperties to ensure we only find Ice Ed files
-    const query = `name='${name}' and mimeType='${MIME_TYPE}' and trashed=false and appProperties has { key='app' and value='ice-ed' }`;
+    // Ensure we have the folder ID
+    const folderId = await getOrCreateAppFolder();
+    if (!folderId) {
+      return null;
+    }
+
+    // Search within the app folder using appProperties
+    const query = `'${folderId}' in parents and name='${name}' and mimeType='${MIME_TYPE}' and trashed=false and appProperties has { key='app' and value='icecream' }`;
 
     const response = await gapi.client.drive.files.list({
       q: query,
@@ -305,16 +373,20 @@ async function findFileByName(name) {
 }
 
 /**
- * Upload a new file to Drive
+ * Upload a new file to Drive (in app folder)
  * @param {string} name - Filename
  * @param {Object} content - File content (will be JSON stringified)
  * @param {string} type - File type for appProperties ('recipe' or 'ingredients')
  * @returns {Promise<Object>} Created file metadata
  */
 async function uploadFile(name, content, type) {
+  // Ensure we have the folder ID
+  const folderId = await getOrCreateAppFolder();
+
   const fileMetadata = {
     name: name,
     mimeType: MIME_TYPE,
+    parents: folderId ? [folderId] : [],
     appProperties: {
       ...APP_PROPERTIES,
       type: type
@@ -396,6 +468,13 @@ async function downloadFile(fileId) {
     console.error('Failed to download file:', error);
     return null;
   }
+}
+
+/**
+ * Clear cached folder ID (call on sign-out if needed)
+ */
+export function clearFolderCache() {
+  appFolderId = null;
 }
 
 /**

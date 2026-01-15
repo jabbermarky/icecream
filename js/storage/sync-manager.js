@@ -2,7 +2,7 @@
 // Handles bidirectional sync between IndexedDB and Google Drive storage
 
 import { isSignedIn, onAuthStateChange } from './google-auth.js';
-import { initGoogleDriveStorage } from './google-drive-storage.js';
+import { initGoogleDriveStorage, clearFolderCache } from './google-drive-storage.js';
 
 // Module state
 let localStorage = null;      // IndexedDB storage instance
@@ -51,8 +51,9 @@ async function handleAuthStateChange(signedIn) {
       notifyStatus('error');
     }
   } else {
-    // Clear cloud storage reference
+    // Clear cloud storage reference and folder cache
     cloudStorage = null;
+    clearFolderCache();
     console.log('Cloud storage disconnected');
     notifyStatus('offline');
   }
