@@ -1,6 +1,21 @@
 // Google Drive Storage Implementation
 // Uses gapi client library for Drive API access
 // Implements StorageInterface pattern from storage.js
+//
+// File naming convention:
+//   Recipes: ice-ed-recipe-{name}.json (one file per recipe)
+//   Ingredients: ice-ed-ingredients.json (single file)
+//
+// File metadata (appProperties):
+//   app: 'ice-ed' - identifies files as belonging to this app
+//   type: 'recipe' | 'ingredients' - file type for filtering
+//
+// File content structure (same as IndexedDB for consistency):
+//   {
+//     "name": "Recipe Name",
+//     "updatedAt": "2026-01-15T...",
+//     "data": { "Recipe": {...}, "Ingredients": {...} }
+//   }
 
 import { createStorage } from './storage.js';
 import { isSignedIn } from './google-auth.js';
@@ -10,7 +25,7 @@ const RECIPE_PREFIX = 'ice-ed-recipe-';
 const INGREDIENTS_FILE = 'ice-ed-ingredients.json';
 const MIME_TYPE = 'application/json';
 
-// App properties for identifying Ice Ed files
+// App properties for identifying Ice Ed files (used in queries)
 const APP_PROPERTIES = {
   app: 'ice-ed'
 };
@@ -98,8 +113,8 @@ export const GoogleDriveStorage = {
         return [];
       }
 
-      // Query for all Ice Ed recipe files
-      const query = `name contains '${RECIPE_PREFIX}' and mimeType='${MIME_TYPE}' and trashed=false`;
+      // Query for all Ice Ed recipe files using appProperties for precise identification
+      const query = `name contains '${RECIPE_PREFIX}' and mimeType='${MIME_TYPE}' and trashed=false and appProperties has { key='app' and value='ice-ed' }`;
 
       const response = await gapi.client.drive.files.list({
         q: query,
@@ -272,11 +287,12 @@ export const GoogleDriveStorage = {
  */
 async function findFileByName(name) {
   try {
-    const query = `name='${name}' and mimeType='${MIME_TYPE}' and trashed=false`;
+    // Use appProperties to ensure we only find Ice Ed files
+    const query = `name='${name}' and mimeType='${MIME_TYPE}' and trashed=false and appProperties has { key='app' and value='ice-ed' }`;
 
     const response = await gapi.client.drive.files.list({
       q: query,
-      fields: 'files(id, name, modifiedTime)',
+      fields: 'files(id, name, modifiedTime, appProperties)',
       pageSize: 1
     });
 
