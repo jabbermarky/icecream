@@ -2,6 +2,7 @@
 created: 2026-01-15T10:11
 title: Create Welcome page as workflow hub
 area: ui
+depends: [2026-01-15-modernize-ui-ux-design]
 files:
   - index.html
   - js/app.js

@@ -2,6 +2,7 @@
 created: 2026-01-15T10:14
 title: Elevate Library from modal to dedicated page
 area: ui
+depends: [2026-01-15-modernize-ui-ux-design]
 files:
   - js/ui/recipe-library.js
   - index.html
