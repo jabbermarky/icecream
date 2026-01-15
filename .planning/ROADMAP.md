@@ -50,11 +50,10 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) for full details.
 
 **Goal**: Add ingredients store to IndexedDB, load library ingredients on startup (fall back to default JSON)
 **Depends on**: Phase 15 (v1.2 complete)
-**Research**: Likely (need to understand existing ingredient loading and merge behavior first)
-**Status**: Not started
+**Status**: Complete
 
 Plans:
-- [ ] 16-01: TBD (run /gsd:discuss-phase 16 first)
+- [x] 16-01: Ingredient storage infrastructure (2026-01-15)
 
 #### Phase 17: ingredient-sync
 
@@ -86,7 +85,7 @@ Plans:
 | 13. recipe-library-ui | v1.2 | 2/2 | Complete | 2026-01-14 |
 | 14. save-workflow | v1.2 | 1/1 | Complete | 2026-01-14 |
 | 15. polish | v1.2 | 1/1 | Complete | 2026-01-14 |
-| 16. ingredient-storage | v1.3 | 0/? | Not started | - |
+| 16. ingredient-storage | v1.3 | 1/1 | Complete | 2026-01-15 |
 | 17. ingredient-sync | v1.3 | 0/? | Not started | - |
 | 18. recipe-ingredient-merge | v1.3 | 0/? | Not started | - |
 
