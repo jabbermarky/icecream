@@ -8,7 +8,7 @@
 - ✅ **v1.1 Recipe Organization** - [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) (Phases 10-11, shipped 2026-01-13)
 - ✅ **v1.2 Recipe Library** - [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) (Phases 12-15, shipped 2026-01-14)
 - ✅ **v1.3 Ingredient Persistence** - [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) (Phases 16-18, shipped 2026-01-15)
-- 🚧 **v1.4 Multi-Device Access** - Phases 19-20 (in progress)
+- ✅ **v1.4 Multi-Device Access** - Phases 19-20 (shipped 2026-01-15)
 
 ## Phases
 
@@ -51,7 +51,7 @@ See [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) for full details.
 
 </details>
 
-### 🚧 v1.4 Multi-Device Access (In Progress)
+### ✅ v1.4 Multi-Device Access (Shipped 2026-01-15)
 
 **Milestone Goal:** Deploy to GitHub Pages with Google Drive sync so the app and data are accessible from any device/browser
 
@@ -75,7 +75,7 @@ Plans: 1/1 complete (19-01-PLAN.md)
 
 **Goal**: Implement Google Drive storage backend for recipes and ingredients with sync
 **Depends on**: Phase 19 (need deployed app URL for OAuth redirect)
-**Status**: In progress (3/4 plans complete)
+**Status**: Complete ✅
 
 **Research findings (2026-01-15):**
 
@@ -98,7 +98,7 @@ Ice Ed (GitHub Pages) → Google OAuth popup → Access token
                       → gapi.client.drive.files.* → User's Google Drive
 ```
 
-Plans: 3/4 complete (20-01, 20-02, 20-03)
+Plans: 4/4 complete (20-01, 20-02, 20-03, 20-04)
 
 ## Progress
 
@@ -114,7 +114,7 @@ Plans: 3/4 complete (20-01, 20-02, 20-03)
 | 17. ingredient-sync | v1.3 | 1/1 | Complete | 2026-01-15 |
 | 18. recipe-ingredient-merge | v1.3 | 1/1 | Complete | 2026-01-15 |
 | 19. github-pages-deployment | v1.4 | 1/1 | Complete | 2026-01-15 |
-| 20. cloud-sync-google-drive | v1.4 | 3/4 | In progress | - |
+| 20. cloud-sync-google-drive | v1.4 | 4/4 | Complete | 2026-01-15 |
 
 ## References
 

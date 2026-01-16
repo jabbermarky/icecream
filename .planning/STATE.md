@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 ## Current Position
 
 Phase: 20 of 20 (cloud-sync-google-drive)
-Plan: 3 of 4 complete
-Status: In progress
-Last activity: 2026-01-15 — Completed 20-03-PLAN.md
+Plan: 4 of 4 complete
+Status: Phase complete - Milestone complete
+Last activity: 2026-01-15 — Completed 20-04-PLAN.md
 
-Progress: ██████░░░░ 60%
+Progress: ██████████ 100%
 
 ## Accumulated Decisions
 
@@ -51,6 +51,8 @@ Progress: ██████░░░░ 60%
 | 19 | Relative paths in webmanifest | Icons in same directory, use filenames for subdirectory compatibility |
 | 20-03 | Right-click for sign-out | Keep UI clean - primary button action is sync/sign-in |
 | 20-03 | Status indicator with 4 states | syncing/synced/error/offline for clear visual feedback |
+| 20-04 | Store files in IceCream App Data subfolder | Keep user's Drive root clean |
+| 20-04 | Timestamp-based conflict resolution | Newer wins; simple, predictable behavior |
 
 ## Deferred Issues
 
@@ -73,18 +75,18 @@ None.
 
 ## Brief Alignment Status
 
-v1.4 Multi-Device Access milestone IN PROGRESS (50%).
+v1.4 Multi-Device Access milestone COMPLETE (100%).
 
 **Goal:** Deploy to GitHub Pages with Google Drive sync so app and data are accessible from any device/browser.
 
 **Phases:**
 - Phase 19: GitHub Pages deployment ✅ COMPLETE
-- Phase 20: Google Drive cloud sync (next)
+- Phase 20: Google Drive cloud sync ✅ COMPLETE
 
-**Deployed URL:** https://jabbermarky.github.io/icecream/
+**Deployed URL:** https://www.marklummus.com/icecream/
 
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Completed 20-03-PLAN.md (Cloud sync UI)
+Stopped at: Completed 20-04-PLAN.md (v1.4 milestone complete)
 Resume file: None
