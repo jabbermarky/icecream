@@ -8,7 +8,7 @@
 - ✅ **v1.1 Recipe Organization** - [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) (Phases 10-11, shipped 2026-01-13)
 - ✅ **v1.2 Recipe Library** - [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) (Phases 12-15, shipped 2026-01-14)
 - ✅ **v1.3 Ingredient Persistence** - [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) (Phases 16-18, shipped 2026-01-15)
-- ✅ **v1.4 Multi-Device Access** - Phases 19-20 (shipped 2026-01-15)
+- ✅ **v1.4 Multi-Device Access** - [milestones/v1.4-ARCHIVE.md](milestones/v1.4-ARCHIVE.md) (Phases 19-20, shipped 2026-01-15)
 
 ## Phases
 
@@ -51,54 +51,19 @@ See [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) for full details.
 
 </details>
 
-### ✅ v1.4 Multi-Device Access (Shipped 2026-01-15)
+<details>
+<summary>✅ v1.4 Multi-Device Access (Phases 19-20) — SHIPPED 2026-01-15</summary>
 
 **Milestone Goal:** Deploy to GitHub Pages with Google Drive sync so the app and data are accessible from any device/browser
 
-**Why this milestone:** Enable regular app usage. Without deployment + cloud sync, data is trapped in one browser on one device.
+- [x] Phase 19: github-pages-deployment (1/1 plans) — 2026-01-15
+- [x] Phase 20: cloud-sync-google-drive (4/4 plans) — 2026-01-15
 
-**Key context:**
-- App currently only works locally via Live Server
-- IndexedDB data is trapped in one browser on one device
-- Storage interface pattern from v1.2 enables pluggable backends
+**Deployed URL:** https://www.marklummus.com/icecream/
 
-#### Phase 19: github-pages-deployment
+See [milestones/v1.4-ARCHIVE.md](milestones/v1.4-ARCHIVE.md) for full details.
 
-**Goal**: Deploy app to GitHub Pages, ensure all paths and modules work in production
-**Depends on**: None
-**Status**: Complete ✅
-
-Plans: 1/1 complete (19-01-PLAN.md)
-**Deployed URL:** https://jabbermarky.github.io/icecream/
-
-#### Phase 20: cloud-sync-google-drive
-
-**Goal**: Implement Google Drive storage backend for recipes and ingredients with sync
-**Depends on**: Phase 19 (need deployed app URL for OAuth redirect)
-**Status**: Complete ✅
-
-**Research findings (2026-01-15):**
-
-| Aspect | Status | Notes |
-|--------|--------|-------|
-| OAuth from browser | ✅ Works | Google Identity Services supports SPAs |
-| List/create/update files | ✅ Works | Standard Drive API operations |
-| Download file content | ⚠️ CORS issues | Use gapi library (handles internally) or proxy |
-| App verification | ✅ Not needed | With `drive.file` scope (only app's files) |
-
-**Recommended approach:**
-- Use Google Identity Services + gapi client library
-- Use `drive.file` scope (no Google verification required)
-- Store recipes/ingredients as JSON files in user's Drive
-- If download CORS issues occur, add Cloudflare Worker proxy
-
-**Architecture:**
-```
-Ice Ed (GitHub Pages) → Google OAuth popup → Access token
-                      → gapi.client.drive.files.* → User's Google Drive
-```
-
-Plans: 4/4 complete (20-01, 20-02, 20-03, 20-04)
+</details>
 
 ## Progress
 

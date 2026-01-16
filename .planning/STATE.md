@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-15)
 
 **Core value:** Ice cream recipe formulation with full user control
-**Current focus:** v1.4 Multi-Device Access - Deploy to GitHub Pages with Google Drive sync
+**Current focus:** v1.4 Multi-Device Access milestone COMPLETE
 
 ## Current Position
 
 Phase: 20 of 20 (cloud-sync-google-drive)
 Plan: 4 of 4 complete
-Status: Phase complete - Milestone complete
-Last activity: 2026-01-15 — Completed 20-04-PLAN.md
+Status: Milestone archived
+Last activity: 2026-01-15 — Archived v1.4 milestone
 
-Progress: ██████████ 100%
+Progress: ██████████ 100% (v1.4 Complete)
 
 ## Accumulated Decisions
 
@@ -75,18 +75,15 @@ None.
 
 ## Brief Alignment Status
 
-v1.4 Multi-Device Access milestone COMPLETE (100%).
-
-**Goal:** Deploy to GitHub Pages with Google Drive sync so app and data are accessible from any device/browser.
-
-**Phases:**
-- Phase 19: GitHub Pages deployment ✅ COMPLETE
-- Phase 20: Google Drive cloud sync ✅ COMPLETE
+v1.4 Multi-Device Access milestone ARCHIVED.
 
 **Deployed URL:** https://www.marklummus.com/icecream/
+**Archive:** .planning/milestones/v1.4-ARCHIVE.md
+
+All 5 milestones complete (v1.0 through v1.4). Ready for next milestone when needed.
 
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Completed 20-04-PLAN.md (v1.4 milestone complete)
+Stopped at: Archived v1.4 milestone
 Resume file: None
