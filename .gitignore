@@ -11,3 +11,4 @@ package-lock.json
 # IDE
 .vscode/
 .idea/
+.playwright-cli/
