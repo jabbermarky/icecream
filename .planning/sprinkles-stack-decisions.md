@@ -37,6 +37,8 @@ The ~25 existing `.jsx` design mockups (`icecream-*.jsx`) are **design reference
 
 *Added (second review):* the port needs a validation harness, not just intent. `balance_engine.py` is the validated oracle (cross-checked against the old app's production output); generate **golden-master test vectors from the Python prototype now** — representative recipes in, full calculated results out — and check them into `recipe-domain`'s test suite before transcribing. The TS port is correct when it reproduces the vectors, not when it looks right.
 
+*Status (2026-08-07):* the **legacy-JS secondary vector set is generated** — see `.planning/golden-masters/` (README covers scope, the legacy-convention caveat, and three legacy quirks captured along the way: fitnessFields order-dependence, Sums NaN on undefined per-ingredient fields, Fitness mutating its target argument). The **primary `balance_engine.py` set is still pending** — the prototype lives outside this repo and wasn't reachable from the session that generated the legacy set.
+
 **D3 — Frontend: React + Vite.** Client-side SPA, no Next.js/Remix/meta-framework, no SSR. Reasoning, in order of weight:
 - Dropping the meta-framework layer removes most of what the original "why reconsider React" critique was actually about (hydration, server/client component split, SSR caching) — none of that applies without SSR.
 - The app's real complexity (multiple writers into one recipe state, multiple dependent views) is a well-trodden React state-management problem with mature solutions (see D4).

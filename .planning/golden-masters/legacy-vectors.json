@@ -1,0 +1,1745 @@
+{
+  "meta": {
+    "oracle": "legacy-js",
+    "description": "Golden-master vectors generated from the legacy Ice Ed production JS (calculations.js, core.js). See README.md for scope and caveats.",
+    "generatedAt": "2026-08-07T21:52:00.101Z",
+    "repoCommit": "0b4a7f98888895abc329a76630b18583074f7076",
+    "nodeVersion": "v22.22.2",
+    "sourceFiles": [
+      "js/features/calculations.js",
+      "js/models/core.js",
+      "js/features/ingredients.js (data fields + ingredient rows)"
+    ],
+    "fitnessFieldSets": {
+      "firstRun": [
+        "Fat",
+        "MSNF",
+        "Solids",
+        "POD",
+        "Stabilizer"
+      ],
+      "steadyState": [
+        "Fat",
+        "MSNF",
+        "Solids",
+        "PAC",
+        "POD",
+        "Stabilizer"
+      ]
+    },
+    "quirks": [
+      "fitnessFields order-dependence: OptimizeRecipe derives fitnessFields before Fitness() first mutates the shared Targets singleton with a PAC key, so the first optimize of a session scores WITHOUT PAC and later ones include it. Vectors record both field sets; the TS port should include PAC deliberately.",
+      "Sums NaN: the legacy Sums getter multiplies per-ingredient nonLactoseSugar/milkFat fields that no shipped ingredient row defines, yielding NaN in production (never displayed). Stripped from these vectors; do not reproduce.",
+      "Fitness mutates its tgtType argument (sets .PAC to ideal±5%); vectors were generated with a fresh target clone per call."
+    ],
+    "counts": {
+      "se_fpd_curve": 37,
+      "calc_fdp_grid": 48,
+      "recipes": 7
+    }
+  },
+  "se_fpd_curve": [
+    {
+      "se": 0,
+      "fpd": -0.1876732904734074,
+      "se_roundtrip": 0
+    },
+    {
+      "se": 0.05,
+      "fpd": 0.14105812082889177,
+      "se_roundtrip": 0.05000000000000001
+    },
+    {
+      "se": 0.1,
+      "fpd": 0.4735858787660191,
+      "se_roundtrip": 0.10000000000000002
+    },
+    {
+      "se": 0.15000000000000002,
+      "fpd": 0.8099099833379747,
+      "se_roundtrip": 0.15000000000000002
+    },
+    {
+      "se": 0.2,
+      "fpd": 1.1500304345447587,
+      "se_roundtrip": 0.20000000000000004
+    },
+    {
+      "se": 0.25,
+      "fpd": 1.4939472323863705,
+      "se_roundtrip": 0.25000000000000006
+    },
+    {
+      "se": 0.30000000000000004,
+      "fpd": 1.8416603768628108,
+      "se_roundtrip": 0.30000000000000004
+    },
+    {
+      "se": 0.35000000000000003,
+      "fpd": 2.1931698679740794,
+      "se_roundtrip": 0.35000000000000003
+    },
+    {
+      "se": 0.4,
+      "fpd": 2.5484757057201763,
+      "se_roundtrip": 0.4000000000000001
+    },
+    {
+      "se": 0.45,
+      "fpd": 2.9075778901011007,
+      "se_roundtrip": 0.45000000000000007
+    },
+    {
+      "se": 0.5,
+      "fpd": 3.2704764211168538,
+      "se_roundtrip": 0.5000000000000001
+    },
+    {
+      "se": 0.55,
+      "fpd": 3.637171298767435,
+      "se_roundtrip": 0.55
+    },
+    {
+      "se": 0.6000000000000001,
+      "fpd": 4.007662523052845,
+      "se_roundtrip": 0.6000000000000001
+    },
+    {
+      "se": 0.65,
+      "fpd": 4.381950093973082,
+      "se_roundtrip": 0.6500000000000001
+    },
+    {
+      "se": 0.7000000000000001,
+      "fpd": 4.760034011528148,
+      "se_roundtrip": 0.7000000000000001
+    },
+    {
+      "se": 0.75,
+      "fpd": 5.141914275718042,
+      "se_roundtrip": 0.7500000000000001
+    },
+    {
+      "se": 0.8,
+      "fpd": 5.527590886542765,
+      "se_roundtrip": 0.8000000000000002
+    },
+    {
+      "se": 0.8500000000000001,
+      "fpd": 5.917063844002316,
+      "se_roundtrip": 0.8500000000000001
+    },
+    {
+      "se": 0.9,
+      "fpd": 6.310333148096695,
+      "se_roundtrip": 0.9000000000000001
+    },
+    {
+      "se": 0.9500000000000001,
+      "fpd": 6.707398798825902,
+      "se_roundtrip": 0.9500000000000002
+    },
+    {
+      "se": 1,
+      "fpd": 7.108260796189937,
+      "se_roundtrip": 1.0000000000000002
+    },
+    {
+      "se": 1.05,
+      "fpd": 7.512919140188801,
+      "se_roundtrip": 1.05
+    },
+    {
+      "se": 1.1,
+      "fpd": 7.921373830822493,
+      "se_roundtrip": 1.1
+    },
+    {
+      "se": 1.1500000000000001,
+      "fpd": 8.333624868091013,
+      "se_roundtrip": 1.1500000000000001
+    },
+    {
+      "se": 1.2000000000000002,
+      "fpd": 8.749672251994362,
+      "se_roundtrip": 1.2000000000000002
+    },
+    {
+      "se": 1.25,
+      "fpd": 9.169515982532536,
+      "se_roundtrip": 1.2500000000000002
+    },
+    {
+      "se": 1.3,
+      "fpd": 9.59315605970554,
+      "se_roundtrip": 1.3000000000000003
+    },
+    {
+      "se": 1.35,
+      "fpd": 10.020592483513376,
+      "se_roundtrip": 1.35
+    },
+    {
+      "se": 1.4000000000000001,
+      "fpd": 10.451825253956036,
+      "se_roundtrip": 1.4000000000000001
+    },
+    {
+      "se": 1.4500000000000002,
+      "fpd": 10.886854371033525,
+      "se_roundtrip": 1.4500000000000002
+    },
+    {
+      "se": 1.5,
+      "fpd": 11.325679834745841,
+      "se_roundtrip": 1.5000000000000002
+    },
+    {
+      "se": 1.55,
+      "fpd": 11.768301645092988,
+      "se_roundtrip": 1.5500000000000003
+    },
+    {
+      "se": 1.6,
+      "fpd": 12.214719802074962,
+      "se_roundtrip": 1.6000000000000003
+    },
+    {
+      "se": 1.6500000000000001,
+      "fpd": 12.664934305691764,
+      "se_roundtrip": 1.6500000000000001
+    },
+    {
+      "se": 1.7000000000000002,
+      "fpd": 13.118945155943395,
+      "se_roundtrip": 1.7000000000000002
+    },
+    {
+      "se": 1.75,
+      "fpd": 13.576752352829851,
+      "se_roundtrip": 1.7500000000000002
+    },
+    {
+      "se": 1.8,
+      "fpd": 14.03835589635114,
+      "se_roundtrip": 1.8000000000000003
+    }
+  ],
+  "calc_fdp_grid": [
+    {
+      "water": 100,
+      "pac": 0,
+      "msnf": 0,
+      "fdp": 0.1876732904734074
+    },
+    {
+      "water": 100,
+      "pac": 0,
+      "msnf": 50,
+      "fdp": -0.9973267095265926
+    },
+    {
+      "water": 100,
+      "pac": 0,
+      "msnf": 120,
+      "fdp": -2.656326709526593
+    },
+    {
+      "water": 100,
+      "pac": 25,
+      "msnf": 0,
+      "fdp": -1.4939472323863705
+    },
+    {
+      "water": 100,
+      "pac": 25,
+      "msnf": 50,
+      "fdp": -2.6789472323863706
+    },
+    {
+      "water": 100,
+      "pac": 25,
+      "msnf": 120,
+      "fdp": -4.337947232386371
+    },
+    {
+      "water": 100,
+      "pac": 120,
+      "msnf": 0,
+      "fdp": -8.749672251994358
+    },
+    {
+      "water": 100,
+      "pac": 120,
+      "msnf": 50,
+      "fdp": -9.934672251994359
+    },
+    {
+      "water": 100,
+      "pac": 120,
+      "msnf": 120,
+      "fdp": -11.59367225199436
+    },
+    {
+      "water": 100,
+      "pac": 250,
+      "msnf": 0,
+      "fdp": -20.899421902306113
+    },
+    {
+      "water": 100,
+      "pac": 250,
+      "msnf": 50,
+      "fdp": -22.08442190230611
+    },
+    {
+      "water": 100,
+      "pac": 250,
+      "msnf": 120,
+      "fdp": -23.743421902306114
+    },
+    {
+      "water": 500,
+      "pac": 0,
+      "msnf": 0,
+      "fdp": 0.1876732904734074
+    },
+    {
+      "water": 500,
+      "pac": 0,
+      "msnf": 50,
+      "fdp": -0.0493267095265926
+    },
+    {
+      "water": 500,
+      "pac": 0,
+      "msnf": 120,
+      "fdp": -0.38112670952659267
+    },
+    {
+      "water": 500,
+      "pac": 25,
+      "msnf": 0,
+      "fdp": -0.14105812082889177
+    },
+    {
+      "water": 500,
+      "pac": 25,
+      "msnf": 50,
+      "fdp": -0.3780581208288918
+    },
+    {
+      "water": 500,
+      "pac": 25,
+      "msnf": 120,
+      "fdp": -0.7098581208288919
+    },
+    {
+      "water": 500,
+      "pac": 120,
+      "msnf": 0,
+      "fdp": -1.4248601650872619
+    },
+    {
+      "water": 500,
+      "pac": 120,
+      "msnf": 50,
+      "fdp": -1.661860165087262
+    },
+    {
+      "water": 500,
+      "pac": 120,
+      "msnf": 120,
+      "fdp": -1.9936601650872618
+    },
+    {
+      "water": 500,
+      "pac": 250,
+      "msnf": 0,
+      "fdp": -3.2704764211168538
+    },
+    {
+      "water": 500,
+      "pac": 250,
+      "msnf": 50,
+      "fdp": -3.507476421116854
+    },
+    {
+      "water": 500,
+      "pac": 250,
+      "msnf": 120,
+      "fdp": -3.8392764211168537
+    },
+    {
+      "water": 650,
+      "pac": 0,
+      "msnf": 0,
+      "fdp": 0.1876732904734074
+    },
+    {
+      "water": 650,
+      "pac": 0,
+      "msnf": 50,
+      "fdp": 0.00536559816571508
+    },
+    {
+      "water": 650,
+      "pac": 0,
+      "msnf": 120,
+      "fdp": -0.2498651710650542
+    },
+    {
+      "water": 650,
+      "pac": 25,
+      "msnf": 0,
+      "fdp": -0.06486007206964858
+    },
+    {
+      "water": 650,
+      "pac": 25,
+      "msnf": 50,
+      "fdp": -0.2471677643773409
+    },
+    {
+      "water": 650,
+      "pac": 25,
+      "msnf": 120,
+      "fdp": -0.5023985336081102
+    },
+    {
+      "water": 650,
+      "pac": 120,
+      "msnf": 0,
+      "fdp": -1.0449736434076007
+    },
+    {
+      "water": 650,
+      "pac": 120,
+      "msnf": 50,
+      "fdp": -1.227281335715293
+    },
+    {
+      "water": 650,
+      "pac": 120,
+      "msnf": 120,
+      "fdp": -1.4825121049460623
+    },
+    {
+      "water": 650,
+      "pac": 250,
+      "msnf": 0,
+      "fdp": -2.438746487955537
+    },
+    {
+      "water": 650,
+      "pac": 250,
+      "msnf": 50,
+      "fdp": -2.6210541802632292
+    },
+    {
+      "water": 650,
+      "pac": 250,
+      "msnf": 120,
+      "fdp": -2.8762849494939986
+    },
+    {
+      "water": 1000,
+      "pac": 0,
+      "msnf": 0,
+      "fdp": 0.1876732904734074
+    },
+    {
+      "water": 1000,
+      "pac": 0,
+      "msnf": 50,
+      "fdp": 0.0691732904734074
+    },
+    {
+      "water": 1000,
+      "pac": 0,
+      "msnf": 120,
+      "fdp": -0.09672670952659265
+    },
+    {
+      "water": 1000,
+      "pac": 25,
+      "msnf": 0,
+      "fdp": 0.02378212815161132
+    },
+    {
+      "water": 1000,
+      "pac": 25,
+      "msnf": 50,
+      "fdp": -0.09471787184838867
+    },
+    {
+      "water": 1000,
+      "pac": 25,
+      "msnf": 120,
+      "fdp": -0.2606178718483887
+    },
+    {
+      "water": 1000,
+      "pac": 120,
+      "msnf": 0,
+      "fdp": -0.6076599589986219
+    },
+    {
+      "water": 1000,
+      "pac": 120,
+      "msnf": 50,
+      "fdp": -0.7261599589986218
+    },
+    {
+      "water": 1000,
+      "pac": 120,
+      "msnf": 120,
+      "fdp": -0.892059958998622
+    },
+    {
+      "water": 1000,
+      "pac": 250,
+      "msnf": 0,
+      "fdp": -1.4939472323863705
+    },
+    {
+      "water": 1000,
+      "pac": 250,
+      "msnf": 50,
+      "fdp": -1.6124472323863706
+    },
+    {
+      "water": 1000,
+      "pac": 250,
+      "msnf": 120,
+      "fdp": -1.7783472323863705
+    }
+  ],
+  "targets": {
+    "Non-Fat": {
+      "Fat": {
+        "Min": 0,
+        "Max": 0.005,
+        "Mean": 0.0025,
+        "Range": 0.005
+      },
+      "MSNF": {
+        "Min": 0.12,
+        "Max": 0.14,
+        "Mean": 0.13,
+        "Range": 0.020000000000000018
+      },
+      "Solids": {
+        "Min": 0.28,
+        "Max": 0.32,
+        "Mean": 0.30000000000000004,
+        "Range": 0.03999999999999998
+      },
+      "POD": {
+        "Min": 0.18,
+        "Max": 0.22,
+        "Mean": 0.2,
+        "Range": 0.04000000000000001
+      },
+      "Stabilizer": {
+        "Min": 0.009,
+        "Max": 0.011,
+        "Mean": 0.009999999999999998,
+        "Range": 0.002
+      }
+    },
+    "Low Fat": {
+      "Fat": {
+        "Min": 0.02,
+        "Max": 0.05,
+        "Mean": 0.035,
+        "Range": 0.030000000000000002
+      },
+      "MSNF": {
+        "Min": 0.12,
+        "Max": 0.14,
+        "Mean": 0.13,
+        "Range": 0.020000000000000018
+      },
+      "Solids": {
+        "Min": 0.28,
+        "Max": 0.32,
+        "Mean": 0.30000000000000004,
+        "Range": 0.03999999999999998
+      },
+      "POD": {
+        "Min": 0.18,
+        "Max": 0.21,
+        "Mean": 0.195,
+        "Range": 0.03
+      },
+      "Stabilizer": {
+        "Min": 0.007,
+        "Max": 0.009,
+        "Mean": 0.008,
+        "Range": 0.001999999999999999
+      }
+    },
+    "Light": {
+      "Fat": {
+        "Min": 0.05,
+        "Max": 0.07,
+        "Mean": 0.060000000000000005,
+        "Range": 0.020000000000000004
+      },
+      "MSNF": {
+        "Min": 0.11,
+        "Max": 0.12,
+        "Mean": 0.11499999999999999,
+        "Range": 0.009999999999999995
+      },
+      "Solids": {
+        "Min": 0.3,
+        "Max": 0.35,
+        "Mean": 0.32499999999999996,
+        "Range": 0.04999999999999999
+      },
+      "POD": {
+        "Min": 0.18,
+        "Max": 0.2,
+        "Mean": 0.19,
+        "Range": 0.020000000000000018
+      },
+      "Stabilizer": {
+        "Min": 0.004,
+        "Max": 0.006,
+        "Mean": 0.005,
+        "Range": 0.002
+      }
+    },
+    "Reduced Fat": {
+      "Fat": {
+        "Min": 0,
+        "Max": 0.1,
+        "Mean": 0.05,
+        "Range": 0.1
+      },
+      "MSNF": {
+        "Min": 0.09,
+        "Max": 0.1,
+        "Mean": 0.095,
+        "Range": 0.010000000000000009
+      },
+      "Solids": {
+        "Min": 0.36,
+        "Max": 0.38,
+        "Mean": 0.37,
+        "Range": 0.020000000000000018
+      },
+      "POD": {
+        "Min": 0.14,
+        "Max": 0.17,
+        "Mean": 0.15500000000000003,
+        "Range": 0.03
+      },
+      "Stabilizer": {
+        "Min": 0.002,
+        "Max": 0.004,
+        "Mean": 0.003,
+        "Range": 0.002
+      }
+    },
+    "Standard": {
+      "Fat": {
+        "Min": 0.1,
+        "Max": 0.12,
+        "Mean": 0.11,
+        "Range": 0.01999999999999999
+      },
+      "MSNF": {
+        "Min": 0.09,
+        "Max": 0.1,
+        "Mean": 0.095,
+        "Range": 0.010000000000000009
+      },
+      "Solids": {
+        "Min": 0.36,
+        "Max": 0.38,
+        "Mean": 0.37,
+        "Range": 0.020000000000000018
+      },
+      "POD": {
+        "Min": 0.14,
+        "Max": 0.17,
+        "Mean": 0.15500000000000003,
+        "Range": 0.03
+      },
+      "Stabilizer": {
+        "Min": 0.002,
+        "Max": 0.004,
+        "Mean": 0.003,
+        "Range": 0.002
+      }
+    },
+    "Premium": {
+      "Fat": {
+        "Min": 0.12,
+        "Max": 0.14,
+        "Mean": 0.13,
+        "Range": 0.020000000000000018
+      },
+      "MSNF": {
+        "Min": 0.08,
+        "Max": 0.1,
+        "Mean": 0.09,
+        "Range": 0.020000000000000004
+      },
+      "Solids": {
+        "Min": 0.38,
+        "Max": 0.4,
+        "Mean": 0.39,
+        "Range": 0.020000000000000018
+      },
+      "POD": {
+        "Min": 0.13,
+        "Max": 0.16,
+        "Mean": 0.14500000000000002,
+        "Range": 0.03
+      },
+      "Stabilizer": {
+        "Min": 0.002,
+        "Max": 0.004,
+        "Mean": 0.003,
+        "Range": 0.002
+      }
+    },
+    "Super-Premium": {
+      "Fat": {
+        "Min": 0.14,
+        "Max": 0.18,
+        "Mean": 0.16,
+        "Range": 0.03999999999999998
+      },
+      "MSNF": {
+        "Min": 0.05,
+        "Max": 0.08,
+        "Mean": 0.065,
+        "Range": 0.03
+      },
+      "Solids": {
+        "Min": 0.4,
+        "Max": 0.42,
+        "Mean": 0.41000000000000003,
+        "Range": 0.019999999999999962
+      },
+      "POD": {
+        "Min": 0.14,
+        "Max": 0.17,
+        "Mean": 0.15500000000000003,
+        "Range": 0.03
+      },
+      "Stabilizer": {
+        "Min": 0,
+        "Max": 0.002,
+        "Mean": 0.001,
+        "Range": 0.002
+      }
+    },
+    "Gelato": {
+      "Fat": {
+        "Min": 0.04,
+        "Max": 0.08,
+        "Mean": 0.06,
+        "Range": 0.04
+      },
+      "MSNF": {
+        "Min": 0.09,
+        "Max": 0.12,
+        "Mean": 0.105,
+        "Range": 0.03
+      },
+      "Solids": {
+        "Min": 0.32,
+        "Max": 0.42,
+        "Mean": 0.37,
+        "Range": 0.09999999999999998
+      },
+      "POD": {
+        "Min": 0.13,
+        "Max": 0.17,
+        "Mean": 0.15000000000000002,
+        "Range": 0.04000000000000001
+      },
+      "Stabilizer": {
+        "Min": 0.004,
+        "Max": 0.005,
+        "Mean": 0.0045000000000000005,
+        "Range": 0.001
+      }
+    },
+    "Frozen Yogurt: Non-Fat": {
+      "Fat": {
+        "Min": 0,
+        "Max": 0.005,
+        "Mean": 0.0025,
+        "Range": 0.005
+      },
+      "MSNF": {
+        "Min": 0.09,
+        "Max": 0.14,
+        "Mean": 0.115,
+        "Range": 0.05000000000000002
+      },
+      "Solids": {
+        "Min": 0.28,
+        "Max": 0.32,
+        "Mean": 0.30000000000000004,
+        "Range": 0.03999999999999998
+      },
+      "POD": {
+        "Min": 0.15,
+        "Max": 0.17,
+        "Mean": 0.16,
+        "Range": 0.020000000000000018
+      },
+      "Stabilizer": {
+        "Min": 0.005,
+        "Max": 0.007,
+        "Mean": 0.006,
+        "Range": 0.002
+      }
+    },
+    "Frozen Yogurt: Regular": {
+      "Fat": {
+        "Min": 0.03,
+        "Max": 0.06,
+        "Mean": 0.045,
+        "Range": 0.03
+      },
+      "MSNF": {
+        "Min": 0.09,
+        "Max": 0.13,
+        "Mean": 0.11,
+        "Range": 0.04000000000000001
+      },
+      "Solids": {
+        "Min": 0.3,
+        "Max": 0.36,
+        "Mean": 0.32999999999999996,
+        "Range": 0.06
+      },
+      "POD": {
+        "Min": 0.15,
+        "Max": 0.17,
+        "Mean": 0.16,
+        "Range": 0.020000000000000018
+      },
+      "Stabilizer": {
+        "Min": 0.004,
+        "Max": 0.005,
+        "Mean": 0.0045000000000000005,
+        "Range": 0.001
+      }
+    },
+    "Sorbet": {
+      "Fat": {
+        "Min": 0,
+        "Max": 0.01,
+        "Mean": 0.005,
+        "Range": 0.01
+      },
+      "MSNF": {
+        "Min": 0,
+        "Max": 0,
+        "Mean": 0,
+        "Range": 0
+      },
+      "Solids": {
+        "Min": 0.28,
+        "Max": 0.34,
+        "Mean": 0.31000000000000005,
+        "Range": 0.06
+      },
+      "POD": {
+        "Min": 0.22,
+        "Max": 0.28,
+        "Mean": 0.25,
+        "Range": 0.060000000000000026
+      },
+      "Stabilizer": {
+        "Min": 0.004,
+        "Max": 0.005,
+        "Mean": 0.0045000000000000005,
+        "Range": 0.001
+      }
+    },
+    "Sherbet": {
+      "Fat": {
+        "Min": 0.01,
+        "Max": 0.02,
+        "Mean": 0.015,
+        "Range": 0.01
+      },
+      "MSNF": {
+        "Min": 0.01,
+        "Max": 0.03,
+        "Mean": 0.02,
+        "Range": 0.019999999999999997
+      },
+      "Solids": {
+        "Min": 0.28,
+        "Max": 0.34,
+        "Mean": 0.31000000000000005,
+        "Range": 0.06
+      },
+      "POD": {
+        "Min": 0.22,
+        "Max": 0.28,
+        "Mean": 0.25,
+        "Range": 0.060000000000000026
+      },
+      "Stabilizer": {
+        "Min": 0.004,
+        "Max": 0.005,
+        "Mean": 0.0045000000000000005,
+        "Range": 0.001
+      }
+    }
+  },
+  "recipes": [
+    {
+      "id": "test-recipe-ier",
+      "note": "The repo test fixture (test-recipe.ier) with its own embedded ingredient snapshot; includes a zero-amount ingredient and a PAC-less ingredient (goat cheese).",
+      "input": {
+        "recipe": {
+          "Name": "Test-Recipe",
+          "Type": "Gelato",
+          "ServingTemperature": -15,
+          "Hardness": 0.75,
+          "Overrun": 0.3,
+          "Ingredients": [
+            {
+              "Name": "Whole Milk 3.3%",
+              "Amount": 794
+            },
+            {
+              "Name": "Cream, heavy",
+              "Amount": 175
+            },
+            {
+              "Name": "Sucrose",
+              "Amount": 98
+            },
+            {
+              "Name": "Dextrose",
+              "Amount": 80
+            },
+            {
+              "Name": "Fructose",
+              "Amount": 0
+            },
+            {
+              "Name": "Dried Skimmed Milk Powder",
+              "Amount": 68
+            },
+            {
+              "Name": "Vanilla Extract",
+              "Amount": 5
+            },
+            {
+              "Name": "Asian Pear, freeze dried",
+              "Amount": 60
+            },
+            {
+              "Name": "Stabilizer Mix 4421",
+              "Amount": 8.8
+            },
+            {
+              "Name": "goat cheese",
+              "Amount": 100
+            },
+            {
+              "Name": "Asian Pear",
+              "Amount": 1173
+            }
+          ]
+        },
+        "ingredientRows": {
+          "Whole Milk 3.3%": {
+            "Water": 0.8809999999999999,
+            "Sugar": 0.0481,
+            "Fat": 0.032,
+            "Solids": 0.1190000000000001,
+            "MSNF": 0.087,
+            "PAC": 0.0481,
+            "kcal": 0.61,
+            "POD": 0.0077
+          },
+          "Cream, heavy": {
+            "Water": 0.5771000000000001,
+            "Fat": 0.3608,
+            "Sugar": 0.0292,
+            "kcal": 3.4,
+            "PAC": 0.02922561403508772,
+            "POD": 0.004672,
+            "Solids": 0.42289999999999994,
+            "MSNF": 0.06209999999999993
+          },
+          "Sucrose": {
+            "Sugar": 1,
+            "Solids": 1,
+            "PAC": 1,
+            "POD": 1,
+            "kcal": 3.85
+          },
+          "Dextrose": {
+            "Sugar": 0.875,
+            "Solids": 1,
+            "PAC": 1.66,
+            "POD": 0.61,
+            "kcal": 3.66
+          },
+          "Fructose": {
+            "Sugar": 1,
+            "Solids": 1,
+            "PAC": 1.9,
+            "POD": 1.7,
+            "kcal": 3.98
+          },
+          "Dried Skimmed Milk Powder": {
+            "Water": 0.02,
+            "Sugar": 0.515,
+            "Fat": 0.009,
+            "Solids": 0.96,
+            "MSNF": 0.954,
+            "PAC": 0.52,
+            "POD": 0.0835,
+            "kcal": 3.55
+          },
+          "Vanilla Extract": {
+            "Water": 0.5257999999999999,
+            "Fat": 0.0006,
+            "Sugar": 0.1265,
+            "kcal": 2.88,
+            "Solids": 0.1302000000000001,
+            "PAC": 0.127,
+            "POD": 0.127
+          },
+          "Asian Pear, freeze dried": {
+            "Sugar": 0.442,
+            "Fat": 0.004,
+            "Solids": 1,
+            "PAC": 0.8320000000000001,
+            "POD": 0.43700000000000006,
+            "kcal": 3.33
+          },
+          "Stabilizer Mix 4421": {
+            "Water": 0.0818,
+            "Fat": 0.0027,
+            "Solids": 0.9181999999999999,
+            "POD": 0.0091,
+            "Stabilizer": 0.5545,
+            "kcal": 5.127000000000001
+          },
+          "goat cheese": {
+            "Water": 0.45520000000000005,
+            "Fat": 0.2984,
+            "kcal": 3.64,
+            "Solids": 0.5448
+          },
+          "Asian Pear": {
+            "Water": 0.867,
+            "Sugar": 0.106,
+            "Fat": 0.001,
+            "Solids": 0.133,
+            "PAC": 0.1996,
+            "POD": 0.1048,
+            "kcal": 0.5
+          }
+        }
+      },
+      "expected": {
+        "sums": {
+          "Amount": 2561.8,
+          "Water": 1867.72634,
+          "Sugar": 397.81190000000004,
+          "Fat": 120.43975999999999,
+          "MSNF": 144.8175,
+          "Solids": 690.9936600000001,
+          "PAC": 594.1516824561403,
+          "POD": 309.27488,
+          "Stabilizer": 4.8796,
+          "kcal": 3200.6576
+        },
+        "fdp": -2.1523355910134123,
+        "idealPAC": {
+          "Gelato": 820.0714275032701
+        },
+        "fitness": {
+          "firstRun_mean": 1.720945374202147,
+          "firstRun_range": 3.9454880943086916,
+          "steadyState_mean": 1.9964332615620917,
+          "steadyState_range": 6.200366967908138
+        }
+      }
+    },
+    {
+      "id": "standard-vanilla",
+      "note": "Conventional Standard base from the shipped ingredient DB.",
+      "input": {
+        "recipe": {
+          "Name": "Standard Vanilla",
+          "Type": "Standard",
+          "ServingTemperature": -18,
+          "Hardness": 0.75,
+          "Overrun": 0.3,
+          "Ingredients": [
+            {
+              "Name": "Whole Milk 3.3%",
+              "Amount": 620
+            },
+            {
+              "Name": "Cream, heavy",
+              "Amount": 230
+            },
+            {
+              "Name": "Sucrose",
+              "Amount": 130
+            },
+            {
+              "Name": "Dextrose",
+              "Amount": 40
+            },
+            {
+              "Name": "Dried Skimmed Milk Powder",
+              "Amount": 45
+            },
+            {
+              "Name": "Egg Yolk",
+              "Amount": 30
+            },
+            {
+              "Name": "Vanilla Extract",
+              "Amount": 8
+            }
+          ]
+        },
+        "ingredientRows": {
+          "Whole Milk 3.3%": {
+            "Water": 0.8809999999999999,
+            "Sugar": 0.0481,
+            "Fat": 0.032,
+            "Solids": 0.1190000000000001,
+            "MSNF": 0.087,
+            "PAC": 0.0481,
+            "kcal": 0.61,
+            "POD": 0.0077
+          },
+          "Cream, heavy": {
+            "Water": 0.5771000000000001,
+            "Fat": 0.3608,
+            "Sugar": 0.0292,
+            "kcal": 3.4,
+            "PAC": 0.02922561403508772,
+            "POD": 0.004672,
+            "Solids": 0.42289999999999994,
+            "MSNF": 0.06209999999999993
+          },
+          "Sucrose": {
+            "Sugar": 1,
+            "Solids": 1,
+            "PAC": 1,
+            "POD": 1,
+            "kcal": 3.85
+          },
+          "Dextrose": {
+            "Sugar": 0.875,
+            "Solids": 1,
+            "PAC": 1.66,
+            "POD": 0.61,
+            "kcal": 3.66
+          },
+          "Dried Skimmed Milk Powder": {
+            "Water": 0.02,
+            "Sugar": 0.515,
+            "Fat": 0.009,
+            "Solids": 0.96,
+            "MSNF": 0.954,
+            "PAC": 0.52,
+            "POD": 0.0835,
+            "kcal": 3.55
+          },
+          "Egg Yolk": {
+            "Water": 0.5231,
+            "Fat": 0.26539999999999997,
+            "Solids": 0.4769,
+            "kcal": 3.22,
+            "Sugar": 0.005600000000000001,
+            "PAC": 0.008186561403508773,
+            "POD": 0.003948000000000001,
+            "MSNF": 0.21150000000000002
+          },
+          "Vanilla Extract": {
+            "Water": 0.5257999999999999,
+            "Fat": 0.0006,
+            "Sugar": 0.1265,
+            "kcal": 2.88,
+            "Solids": 0.1302000000000001,
+            "PAC": 0.127,
+            "POD": 0.127
+          }
+        }
+      },
+      "expected": {
+        "sums": {
+          "Amount": 1103,
+          "Water": 699.7524,
+          "Sugar": 225.89300000000003,
+          "Fat": 111.19580000000002,
+          "MSNF": 117.49799999999999,
+          "Solids": 399.59560000000005,
+          "PAC": 257.60548807017545,
+          "POD": 165.14049999999997,
+          "Stabilizer": 0,
+          "kcal": 2086.4900000000002
+        },
+        "fdp": -2.7195776376203478,
+        "idealPAC": {
+          "Non-Fat": 352.33422789965107,
+          "Low Fat": 352.33422789965107,
+          "Light": 356.4133431512096,
+          "Reduced Fat": 361.8289472750765,
+          "Standard": 361.8289472750765,
+          "Premium": 363.1787428070536,
+          "Super-Premium": 369.9033834769248,
+          "Gelato": 359.12444159634214,
+          "Frozen Yogurt: Non-Fat": 356.4133431512096,
+          "Frozen Yogurt: Regular": 357.7697194838347,
+          "Sorbet": 387.2018595220215,
+          "Sherbet": 381.90733385048446
+        },
+        "fitness": {
+          "firstRun_mean": 1.259781917304987,
+          "firstRun_range": 1.6525838621940148,
+          "steadyState_mean": 1.5478281335897948,
+          "steadyState_range": 4.033046025042086
+        }
+      }
+    },
+    {
+      "id": "super-premium-custard",
+      "note": "High-fat, egg-yolk-heavy Super-Premium.",
+      "input": {
+        "recipe": {
+          "Name": "Super-Premium Custard",
+          "Type": "Super-Premium",
+          "ServingTemperature": -18,
+          "Hardness": 0.75,
+          "Overrun": 0.3,
+          "Ingredients": [
+            {
+              "Name": "Cream, heavy",
+              "Amount": 450
+            },
+            {
+              "Name": "Whole Milk 3.3%",
+              "Amount": 350
+            },
+            {
+              "Name": "Sucrose",
+              "Amount": 140
+            },
+            {
+              "Name": "Egg Yolk",
+              "Amount": 90
+            },
+            {
+              "Name": "Dried Skimmed Milk Powder",
+              "Amount": 20
+            }
+          ]
+        },
+        "ingredientRows": {
+          "Cream, heavy": {
+            "Water": 0.5771000000000001,
+            "Fat": 0.3608,
+            "Sugar": 0.0292,
+            "kcal": 3.4,
+            "PAC": 0.02922561403508772,
+            "POD": 0.004672,
+            "Solids": 0.42289999999999994,
+            "MSNF": 0.06209999999999993
+          },
+          "Whole Milk 3.3%": {
+            "Water": 0.8809999999999999,
+            "Sugar": 0.0481,
+            "Fat": 0.032,
+            "Solids": 0.1190000000000001,
+            "MSNF": 0.087,
+            "PAC": 0.0481,
+            "kcal": 0.61,
+            "POD": 0.0077
+          },
+          "Sucrose": {
+            "Sugar": 1,
+            "Solids": 1,
+            "PAC": 1,
+            "POD": 1,
+            "kcal": 3.85
+          },
+          "Egg Yolk": {
+            "Water": 0.5231,
+            "Fat": 0.26539999999999997,
+            "Solids": 0.4769,
+            "kcal": 3.22,
+            "Sugar": 0.005600000000000001,
+            "PAC": 0.008186561403508773,
+            "POD": 0.003948000000000001,
+            "MSNF": 0.21150000000000002
+          },
+          "Dried Skimmed Milk Powder": {
+            "Water": 0.02,
+            "Sugar": 0.515,
+            "Fat": 0.009,
+            "Solids": 0.96,
+            "MSNF": 0.954,
+            "PAC": 0.52,
+            "POD": 0.0835,
+            "kcal": 3.55
+          }
+        }
+      },
+      "expected": {
+        "sums": {
+          "Amount": 1050,
+          "Water": 615.524,
+          "Sugar": 180.779,
+          "Fat": 197.626,
+          "MSNF": 96.50999999999998,
+          "Solids": 434.076,
+          "PAC": 181.12331684210525,
+          "POD": 146.82272,
+          "Stabilizer": 0,
+          "kcal": 2643.3
+        },
+        "fdp": -2.1731411864095094,
+        "idealPAC": {
+          "Super-Premium": 324.11710040703076
+        },
+        "fitness": {
+          "firstRun_mean": 1.6965812639524123,
+          "firstRun_range": 1.6081517460317465,
+          "steadyState_mean": 2.137760650616528,
+          "steadyState_range": 5.519945612672904
+        }
+      }
+    },
+    {
+      "id": "lemon-sorbet",
+      "note": "No dairy (MSNF ~0); exercises the sorbet path and non-default serving temperature/hardness.",
+      "input": {
+        "recipe": {
+          "Name": "Lemon Sorbet",
+          "Type": "Sorbet",
+          "ServingTemperature": -12,
+          "Hardness": 0.7,
+          "Overrun": 0.3,
+          "Ingredients": [
+            {
+              "Name": "Water",
+              "Amount": 550
+            },
+            {
+              "Name": "Lemon Juice",
+              "Amount": 250
+            },
+            {
+              "Name": "Sucrose",
+              "Amount": 150
+            },
+            {
+              "Name": "Atomized Glucose DE40",
+              "Amount": 50
+            },
+            {
+              "Name": "Invert Syrup 80%",
+              "Amount": 30
+            }
+          ]
+        },
+        "ingredientRows": {
+          "Water": {
+            "Water": 1
+          },
+          "Lemon Juice": {
+            "Water": 0.9231,
+            "Sugar": 0.0252,
+            "Fat": 0.0024,
+            "Solids": 0.07689999999999997,
+            "PAC": 0.04404483333333334,
+            "POD": 0.029930000000000002,
+            "kcal": 0.22
+          },
+          "Sucrose": {
+            "Sugar": 1,
+            "Solids": 1,
+            "PAC": 1,
+            "POD": 1,
+            "kcal": 3.85
+          },
+          "Atomized Glucose DE40": {
+            "Sugar": 0.366,
+            "Solids": 1,
+            "PAC": 0.79,
+            "POD": 0.28,
+            "kcal": 3.64
+          },
+          "Invert Syrup 80%": {
+            "Water": 0.2,
+            "Sugar": 0.8,
+            "Solids": 0.8,
+            "PAC": 1.34,
+            "POD": 1.04,
+            "kcal": 3.24
+          }
+        }
+      },
+      "expected": {
+        "sums": {
+          "Amount": 1030,
+          "Water": 786.775,
+          "Sugar": 198.60000000000002,
+          "Fat": 0.6,
+          "MSNF": 0,
+          "Solids": 243.225,
+          "PAC": 240.71120833333333,
+          "POD": 202.6825,
+          "Stabilizer": 0,
+          "kcal": 911.7
+        },
+        "fdp": -1.8832678411895092,
+        "idealPAC": {
+          "Non-Fat": 335.98399607103687,
+          "Low Fat": 335.98399607103687,
+          "Light": 340.1871019888702,
+          "Reduced Fat": 345.77106361215414,
+          "Standard": 345.77106361215414,
+          "Premium": 347.1634800549197,
+          "Super-Premium": 354.10433636124503,
+          "Gelato": 342.98195077515913,
+          "Frozen Yogurt: Non-Fat": 340.1871019888702,
+          "Frozen Yogurt: Regular": 341.58524558804305,
+          "Sorbet": 371.988137111407,
+          "Sherbet": 366.51006885311403
+        },
+        "fitness": {
+          "firstRun_mean": 3.334634199812089,
+          "firstRun_range": 3.118001618122978,
+          "steadyState_mean": 3.6875404236435156,
+          "steadyState_range": 6.147063856437241
+        }
+      }
+    },
+    {
+      "id": "chocolate-gelato",
+      "note": "Cocoa/chocolate solids; Gelato target at -15.",
+      "input": {
+        "recipe": {
+          "Name": "Chocolate Gelato",
+          "Type": "Gelato",
+          "ServingTemperature": -15,
+          "Hardness": 0.75,
+          "Overrun": 0.3,
+          "Ingredients": [
+            {
+              "Name": "Whole Milk 3.3%",
+              "Amount": 600
+            },
+            {
+              "Name": "Cream, heavy",
+              "Amount": 150
+            },
+            {
+              "Name": "Sucrose",
+              "Amount": 120
+            },
+            {
+              "Name": "Dextrose",
+              "Amount": 30
+            },
+            {
+              "Name": "Cocoa Powder",
+              "Amount": 60
+            },
+            {
+              "Name": "Chocolate, dark",
+              "Amount": 80
+            },
+            {
+              "Name": "Dried Skimmed Milk Powder",
+              "Amount": 30
+            }
+          ]
+        },
+        "ingredientRows": {
+          "Whole Milk 3.3%": {
+            "Water": 0.8809999999999999,
+            "Sugar": 0.0481,
+            "Fat": 0.032,
+            "Solids": 0.1190000000000001,
+            "MSNF": 0.087,
+            "PAC": 0.0481,
+            "kcal": 0.61,
+            "POD": 0.0077
+          },
+          "Cream, heavy": {
+            "Water": 0.5771000000000001,
+            "Fat": 0.3608,
+            "Sugar": 0.0292,
+            "kcal": 3.4,
+            "PAC": 0.02922561403508772,
+            "POD": 0.004672,
+            "Solids": 0.42289999999999994,
+            "MSNF": 0.06209999999999993
+          },
+          "Sucrose": {
+            "Sugar": 1,
+            "Solids": 1,
+            "PAC": 1,
+            "POD": 1,
+            "kcal": 3.85
+          },
+          "Dextrose": {
+            "Sugar": 0.875,
+            "Solids": 1,
+            "PAC": 1.66,
+            "POD": 0.61,
+            "kcal": 3.66
+          },
+          "Cocoa Powder": {
+            "Water": 0.03,
+            "Fat": 0.13699999999999998,
+            "Sugar": 0.005,
+            "kcal": 2.28,
+            "Solids": 0.97,
+            "PAC": -1.6,
+            "POD": 0.005
+          },
+          "Chocolate, dark": {
+            "Water": 0.0075,
+            "Fat": 0.332,
+            "Sugar": 0.48810000000000003,
+            "kcal": 5.28,
+            "Solids": 0.9925,
+            "PAC": -0.239,
+            "POD": 0.488
+          },
+          "Dried Skimmed Milk Powder": {
+            "Water": 0.02,
+            "Sugar": 0.515,
+            "Fat": 0.009,
+            "Solids": 0.96,
+            "MSNF": 0.954,
+            "PAC": 0.52,
+            "POD": 0.0835,
+            "kcal": 3.55
+          }
+        }
+      },
+      "expected": {
+        "sums": {
+          "Amount": 1070,
+          "Water": 618.165,
+          "Sugar": 234.288,
+          "Fat": 108.37,
+          "MSNF": 90.13499999999999,
+          "Solids": 451.23500000000007,
+          "PAC": 103.52384210526313,
+          "POD": 185.4658,
+          "Stabilizer": 0,
+          "kcal": 2113.5
+        },
+        "fdp": -1.2738849109939838,
+        "idealPAC": {
+          "Gelato": 265.395647522958
+        },
+        "fitness": {
+          "firstRun_mean": 2.1810568373446877,
+          "firstRun_range": 1.8245280373831778,
+          "steadyState_mean": 2.790983213035126,
+          "steadyState_range": 7.423791794287558
+        }
+      }
+    },
+    {
+      "id": "almond-alcohol-edge",
+      "note": "Edge conventions: negative-PAC ingredient (Almond Paste, PAC -0.84) plus high-PAC alcohol (2.97).",
+      "input": {
+        "recipe": {
+          "Name": "Almond Amaretto",
+          "Type": "Premium",
+          "ServingTemperature": -18,
+          "Hardness": 0.75,
+          "Overrun": 0.3,
+          "Ingredients": [
+            {
+              "Name": "Whole Milk 3.3%",
+              "Amount": 500
+            },
+            {
+              "Name": "Cream, heavy",
+              "Amount": 200
+            },
+            {
+              "Name": "Sucrose",
+              "Amount": 120
+            },
+            {
+              "Name": "Almond Paste (pure)",
+              "Amount": 80
+            },
+            {
+              "Name": "Alcohol 40%",
+              "Amount": 40
+            },
+            {
+              "Name": "Dried Skimmed Milk Powder",
+              "Amount": 40
+            }
+          ]
+        },
+        "ingredientRows": {
+          "Whole Milk 3.3%": {
+            "Water": 0.8809999999999999,
+            "Sugar": 0.0481,
+            "Fat": 0.032,
+            "Solids": 0.1190000000000001,
+            "MSNF": 0.087,
+            "PAC": 0.0481,
+            "kcal": 0.61,
+            "POD": 0.0077
+          },
+          "Cream, heavy": {
+            "Water": 0.5771000000000001,
+            "Fat": 0.3608,
+            "Sugar": 0.0292,
+            "kcal": 3.4,
+            "PAC": 0.02922561403508772,
+            "POD": 0.004672,
+            "Solids": 0.42289999999999994,
+            "MSNF": 0.06209999999999993
+          },
+          "Sucrose": {
+            "Sugar": 1,
+            "Solids": 1,
+            "PAC": 1,
+            "POD": 1,
+            "kcal": 3.85
+          },
+          "Almond Paste (pure)": {
+            "Water": 0.0441,
+            "Fat": 0.4993,
+            "Sugar": 0.0435,
+            "kcal": 5.79,
+            "PAC": -0.84,
+            "POD": 0.043141000000000006,
+            "Solids": 0.9559
+          },
+          "Alcohol 40%": {
+            "Water": 0.6,
+            "PAC": 2.97,
+            "kcal": 2.31
+          },
+          "Dried Skimmed Milk Powder": {
+            "Water": 0.02,
+            "Sugar": 0.515,
+            "Fat": 0.009,
+            "Solids": 0.96,
+            "MSNF": 0.954,
+            "PAC": 0.52,
+            "POD": 0.0835,
+            "kcal": 3.55
+          }
+        }
+      },
+      "expected": {
+        "sums": {
+          "Amount": 980,
+          "Water": 584.2479999999999,
+          "Sugar": 173.96999999999997,
+          "Fat": 128.464,
+          "MSNF": 94.07999999999998,
+          "Solids": 378.952,
+          "PAC": 222.29512280701755,
+          "POD": 131.57568,
+          "Stabilizer": 0,
+          "kcal": 2144.6000000000004
+        },
+        "fdp": -2.7909531642987258,
+        "idealPAC": {
+          "Premium": 301.9295583089533
+        },
+        "fitness": {
+          "firstRun_mean": 1.1575792562117684,
+          "firstRun_range": 1,
+          "steadyState_mean": 1.4213309602448287,
+          "steadyState_range": 3.137517040330605
+        }
+      }
+    },
+    {
+      "id": "tiny-two-ingredient",
+      "note": "Minimal recipe: water + sucrose only.",
+      "input": {
+        "recipe": {
+          "Name": "Tiny",
+          "Type": "Sorbet",
+          "ServingTemperature": -12,
+          "Hardness": 0.7,
+          "Overrun": 0.3,
+          "Ingredients": [
+            {
+              "Name": "Water",
+              "Amount": 100
+            },
+            {
+              "Name": "Sucrose",
+              "Amount": 25
+            }
+          ]
+        },
+        "ingredientRows": {
+          "Water": {
+            "Water": 1
+          },
+          "Sucrose": {
+            "Sugar": 1,
+            "Solids": 1,
+            "PAC": 1,
+            "POD": 1,
+            "kcal": 3.85
+          }
+        }
+      },
+      "expected": {
+        "sums": {
+          "Amount": 125,
+          "Water": 100,
+          "Sugar": 25,
+          "Fat": 0,
+          "MSNF": 0,
+          "Solids": 25,
+          "PAC": 25,
+          "POD": 25,
+          "Stabilizer": 0,
+          "kcal": 96.25
+        },
+        "fdp": -1.4939472323863705,
+        "idealPAC": {
+          "Sorbet": 47.280116565906006
+        },
+        "fitness": {
+          "firstRun_mean": 3.5548387096774197,
+          "firstRun_range": 4.666666666666668,
+          "steadyState_mean": 4.0260752078964686,
+          "steadyState_range": 8.879031648857154
+        }
+      }
+    }
+  ]
+}
