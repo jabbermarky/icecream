@@ -173,6 +173,11 @@ Three design commitments are part of this decision, not polish:
 
 No offline editing, no offline draft writes, no local-first architecture. The kitchen view doubles as D8A's viewer posture: read-only, notes forward, big type for wet hands.
 
+*Added after verification (2026-08-07):* in plain Safari, ITP's 7-day purge takes the service-worker cache too — the offline capability itself, not just the anonymous session. Consequences:
+- **The kitchen tablet's supported posture is a home-screen install** — home-screen web apps are exempt from the ITP cap and their storage is isolated from Safari. iOS never prompts for installation, so the app should show an "add to home screen for kitchen use" nudge on iOS (Share → Add to Home Screen).
+- **Call `navigator.storage.persist()` at startup** where available — honored heuristically on Chrome/Android, best-effort on iOS, costs one line.
+- **Treat the offline cache as best-effort everywhere.** It caches cloud-persisted data, so eviction costs a reload-when-online, never data loss. Queued-but-unflushed kitchen notes are the one thing at genuine risk in an evicted cache — flush the queue eagerly, the moment connectivity allows, not on a timer.
+
 **(e) Legacy migration.** Old-app recipes (IndexedDB / Google Drive sync) come in through an explicit import path: export-to-file in the old app, import into the new schema through the repository interface. Google Drive sync and Drive-based identity do not carry forward. Build the import door once; it serves both legacy migration and any future bulk-import need.
 
 ---
@@ -204,7 +209,7 @@ No offline editing, no offline draft writes, no local-first architecture. The ki
 ## Verify before treating this as final
 
 - ~~Supabase anonymous sign-in + email conversion~~ — **verified 2026-08-07.** Anonymous → permanent keeps the same user ID; all rows carry over. Email conversion is `updateUser({ email })` + confirmation (not `linkIdentity()`, which is OAuth-only and needs the manual-linking setting). No automatic anon cleanup exists — scheduled SQL required. CAPTCHA on anonymous sign-ins strongly recommended (adopted as required, D14b). Residual spot-check at implementation: exact `updateUser` confirmation UX in the current JS SDK.
-- **Safari ITP storage purge rules and PWA exemption** — the ~7-day script-writable-storage purge cited in D14c, and whether a home-screen PWA install exempts the app from it on current iOS. This decides how fragile anonymous sessions really are on the iPad.
+- ~~Safari ITP storage purge rules and PWA exemption~~ — **verified 2026-08-07.** Confirmed and slightly worse than assumed: ITP deletes *all* script-writable storage (localStorage, IndexedDB, **service-worker registrations and cache**) after 7 days of Safari use without visiting the site — so in plain Safari, both the anonymous session *and the offline kitchen cache itself* are on the 7-day clock. Home-screen web apps are exempt from the ITP cap (their storage is isolated from Safari and skipped by the removal algorithm), but iOS storage remains best-effort under device storage pressure; `navigator.storage.persist()` is supported from Safari 17 but is not a guarantee on iOS. Design consequences recorded in D14d.
 - ~~Supabase free-tier project pausing~~ — **verified 2026-08-07: pauses after 7 days without API activity** (findings and posture recorded in D14b). Dev-time answer: keep-alive cron. Launch decision (keep-alive vs. Pro) moved to Open items.
 - **Supabase Edge Function limits** — headline numbers verified 2026-08-07 (150s TTFB, ~400s wall clock paid, low CPU caps) via search results and GitHub discussions; the primary docs page was unreachable from the review environment, so spot-check `supabase.com/docs/guides/functions/limits` once before implementation.
 - **Supabase RLS behavior and Realtime** (including RLS × Realtime interaction) — stated from general knowledge of both projects, not verified against this codebase.
