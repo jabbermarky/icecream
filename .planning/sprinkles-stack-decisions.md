@@ -64,6 +64,8 @@ Mutations happen **only** through named store actions (`editIngredient()`, `prop
 
 **D6 — Multi-user model: single-owner editing, forever.** No CRDT, no operational transforms — not needed because concurrent co-editing of the same recipe isn't the destination. Sharing with other people **is** the real destination, but takes the form of view/fork/copy — each recipe always has exactly one editor, its owner. Do not add collaboration infrastructure speculatively.
 
+*Added (confirmed 2026-08-07):* `owner_id` is an **ordinary mutable column** — no transfer feature built, but no schema or RLS policy may assume ownership never changes. Costs nothing now; avoids a migration if sharing ever extends to handing off a recipe collection.
+
 **D7 — Concurrency: optimistic revision check on explicit Save only.** *Revised twice.*
 
 The original call was a Postgres-backed session lock (`locked_by`/`locked_at`, heartbeat, timeout). The first review correctly identified that a real pessimistic lock needs acquisition, heartbeats, expiration, crash handling, stale-lock recovery, multi-tab handling, takeover UX, and user messaging — substantial infrastructure for a product with exactly one human owner.
@@ -91,7 +93,7 @@ The second review resolved the posture question, and the kitchen use case (see D
 - **"Take over editing here" is an explicit action**, not an ambient possibility. Taking over flips the posture; the previous editor becomes a viewer.
 - Draft sync exists so a viewer sees the latest draft — not so two editors can interleave writes. This is posture/presence metadata ("last active editor"), not a lock: no heartbeats, no expiry machinery, no takeover negotiation. Any device can always take over; D7's Save-time revision check remains the only hard guard.
 
-Exact debounce interval not yet decided.
+Debounce interval is an implementation tuning knob, not an architecture decision — default: 2s after the last applied change, with a 10s maximum between writes while the draft is dirty; finalize during the vertical slice.
 
 **D9 — LLM and the deterministic calculation boundary.** Strong keep, strengthened. The LLM is never authoritative for PAC, POD, freezing point, ingredient totals, nutrition, optimization results, or recipe validity — those stay deterministic, computed by `recipe-domain` (D13), regardless of what triggered the change.
 
@@ -107,6 +109,8 @@ optimizeRecipe(constraints)
 Typed commands can be schema-validated, domain-validated, logged, tested, simulated, presented to the user, and accepted or rejected individually — a generic path/value setter can't offer any of that. The same command model works for both human and AI actions: a human edit is a command applied directly to the working draft; an AI-proposed command is validated and simulated first, becomes a `pendingProposal`, and only modifies the working draft if accepted.
 
 *Added (second review):* `optimizeRecipe(constraints)` is different in kind from the other commands — it invokes a search algorithm, not a declarative state change. For proposal preview and replay to be deterministic, either the optimizer must be seeded/deterministic, or the command must resolve to its *resulting* concrete commands (`setIngredientAmount(...)`) at proposal time. Prefer the latter: proposals then always contain only declarative commands.
+
+**Rate limiting shape** *(confirmed 2026-08-07)*: a **per-user daily budget enforced in Hono** — check a small usage table before each chat turn, record consumption after, refuse at the cap with a friendly "you've hit today's limit." Chat already requires a verified user (D14c), so the identity to meter on always exists. Specific numbers are tuned once real cost data exists; the usage table is part of the initial Hono schema so the vertical slice builds against it.
 
 **Where the chat tool-execution loop runs:** server-side orchestration, client-side simulation. Hono owns LLM credentials, model selection, auth, rate limits, tool definitions, conversation orchestration, and auditing — it never directly mutates a recipe. The browser receives the LLM's proposed typed commands from Hono, validates and simulates them locally using `recipe-domain` (the same package already trusted to compute PAC/POD for direct edits — no new trust boundary crossed), and builds the `pendingProposal` from the result. This reuses D5's pipeline exactly; Optimize and chat both ultimately produce the same shape of proposal.
 
@@ -139,6 +143,8 @@ Typed commands can be schema-validated, domain-validated, logged, tested, simula
 **(a) Seed ingredient data is app content, not user data.** The curated ingredient DB (the merged seed + legacy set) ships as a static, versioned JSON asset bundled with the app: service-worker cached, available offline, zero DB reads; updating it is a deploy, which for this project is a git push either way. Recipes reference ingredients by stable ID. Only user-created custom ingredients are user data, stored with recipes.
 
 **(b) Anonymous-first via invisible account.** First visit silently creates a Supabase anonymous session (`signInAnonymously()`); all user data lives in the one cloud schema from day one. Creating a real account later is `linkIdentity()` — the rows never move. This was chosen over a dual local/cloud storage tier (full IndexedDB mirror + import-on-sign-in) primarily because it keeps exactly one persistence surface for a solo maintainer, and because anonymous users hold JWTs and are therefore rate-limitable. Consequences accepted: the cloud is load-bearing for everything (see pausing note in Verify), and anonymous rows need a cleanup policy.
+
+**Cleanup policy** *(confirmed 2026-08-07)*: never-linked anonymous accounts and their data are deleted after **30 days of inactivity** (scheduled job). The stakes are bounded by the gates: anonymous users can't create versions, so what's deletable is only scratch drafts, notes, and custom ingredients their owner never once tried to keep. Part of the decision: the client must handle "my session no longer exists" by silently provisioning a fresh anonymous session — never an error screen.
 
 **(c) Verified email at hard gates.** *Confirmed 2026-08-07.* Requiring email at first launch would collapse this back into mandatory accounts — the gates go at trigger points instead. Constraint acknowledged: instant start, guaranteed recoverability, and never interrupting the user can't all three hold; recoverability wins at moments of commitment.
 
@@ -184,12 +190,9 @@ No offline editing, no offline draft writes, no local-first architecture. The ki
 ## Open — not yet decided
 
 - **Hono deploy target: Supabase Edge Functions vs. standalone Cloudflare Workers.** *Limits verified 2026-08-07; decision deliberately deferred to the D3 vertical slice.* The facts: Edge Functions allow 150s to first response byte (free and paid; 504 after), ~400s total wall clock on paid (free historically capped at 150s total); CPU caps are low but irrelevant for an I/O-bound LLM proxy; streaming is supported. Workers have no duration limit at all (10ms CPU free / 30s CPU on the $5/mo tier). Both handle the realistic chat workload — so the call rides on consolidation (Edge Functions: one platform, same JWT, no extra CORS origin) vs. streaming headroom + cheaper paid footprint if Supabase stays on free tier (Workers). **Decision: build the vertical slice with the Hono service on Edge Functions and measure a real server-orchestrated chat turn against the limits; fall back to Workers only if the data says so.** Regardless of target, the chat endpoint **opens its SSE stream immediately and emits progress events during orchestration** — needed for UX anyway, and it satisfies the 150s time-to-first-byte clock. Cost interplay to keep in view: if free-tier pausing forces Supabase Pro anyway, consolidation is free; if a keep-alive avoids Pro, free-Supabase + $5 Workers is the cheaper paid footprint.
-- **Exact debounce interval** for `recipe_draft` sync (D8A).
-- **Anonymous-row cleanup policy** — retention period for never-linked anonymous accounts and their data (D14b).
-- **Permission check on the chat "apply" action.** It goes through the same write path as a direct edit, so it needs the same owner-only gate. Easy to miss when building the command-simulation layer — flagging so it isn't.
-- **Per-user LLM cost/rate limiting design** — the identity to meter on now exists for all users (D14b); the actual limits/budgets aren't designed. Needed before chat ships.
-- **Recipe ownership transfer** — not discussed. If "sharing" ever extends to handing off a recipe collection, `owner_id` should probably be designed mutable from the start.
-- **Take-over-editing UX details** (D8A) — the mechanism (presence metadata, explicit takeover, keep-mine/take-theirs on the rare divergence) is decided; the exact screens aren't designed.
+- **Permission check on the chat "apply" action.** It goes through the same write path as a direct edit, so it needs the same owner-only gate. Easy to miss when building the command-simulation layer — flagging so it isn't. (Implementation reminder, not a decision.)
+- **Take-over-editing UX details** (D8A) — the mechanism (presence metadata, explicit takeover, keep-mine/take-theirs on the rare divergence) is decided; the exact screens aren't designed. (Design work, not a stack decision.)
+- **LLM budget numbers** — the shape is decided (D9: per-user daily budget in Hono); the specific caps are tuned once real cost data exists.
 
 ---
 
