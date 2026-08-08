@@ -1,0 +1,1786 @@
+{
+  "meta": {
+    "oracle": "balance_engine.py (primary)",
+    "engineSource": ".planning/prototype/balance_engine.py (executed verbatim; only the seed-DB path patched)",
+    "ingredientData": "REAL seed DB: Sprinkles ingredient seed database v0.2-draft (as-is PAC + legacy merge) (103 ingredients), .planning/prototype/sprinkles-ingredient-seed-db.json; rows trimmed to balance()-read fields and embedded per recipe",
+    "constants": {
+      "FPD_A": 0.0543,
+      "FPD_B": 0.00029,
+      "LACTOSE_FRACTION_OF_MSNF": 0.545
+    },
+    "generatedAt": "2026-08-08T12:46:21.510371+00:00",
+    "repoCommit": "3880a633cf8cd873e0db028fe743f237a440bcd9",
+    "pythonVersion": "3.11.15",
+    "counts": {
+      "fpd_curve": 31,
+      "frozen_at": 66,
+      "freezing_curves": 2,
+      "recipes": 5,
+      "card_checks": 18
+    }
+  },
+  "fpd_curve": [
+    {
+      "c": 0.0,
+      "fpd": 0.0,
+      "c_roundtrip": 0.0
+    },
+    {
+      "c": 2.0,
+      "fpd": 0.10976,
+      "c_roundtrip": 2.000000000000002
+    },
+    {
+      "c": 4.0,
+      "fpd": 0.22184,
+      "c_roundtrip": 4.000000000000004
+    },
+    {
+      "c": 6.0,
+      "fpd": 0.33624,
+      "c_roundtrip": 5.999999999999995
+    },
+    {
+      "c": 8.0,
+      "fpd": 0.45296000000000003,
+      "c_roundtrip": 8.000000000000009
+    },
+    {
+      "c": 10.0,
+      "fpd": 0.5720000000000001,
+      "c_roundtrip": 10.00000000000001
+    },
+    {
+      "c": 12.0,
+      "fpd": 0.69336,
+      "c_roundtrip": 12.000000000000002
+    },
+    {
+      "c": 14.0,
+      "fpd": 0.81704,
+      "c_roundtrip": 14.000000000000004
+    },
+    {
+      "c": 16.0,
+      "fpd": 0.94304,
+      "c_roundtrip": 15.999999999999995
+    },
+    {
+      "c": 18.0,
+      "fpd": 1.07136,
+      "c_roundtrip": 18.000000000000007
+    },
+    {
+      "c": 20.0,
+      "fpd": 1.202,
+      "c_roundtrip": 20.0
+    },
+    {
+      "c": 22.0,
+      "fpd": 1.3349600000000001,
+      "c_roundtrip": 22.000000000000014
+    },
+    {
+      "c": 24.0,
+      "fpd": 1.47024,
+      "c_roundtrip": 24.000000000000004
+    },
+    {
+      "c": 26.0,
+      "fpd": 1.60784,
+      "c_roundtrip": 25.999999999999993
+    },
+    {
+      "c": 28.0,
+      "fpd": 1.74776,
+      "c_roundtrip": 28.000000000000007
+    },
+    {
+      "c": 30.0,
+      "fpd": 1.8900000000000001,
+      "c_roundtrip": 29.999999999999996
+    },
+    {
+      "c": 32.0,
+      "fpd": 2.03456,
+      "c_roundtrip": 31.99999999999999
+    },
+    {
+      "c": 34.0,
+      "fpd": 2.1814400000000003,
+      "c_roundtrip": 34.0
+    },
+    {
+      "c": 36.0,
+      "fpd": 2.3306400000000003,
+      "c_roundtrip": 35.99999999999999
+    },
+    {
+      "c": 38.0,
+      "fpd": 2.4821600000000004,
+      "c_roundtrip": 38.00000000000001
+    },
+    {
+      "c": 40.0,
+      "fpd": 2.636,
+      "c_roundtrip": 40.0
+    },
+    {
+      "c": 42.0,
+      "fpd": 2.79216,
+      "c_roundtrip": 42.000000000000014
+    },
+    {
+      "c": 44.0,
+      "fpd": 2.9506400000000004,
+      "c_roundtrip": 44.0
+    },
+    {
+      "c": 46.0,
+      "fpd": 3.11144,
+      "c_roundtrip": 45.99999999999999
+    },
+    {
+      "c": 48.0,
+      "fpd": 3.2745599999999997,
+      "c_roundtrip": 47.99999999999998
+    },
+    {
+      "c": 50.0,
+      "fpd": 3.44,
+      "c_roundtrip": 49.99999999999999
+    },
+    {
+      "c": 52.0,
+      "fpd": 3.60776,
+      "c_roundtrip": 51.999999999999986
+    },
+    {
+      "c": 54.0,
+      "fpd": 3.77784,
+      "c_roundtrip": 54.0
+    },
+    {
+      "c": 56.0,
+      "fpd": 3.95024,
+      "c_roundtrip": 55.99999999999999
+    },
+    {
+      "c": 58.0,
+      "fpd": 4.12496,
+      "c_roundtrip": 58.00000000000001
+    },
+    {
+      "c": 60.0,
+      "fpd": 4.302,
+      "c_roundtrip": 59.99999999999999
+    }
+  ],
+  "frozen_at": [
+    {
+      "pac": 20.0,
+      "water": 60.0,
+      "T": 0,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 20.0,
+      "water": 60.0,
+      "T": -1,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 20.0,
+      "water": 60.0,
+      "T": -2,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 20.0,
+      "water": 60.0,
+      "T": -4,
+      "frozen_pct": 41.07835854992151
+    },
+    {
+      "pac": 20.0,
+      "water": 60.0,
+      "T": -6,
+      "frozen_pct": 57.266278215842306
+    },
+    {
+      "pac": 20.0,
+      "water": 60.0,
+      "T": -8,
+      "frozen_pct": 65.64947851316703
+    },
+    {
+      "pac": 20.0,
+      "water": 60.0,
+      "T": -11,
+      "frozen_pct": 72.78280074684997
+    },
+    {
+      "pac": 20.0,
+      "water": 60.0,
+      "T": -12,
+      "frozen_pct": 74.41961789598498
+    },
+    {
+      "pac": 20.0,
+      "water": 60.0,
+      "T": -14,
+      "frozen_pct": 77.04493747094148
+    },
+    {
+      "pac": 20.0,
+      "water": 60.0,
+      "T": -18,
+      "frozen_pct": 80.67918562877125
+    },
+    {
+      "pac": 20.0,
+      "water": 60.0,
+      "T": -25,
+      "frozen_pct": 84.4639063074811
+    },
+    {
+      "pac": 27.0,
+      "water": 62.0,
+      "T": 0,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 27.0,
+      "water": 62.0,
+      "T": -1,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 27.0,
+      "water": 62.0,
+      "T": -2,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 27.0,
+      "water": 62.0,
+      "T": -4,
+      "frozen_pct": 23.021726492639395
+    },
+    {
+      "pac": 27.0,
+      "water": 62.0,
+      "T": -6,
+      "frozen_pct": 44.17046024972946
+    },
+    {
+      "pac": 27.0,
+      "water": 62.0,
+      "T": -8,
+      "frozen_pct": 55.12270579946015
+    },
+    {
+      "pac": 27.0,
+      "water": 62.0,
+      "T": -11,
+      "frozen_pct": 64.44204613701368
+    },
+    {
+      "pac": 27.0,
+      "water": 62.0,
+      "T": -12,
+      "frozen_pct": 66.58046854152877
+    },
+    {
+      "pac": 27.0,
+      "water": 62.0,
+      "T": -14,
+      "frozen_pct": 70.01032153461708
+    },
+    {
+      "pac": 27.0,
+      "water": 62.0,
+      "T": -18,
+      "frozen_pct": 74.75829090210439
+    },
+    {
+      "pac": 27.0,
+      "water": 62.0,
+      "T": -25,
+      "frozen_pct": 79.70284533719304
+    },
+    {
+      "pac": 19.9,
+      "water": 59.0,
+      "T": 0,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 19.9,
+      "water": 59.0,
+      "T": -1,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 19.9,
+      "water": 59.0,
+      "T": -2,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 19.9,
+      "water": 59.0,
+      "T": -4,
+      "frozen_pct": 40.37928822763245
+    },
+    {
+      "pac": 19.9,
+      "water": 59.0,
+      "T": -6,
+      "frozen_pct": 56.75926795738619
+    },
+    {
+      "pac": 19.9,
+      "water": 59.0,
+      "T": -8,
+      "frozen_pct": 65.24192995315377
+    },
+    {
+      "pac": 19.9,
+      "water": 59.0,
+      "T": -11,
+      "frozen_pct": 72.45988482350751
+    },
+    {
+      "pac": 19.9,
+      "water": 59.0,
+      "T": -12,
+      "frozen_pct": 74.1161218371238
+    },
+    {
+      "pac": 19.9,
+      "water": 59.0,
+      "T": -14,
+      "frozen_pct": 76.77258927144418
+    },
+    {
+      "pac": 19.9,
+      "water": 59.0,
+      "T": -18,
+      "frozen_pct": 80.44995562775668
+    },
+    {
+      "pac": 19.9,
+      "water": 59.0,
+      "T": -25,
+      "frozen_pct": 84.27957977214614
+    },
+    {
+      "pac": 30.0,
+      "water": 55.0,
+      "T": 0,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 30.0,
+      "water": 55.0,
+      "T": -1,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 30.0,
+      "water": 55.0,
+      "T": -2,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 30.0,
+      "water": 55.0,
+      "T": -4,
+      "frozen_pct": 3.5827685362352035
+    },
+    {
+      "pac": 30.0,
+      "water": 55.0,
+      "T": -6,
+      "frozen_pct": 30.07209162592377
+    },
+    {
+      "pac": 30.0,
+      "water": 55.0,
+      "T": -8,
+      "frozen_pct": 43.790055748818766
+    },
+    {
+      "pac": 30.0,
+      "water": 55.0,
+      "T": -11,
+      "frozen_pct": 55.46276485848177
+    },
+    {
+      "pac": 30.0,
+      "water": 55.0,
+      "T": -12,
+      "frozen_pct": 58.141192920702714
+    },
+    {
+      "pac": 30.0,
+      "water": 55.0,
+      "T": -14,
+      "frozen_pct": 62.437170406995136
+    },
+    {
+      "pac": 30.0,
+      "water": 55.0,
+      "T": -18,
+      "frozen_pct": 68.38412193798933
+    },
+    {
+      "pac": 30.0,
+      "water": 55.0,
+      "T": -25,
+      "frozen_pct": 74.57730123042361
+    },
+    {
+      "pac": 0.0,
+      "water": 60.0,
+      "T": 0,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 0.0,
+      "water": 60.0,
+      "T": -1,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 0.0,
+      "water": 60.0,
+      "T": -2,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 0.0,
+      "water": 60.0,
+      "T": -4,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 0.0,
+      "water": 60.0,
+      "T": -6,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 0.0,
+      "water": 60.0,
+      "T": -8,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 0.0,
+      "water": 60.0,
+      "T": -11,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 0.0,
+      "water": 60.0,
+      "T": -12,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 0.0,
+      "water": 60.0,
+      "T": -14,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 0.0,
+      "water": 60.0,
+      "T": -18,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 0.0,
+      "water": 60.0,
+      "T": -25,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 25.0,
+      "water": 0.0,
+      "T": 0,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 25.0,
+      "water": 0.0,
+      "T": -1,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 25.0,
+      "water": 0.0,
+      "T": -2,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 25.0,
+      "water": 0.0,
+      "T": -4,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 25.0,
+      "water": 0.0,
+      "T": -6,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 25.0,
+      "water": 0.0,
+      "T": -8,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 25.0,
+      "water": 0.0,
+      "T": -11,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 25.0,
+      "water": 0.0,
+      "T": -12,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 25.0,
+      "water": 0.0,
+      "T": -14,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 25.0,
+      "water": 0.0,
+      "T": -18,
+      "frozen_pct": 0.0
+    },
+    {
+      "pac": 25.0,
+      "water": 0.0,
+      "T": -25,
+      "frozen_pct": 0.0
+    }
+  ],
+  "freezing_curves": [
+    {
+      "pac": 27.0,
+      "water": 62.0,
+      "fp0": -2.9146514047866807,
+      "points": [
+        [
+          -2.9146514047866807,
+          0.0
+        ],
+        [
+          -3,
+          2.3950981466260624
+        ],
+        [
+          -4,
+          23.021726492639395
+        ],
+        [
+          -5,
+          35.62095480882186
+        ],
+        [
+          -6,
+          44.17046024972946
+        ],
+        [
+          -7,
+          50.38380105933131
+        ],
+        [
+          -8,
+          55.12270579946015
+        ],
+        [
+          -9,
+          58.86887676139969
+        ],
+        [
+          -10,
+          61.91320741437101
+        ],
+        [
+          -11,
+          64.44204613701368
+        ],
+        [
+          -12,
+          66.58046854152877
+        ],
+        [
+          -13,
+          68.4156591746922
+        ],
+        [
+          -14,
+          70.01032153461708
+        ],
+        [
+          -15,
+          71.41075480995407
+        ],
+        [
+          -16,
+          72.65192171730574
+        ],
+        [
+          -17,
+          73.76074090645501
+        ],
+        [
+          -18,
+          74.75829090210439
+        ],
+        [
+          -19,
+          75.6613243333645
+        ],
+        [
+          -20,
+          76.48333234410674
+        ],
+        [
+          -21,
+          77.2353080994053
+        ],
+        [
+          -22,
+          77.92630441999314
+        ],
+        [
+          -23,
+          78.56384770050393
+        ],
+        [
+          -24,
+          79.15424966985904
+        ],
+        [
+          -25,
+          79.70284533719304
+        ]
+      ]
+    },
+    {
+      "pac": 19.9,
+      "water": 59.0,
+      "fp0": -2.161388106865843,
+      "points": [
+        [
+          -2.161388106865843,
+          0.0
+        ],
+        [
+          -3,
+          24.40368618537806
+        ],
+        [
+          -4,
+          40.37928822763245
+        ],
+        [
+          -5,
+          50.13756060459789
+        ],
+        [
+          -6,
+          56.75926795738619
+        ],
+        [
+          -7,
+          61.571584273071544
+        ],
+        [
+          -8,
+          65.24192995315377
+        ],
+        [
+          -9,
+          68.14338992354988
+        ],
+        [
+          -10,
+          70.5012651022291
+        ],
+        [
+          -11,
+          72.45988482350751
+        ],
+        [
+          -12,
+          74.1161218371238
+        ],
+        [
+          -13,
+          75.53750175124623
+        ],
+        [
+          -14,
+          76.77258927144418
+        ],
+        [
+          -15,
+          77.85724374420673
+        ],
+        [
+          -16,
+          78.8185442654186
+        ],
+        [
+          -17,
+          79.67733969264546
+        ],
+        [
+          -18,
+          80.44995562775668
+        ],
+        [
+          -19,
+          81.14936720810115
+        ],
+        [
+          -20,
+          81.78602350669108
+        ],
+        [
+          -21,
+          82.36843887824622
+        ],
+        [
+          -22,
+          82.90362485460612
+        ],
+        [
+          -23,
+          83.39741072999483
+        ],
+        [
+          -24,
+          83.85468502364853
+        ],
+        [
+          -25,
+          84.27957977214614
+        ]
+      ]
+    }
+  ],
+  "targets": {
+    "fat": [
+      4,
+      10,
+      "%"
+    ],
+    "msnf": [
+      7,
+      12,
+      "%"
+    ],
+    "sugars": [
+      16,
+      22,
+      "%"
+    ],
+    "solids": [
+      32,
+      42,
+      "%"
+    ],
+    "pac": [
+      22,
+      30,
+      "index (gelato served ~-11 to -13C; ~20-25 for -18C hard-pack)"
+    ],
+    "pod": [
+      12,
+      18,
+      "sucrose-equiv sweetness"
+    ]
+  },
+  "recipes": [
+    {
+      "id": "pistachio-v1",
+      "note": "Engine's own recipe: negative-PAC paste, multi-sugar blend, stabilizer.",
+      "input": {
+        "recipe": [
+          [
+            "whole-milk",
+            560
+          ],
+          [
+            "heavy-cream-36",
+            70
+          ],
+          [
+            "skim-milk-powder",
+            38
+          ],
+          [
+            "sucrose",
+            120
+          ],
+          [
+            "dextrose",
+            22
+          ],
+          [
+            "trimoline-full",
+            15
+          ],
+          [
+            "pistachio-paste-pure",
+            95
+          ],
+          [
+            "locust-bean-gum",
+            3
+          ]
+        ],
+        "ingredientRows": {
+          "whole-milk": {
+            "id": "whole-milk",
+            "name": "Whole milk (3.25% fat)",
+            "fat_pct": 3.25,
+            "msnf_pct": 8.45,
+            "sugars_pct": 4.6,
+            "water_pct": 88.3,
+            "solids_pct": 11.7,
+            "pac": 4.6,
+            "pod": 0.7,
+            "kcal_per_100g": 61
+          },
+          "heavy-cream-36": {
+            "id": "heavy-cream-36",
+            "name": "Heavy cream (36% fat)",
+            "fat_pct": 36.0,
+            "msnf_pct": 5.6,
+            "sugars_pct": 3.0,
+            "water_pct": 58.4,
+            "solids_pct": 41.6,
+            "pac": 3.0,
+            "pod": 0.5,
+            "kcal_per_100g": 340
+          },
+          "skim-milk-powder": {
+            "id": "skim-milk-powder",
+            "name": "Skim milk powder (NFDM)",
+            "fat_pct": 0.7,
+            "msnf_pct": 96.3,
+            "sugars_pct": 52.5,
+            "water_pct": 3.0,
+            "solids_pct": 97.0,
+            "pac": 52.5,
+            "pod": 8.4,
+            "kcal_per_100g": 362
+          },
+          "sucrose": {
+            "id": "sucrose",
+            "name": "Sucrose (table sugar)",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 99.9,
+            "water_pct": 0.1,
+            "solids_pct": 99.9,
+            "pac": 99.9,
+            "pod": 100,
+            "kcal_per_100g": 387
+          },
+          "dextrose": {
+            "id": "dextrose",
+            "name": "Dextrose (D-glucose monohydrate)",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 92,
+            "water_pct": 8,
+            "solids_pct": 92,
+            "pac": 174.8,
+            "pod": 74,
+            "kcal_per_100g": 366
+          },
+          "trimoline-full": {
+            "id": "trimoline-full",
+            "name": "Trimoline / full invert syrup",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 80,
+            "water_pct": 20,
+            "solids_pct": 80,
+            "pac": 140.8,
+            "pod": 125,
+            "kcal_per_100g": 328
+          },
+          "pistachio-paste-pure": {
+            "id": "pistachio-paste-pure",
+            "name": "Pistachio Paste (pure)",
+            "fat_pct": 45.32,
+            "msnf_pct": 0,
+            "sugars_pct": 7.66,
+            "water_pct": 4.37,
+            "solids_pct": 95.63,
+            "pac": -70.0,
+            "pod": 7.5,
+            "kcal_per_100g": 560.0
+          },
+          "locust-bean-gum": {
+            "id": "locust-bean-gum",
+            "name": "Locust bean gum (E410)",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 0,
+            "water_pct": 11,
+            "solids_pct": 89,
+            "pac": 0,
+            "pod": 0,
+            "kcal_per_100g": 336
+          }
+        }
+      },
+      "expected": {
+        "mix": {
+          "total_g": 923,
+          "fat": 9.395449620801733,
+          "msnf": 9.51614301191766,
+          "sugars": 22.449295774647887,
+          "water": 59.139924160346695,
+          "solids": 40.860075839653305,
+          "pac": 17.417768147345612,
+          "pod": 18.37670639219935,
+          "kcal_per_100g": 200.79739978331529,
+          "lactose": 5.186297941495125,
+          "added_sugars": 17.26299783315276,
+          "other_solids": 4.685485373781152,
+          "pac_excl_lactose": 12.231470205850487,
+          "lactose_in_water": 0.08769537694085405
+        },
+        "assess": [
+          {
+            "metric": "fat",
+            "value": 9.395449620801733,
+            "lo": 4,
+            "hi": 10,
+            "mark": "OK"
+          },
+          {
+            "metric": "msnf",
+            "value": 9.51614301191766,
+            "lo": 7,
+            "hi": 12,
+            "mark": "OK"
+          },
+          {
+            "metric": "sugars",
+            "value": 17.26299783315276,
+            "lo": 16,
+            "hi": 22,
+            "mark": "OK"
+          },
+          {
+            "metric": "solids",
+            "value": 40.860075839653305,
+            "lo": 32,
+            "hi": 42,
+            "mark": "OK"
+          },
+          {
+            "metric": "pac",
+            "value": 17.417768147345612,
+            "lo": 22,
+            "hi": 30,
+            "mark": "LOW"
+          },
+          {
+            "metric": "pod",
+            "value": 18.37670639219935,
+            "lo": 12,
+            "hi": 18,
+            "mark": "HIGH"
+          }
+        ],
+        "fp0": -1.8507807245316288,
+        "frozen_at_minus12": 77.39835630832687
+      }
+    },
+    {
+      "id": "pistachio-v2",
+      "note": "Engine's own tuned recipe; the balance card renders this mix.",
+      "input": {
+        "recipe": [
+          [
+            "whole-milk",
+            555
+          ],
+          [
+            "heavy-cream-36",
+            70
+          ],
+          [
+            "skim-milk-powder",
+            38
+          ],
+          [
+            "sucrose",
+            85
+          ],
+          [
+            "dextrose",
+            52
+          ],
+          [
+            "trimoline-full",
+            18
+          ],
+          [
+            "pistachio-paste-pure",
+            95
+          ],
+          [
+            "locust-bean-gum",
+            3
+          ]
+        ],
+        "ingredientRows": {
+          "whole-milk": {
+            "id": "whole-milk",
+            "name": "Whole milk (3.25% fat)",
+            "fat_pct": 3.25,
+            "msnf_pct": 8.45,
+            "sugars_pct": 4.6,
+            "water_pct": 88.3,
+            "solids_pct": 11.7,
+            "pac": 4.6,
+            "pod": 0.7,
+            "kcal_per_100g": 61
+          },
+          "heavy-cream-36": {
+            "id": "heavy-cream-36",
+            "name": "Heavy cream (36% fat)",
+            "fat_pct": 36.0,
+            "msnf_pct": 5.6,
+            "sugars_pct": 3.0,
+            "water_pct": 58.4,
+            "solids_pct": 41.6,
+            "pac": 3.0,
+            "pod": 0.5,
+            "kcal_per_100g": 340
+          },
+          "skim-milk-powder": {
+            "id": "skim-milk-powder",
+            "name": "Skim milk powder (NFDM)",
+            "fat_pct": 0.7,
+            "msnf_pct": 96.3,
+            "sugars_pct": 52.5,
+            "water_pct": 3.0,
+            "solids_pct": 97.0,
+            "pac": 52.5,
+            "pod": 8.4,
+            "kcal_per_100g": 362
+          },
+          "sucrose": {
+            "id": "sucrose",
+            "name": "Sucrose (table sugar)",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 99.9,
+            "water_pct": 0.1,
+            "solids_pct": 99.9,
+            "pac": 99.9,
+            "pod": 100,
+            "kcal_per_100g": 387
+          },
+          "dextrose": {
+            "id": "dextrose",
+            "name": "Dextrose (D-glucose monohydrate)",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 92,
+            "water_pct": 8,
+            "solids_pct": 92,
+            "pac": 174.8,
+            "pod": 74,
+            "kcal_per_100g": 366
+          },
+          "trimoline-full": {
+            "id": "trimoline-full",
+            "name": "Trimoline / full invert syrup",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 80,
+            "water_pct": 20,
+            "solids_pct": 80,
+            "pac": 140.8,
+            "pod": 125,
+            "kcal_per_100g": 328
+          },
+          "pistachio-paste-pure": {
+            "id": "pistachio-paste-pure",
+            "name": "Pistachio Paste (pure)",
+            "fat_pct": 45.32,
+            "msnf_pct": 0,
+            "sugars_pct": 7.66,
+            "water_pct": 4.37,
+            "solids_pct": 95.63,
+            "pac": -70.0,
+            "pod": 7.5,
+            "kcal_per_100g": 560.0
+          },
+          "locust-bean-gum": {
+            "id": "locust-bean-gum",
+            "name": "Locust bean gum (E410)",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 0,
+            "water_pct": 11,
+            "solids_pct": 89,
+            "pac": 0,
+            "pod": 0,
+            "kcal_per_100g": 336
+          }
+        }
+      },
+      "expected": {
+        "mix": {
+          "total_g": 916,
+          "fat": 9.449508733624453,
+          "msnf": 9.542740174672488,
+          "sugars": 22.053711790393013,
+          "water": 59.43356986899563,
+          "solids": 40.56643013100437,
+          "pac": 19.894650655021834,
+          "pod": 17.52532751091703,
+          "kcal_per_100g": 200.27292576419214,
+          "lactose": 5.200793395196507,
+          "added_sugars": 16.852918395196507,
+          "other_solids": 4.721262827510916,
+          "pac_excl_lactose": 14.693857259825329,
+          "lactose_in_water": 0.08750599041350156
+        },
+        "assess": [
+          {
+            "metric": "fat",
+            "value": 9.449508733624453,
+            "lo": 4,
+            "hi": 10,
+            "mark": "OK"
+          },
+          {
+            "metric": "msnf",
+            "value": 9.542740174672488,
+            "lo": 7,
+            "hi": 12,
+            "mark": "OK"
+          },
+          {
+            "metric": "sugars",
+            "value": 16.852918395196507,
+            "lo": 16,
+            "hi": 22,
+            "mark": "OK"
+          },
+          {
+            "metric": "solids",
+            "value": 40.56643013100437,
+            "lo": 32,
+            "hi": 42,
+            "mark": "OK"
+          },
+          {
+            "metric": "pac",
+            "value": 19.894650655021834,
+            "lo": 22,
+            "hi": 30,
+            "mark": "LOW"
+          },
+          {
+            "metric": "pod",
+            "value": 17.52532751091703,
+            "lo": 12,
+            "hi": 18,
+            "mark": "OK"
+          }
+        ],
+        "fp0": -2.1425680390668975,
+        "frozen_at_minus12": 74.31185271035692
+      }
+    },
+    {
+      "id": "mullan-validation",
+      "note": "Engine's known-answer recipe (Mullan 2021 publishes PAC ~26.9, ~65% frozen at -11C).",
+      "input": {
+        "recipe": [
+          [
+            "heavy-cream-36",
+            222
+          ],
+          [
+            "skim-milk-powder",
+            100
+          ],
+          [
+            "sucrose",
+            140
+          ],
+          [
+            "dextrose",
+            20
+          ],
+          [
+            "trimoline-full",
+            20
+          ],
+          [
+            "water",
+            495
+          ],
+          [
+            "locust-bean-gum",
+            3
+          ]
+        ],
+        "ingredientRows": {
+          "heavy-cream-36": {
+            "id": "heavy-cream-36",
+            "name": "Heavy cream (36% fat)",
+            "fat_pct": 36.0,
+            "msnf_pct": 5.6,
+            "sugars_pct": 3.0,
+            "water_pct": 58.4,
+            "solids_pct": 41.6,
+            "pac": 3.0,
+            "pod": 0.5,
+            "kcal_per_100g": 340
+          },
+          "skim-milk-powder": {
+            "id": "skim-milk-powder",
+            "name": "Skim milk powder (NFDM)",
+            "fat_pct": 0.7,
+            "msnf_pct": 96.3,
+            "sugars_pct": 52.5,
+            "water_pct": 3.0,
+            "solids_pct": 97.0,
+            "pac": 52.5,
+            "pod": 8.4,
+            "kcal_per_100g": 362
+          },
+          "sucrose": {
+            "id": "sucrose",
+            "name": "Sucrose (table sugar)",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 99.9,
+            "water_pct": 0.1,
+            "solids_pct": 99.9,
+            "pac": 99.9,
+            "pod": 100,
+            "kcal_per_100g": 387
+          },
+          "dextrose": {
+            "id": "dextrose",
+            "name": "Dextrose (D-glucose monohydrate)",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 92,
+            "water_pct": 8,
+            "solids_pct": 92,
+            "pac": 174.8,
+            "pod": 74,
+            "kcal_per_100g": 366
+          },
+          "trimoline-full": {
+            "id": "trimoline-full",
+            "name": "Trimoline / full invert syrup",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 80,
+            "water_pct": 20,
+            "solids_pct": 80,
+            "pac": 140.8,
+            "pod": 125,
+            "kcal_per_100g": 328
+          },
+          "water": {
+            "id": "water",
+            "name": "Water",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 0,
+            "water_pct": 100,
+            "solids_pct": 0,
+            "pac": 0,
+            "pod": 0,
+            "kcal_per_100g": null
+          },
+          "locust-bean-gum": {
+            "id": "locust-bean-gum",
+            "name": "Locust bean gum (E410)",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 0,
+            "water_pct": 11,
+            "solids_pct": 89,
+            "pac": 0,
+            "pod": 0,
+            "kcal_per_100g": 336
+          }
+        }
+      },
+      "expected": {
+        "mix": {
+          "total_g": 1000,
+          "fat": 8.062,
+          "msnf": 10.8732,
+          "sugars": 23.342,
+          "water": 63.3718,
+          "solids": 36.6282,
+          "pac": 26.214,
+          "pod": 18.931,
+          "kcal_per_100g": 180.748,
+          "lactose": 5.925894,
+          "added_sugars": 17.416106,
+          "other_solids": 0.2768940000000022,
+          "pac_excl_lactose": 20.288106,
+          "lactose_in_water": 0.09350995237629356
+        },
+        "assess": [
+          {
+            "metric": "fat",
+            "value": 8.062,
+            "lo": 4,
+            "hi": 10,
+            "mark": "OK"
+          },
+          {
+            "metric": "msnf",
+            "value": 10.8732,
+            "lo": 7,
+            "hi": 12,
+            "mark": "OK"
+          },
+          {
+            "metric": "sugars",
+            "value": 17.416106,
+            "lo": 16,
+            "hi": 22,
+            "mark": "OK"
+          },
+          {
+            "metric": "solids",
+            "value": 36.6282,
+            "lo": 32,
+            "hi": 42,
+            "mark": "OK"
+          },
+          {
+            "metric": "pac",
+            "value": 26.214,
+            "lo": 22,
+            "hi": 30,
+            "mark": "OK"
+          },
+          {
+            "metric": "pod",
+            "value": 18.931,
+            "lo": 12,
+            "hi": 18,
+            "mark": "HIGH"
+          }
+        ],
+        "fp0": -2.742359330225401,
+        "frozen_at_minus12": 68.25571611625442
+      }
+    },
+    {
+      "id": "sugar-water-minimal",
+      "note": "Minimal two-ingredient mix.",
+      "input": {
+        "recipe": [
+          [
+            "water",
+            100
+          ],
+          [
+            "sucrose",
+            25
+          ]
+        ],
+        "ingredientRows": {
+          "water": {
+            "id": "water",
+            "name": "Water",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 0,
+            "water_pct": 100,
+            "solids_pct": 0,
+            "pac": 0,
+            "pod": 0,
+            "kcal_per_100g": null
+          },
+          "sucrose": {
+            "id": "sucrose",
+            "name": "Sucrose (table sugar)",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 99.9,
+            "water_pct": 0.1,
+            "solids_pct": 99.9,
+            "pac": 99.9,
+            "pod": 100,
+            "kcal_per_100g": 387
+          }
+        }
+      },
+      "expected": {
+        "mix": {
+          "total_g": 125,
+          "fat": 0.0,
+          "msnf": 0.0,
+          "sugars": 19.98,
+          "water": 80.02,
+          "solids": 19.98,
+          "pac": 19.98,
+          "pod": 20.0,
+          "kcal_per_100g": 77.4,
+          "lactose": 0.0,
+          "added_sugars": 19.98,
+          "other_solids": 0.0,
+          "pac_excl_lactose": 19.98,
+          "lactose_in_water": 0.0
+        },
+        "assess": [
+          {
+            "metric": "fat",
+            "value": 0.0,
+            "lo": 4,
+            "hi": 10,
+            "mark": "LOW"
+          },
+          {
+            "metric": "msnf",
+            "value": 0.0,
+            "lo": 7,
+            "hi": 12,
+            "mark": "LOW"
+          },
+          {
+            "metric": "sugars",
+            "value": 19.98,
+            "lo": 16,
+            "hi": 22,
+            "mark": "OK"
+          },
+          {
+            "metric": "solids",
+            "value": 19.98,
+            "lo": 32,
+            "hi": 42,
+            "mark": "LOW"
+          },
+          {
+            "metric": "pac",
+            "value": 19.98,
+            "lo": 22,
+            "hi": 30,
+            "mark": "LOW"
+          },
+          {
+            "metric": "pod",
+            "value": 20.0,
+            "lo": 12,
+            "hi": 18,
+            "mark": "HIGH"
+          }
+        ],
+        "fp0": -1.5366008204272354,
+        "frozen_at_minus12": 80.83868903630767
+      }
+    },
+    {
+      "id": "no-dairy-sorbet-shape",
+      "note": "No dairy: lactose/MSNF terms all zero.",
+      "input": {
+        "recipe": [
+          [
+            "water",
+            550
+          ],
+          [
+            "sucrose",
+            150
+          ],
+          [
+            "dextrose",
+            50
+          ],
+          [
+            "trimoline-full",
+            30
+          ]
+        ],
+        "ingredientRows": {
+          "water": {
+            "id": "water",
+            "name": "Water",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 0,
+            "water_pct": 100,
+            "solids_pct": 0,
+            "pac": 0,
+            "pod": 0,
+            "kcal_per_100g": null
+          },
+          "sucrose": {
+            "id": "sucrose",
+            "name": "Sucrose (table sugar)",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 99.9,
+            "water_pct": 0.1,
+            "solids_pct": 99.9,
+            "pac": 99.9,
+            "pod": 100,
+            "kcal_per_100g": 387
+          },
+          "dextrose": {
+            "id": "dextrose",
+            "name": "Dextrose (D-glucose monohydrate)",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 92,
+            "water_pct": 8,
+            "solids_pct": 92,
+            "pac": 174.8,
+            "pod": 74,
+            "kcal_per_100g": 366
+          },
+          "trimoline-full": {
+            "id": "trimoline-full",
+            "name": "Trimoline / full invert syrup",
+            "fat_pct": 0,
+            "msnf_pct": 0,
+            "sugars_pct": 80,
+            "water_pct": 20,
+            "solids_pct": 80,
+            "pac": 140.8,
+            "pod": 125,
+            "kcal_per_100g": 328
+          }
+        }
+      },
+      "expected": {
+        "mix": {
+          "total_g": 780,
+          "fat": 0.0,
+          "msnf": 0.0,
+          "sugars": 28.185897435897434,
+          "water": 71.81410256410257,
+          "solids": 28.185897435897434,
+          "pac": 35.83205128205128,
+          "pod": 28.78205128205128,
+          "kcal_per_100g": 110.5,
+          "lactose": 0.0,
+          "added_sugars": 28.185897435897434,
+          "other_solids": 0.0,
+          "pac_excl_lactose": 35.83205128205128,
+          "lactose_in_water": 0.0
+        },
+        "assess": [
+          {
+            "metric": "fat",
+            "value": 0.0,
+            "lo": 4,
+            "hi": 10,
+            "mark": "LOW"
+          },
+          {
+            "metric": "msnf",
+            "value": 0.0,
+            "lo": 7,
+            "hi": 12,
+            "mark": "LOW"
+          },
+          {
+            "metric": "sugars",
+            "value": 28.185897435897434,
+            "lo": 16,
+            "hi": 22,
+            "mark": "HIGH"
+          },
+          {
+            "metric": "solids",
+            "value": 28.185897435897434,
+            "lo": 32,
+            "hi": 42,
+            "mark": "LOW"
+          },
+          {
+            "metric": "pac",
+            "value": 35.83205128205128,
+            "lo": 22,
+            "hi": 30,
+            "mark": "HIGH"
+          },
+          {
+            "metric": "pod",
+            "value": 28.78205128205128,
+            "lo": 12,
+            "hi": 18,
+            "mark": "HIGH"
+          }
+        ],
+        "fp0": -3.431303618248733,
+        "frozen_at_minus12": 61.7095724667438
+      }
+    }
+  ],
+  "card_verification": {
+    "source": ".planning/prototype/sprinkles-balance-card.html",
+    "recipe": "pistachio-v2",
+    "all_pass": true,
+    "checks": [
+      {
+        "metric": "total_g",
+        "card": 916,
+        "engine": 916,
+        "tolerance": 0.5,
+        "pass": true
+      },
+      {
+        "metric": "kcal_per_100g",
+        "card": 200,
+        "engine": 200.27292576419214,
+        "tolerance": 0.5,
+        "pass": true
+      },
+      {
+        "metric": "fat",
+        "card": 9.4,
+        "engine": 9.449508733624453,
+        "tolerance": 0.05,
+        "pass": true
+      },
+      {
+        "metric": "msnf",
+        "card": 9.5,
+        "engine": 9.542740174672488,
+        "tolerance": 0.05,
+        "pass": true
+      },
+      {
+        "metric": "added_sugars",
+        "card": 16.9,
+        "engine": 16.852918395196507,
+        "tolerance": 0.05,
+        "pass": true
+      },
+      {
+        "metric": "solids",
+        "card": 40.6,
+        "engine": 40.56643013100437,
+        "tolerance": 0.05,
+        "pass": true
+      },
+      {
+        "metric": "pac",
+        "card": 19.9,
+        "engine": 19.894650655021834,
+        "tolerance": 0.05,
+        "pass": true
+      },
+      {
+        "metric": "pod",
+        "card": 17.5,
+        "engine": 17.52532751091703,
+        "tolerance": 0.05,
+        "pass": true
+      },
+      {
+        "metric": "fp0_c",
+        "card": -2.1,
+        "engine": -2.1425680390668975,
+        "tolerance": 0.05,
+        "pass": true
+      },
+      {
+        "metric": "frozen_pct_at_minus12",
+        "card": 74,
+        "engine": 74.31185271035692,
+        "tolerance": 0.5,
+        "pass": true
+      },
+      {
+        "metric": "pac_contrib:whole-milk",
+        "card": 2.79,
+        "engine": 2.787117903930131,
+        "tolerance": 0.005,
+        "pass": true
+      },
+      {
+        "metric": "pac_contrib:heavy-cream-36",
+        "card": 0.23,
+        "engine": 0.2292576419213974,
+        "tolerance": 0.005,
+        "pass": true
+      },
+      {
+        "metric": "pac_contrib:skim-milk-powder",
+        "card": 2.18,
+        "engine": 2.177947598253275,
+        "tolerance": 0.005,
+        "pass": true
+      },
+      {
+        "metric": "pac_contrib:sucrose",
+        "card": 9.27,
+        "engine": 9.270196506550219,
+        "tolerance": 0.005,
+        "pass": true
+      },
+      {
+        "metric": "pac_contrib:dextrose",
+        "card": 9.92,
+        "engine": 9.923144104803495,
+        "tolerance": 0.005,
+        "pass": true
+      },
+      {
+        "metric": "pac_contrib:trimoline-full",
+        "card": 2.77,
+        "engine": 2.7668122270742357,
+        "tolerance": 0.005,
+        "pass": true
+      },
+      {
+        "metric": "pac_contrib:pistachio-paste-pure",
+        "card": -7.26,
+        "engine": -7.259825327510917,
+        "tolerance": 0.005,
+        "pass": true
+      },
+      {
+        "metric": "pac_contrib:locust-bean-gum",
+        "card": 0.0,
+        "engine": 0.0,
+        "tolerance": 0.005,
+        "pass": true
+      }
+    ]
+  }
+}
