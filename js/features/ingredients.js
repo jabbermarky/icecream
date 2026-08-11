@@ -760,11 +760,18 @@ export function onDownloadIngredientData(element) {
                  * from absent.
                  */
                 function firstNutritionValue(...names) {
-                    for (const name of names) {
-                        const value = getNutritionValue(name);
-                        if (value >= 0)
-                            return value;
-                    }
+                    // Records OUTER, aliases INNER. The other nesting looks
+                    // equivalent and is not: it would let SR Legacy's "Glucose"
+                    // win over Foundation's "Glucose (dextrose)", because the
+                    // alias loop would exhaust every record for the first name
+                    // before trying the second. That reintroduces exactly the
+                    // cross-record mixing this helper exists to prevent.
+                    for (const food of foods)
+                        for (const name of names)
+                            for (const nutritient of food.foodNutrients)
+                                if (nutritient.nutrientName === name && nutritient.unitName === "G")
+                                    return nutritient.value / 100.0;
+
                     return -1.0;
                 }
 

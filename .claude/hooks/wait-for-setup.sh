@@ -22,13 +22,21 @@ REPO="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
 STATUS_FILE="$REPO/.claude/.session-start-status"
 INTERVAL=2
 
-# Timeout must be a non-negative integer. Without this check a non-numeric
-# value makes every `-ge` comparison error out, and the "bounded" wait becomes
-# an infinite loop (reproduced with WAIT_FOR_SETUP_TIMEOUT=bogus).
-TIMEOUT_RAW="${1:-${WAIT_FOR_SETUP_TIMEOUT:-300}}"
-if ! printf '%s' "$TIMEOUT_RAW" | grep -qE '^[0-9]+$'; then
-  echo "[wait-for-setup] invalid timeout '$TIMEOUT_RAW' (want a whole number of seconds); using 300" >&2
-  TIMEOUT=300
+# Timeout must be a non-negative integer AND small enough for bash arithmetic.
+# A regex check alone is not enough: "999999999999999999999999999999" matches
+# ^[0-9]+$ but overflows bash's signed 64-bit integers, so every `-ge`
+# comparison errors with "integer expression expected" and the bounded wait
+# becomes an infinite loop again (reproduced, exit 124). Bounded to 3600s,
+# which is far beyond any plausible container setup.
+#
+# Default matches the hook's own timeout in .claude/settings.json. A shorter
+# default would report a legitimately slow but successful setup as failed.
+TIMEOUT_DEFAULT=600
+TIMEOUT_MAX=3600
+TIMEOUT_RAW="${1:-${WAIT_FOR_SETUP_TIMEOUT:-$TIMEOUT_DEFAULT}}"
+if ! printf '%s' "$TIMEOUT_RAW" | grep -qE '^[0-9]{1,4}$' || [ "$TIMEOUT_RAW" -gt "$TIMEOUT_MAX" ] 2>/dev/null; then
+  echo "[wait-for-setup] invalid timeout '$TIMEOUT_RAW' (want 0-${TIMEOUT_MAX} seconds); using ${TIMEOUT_DEFAULT}" >&2
+  TIMEOUT="$TIMEOUT_DEFAULT"
 else
   TIMEOUT="$TIMEOUT_RAW"
 fi

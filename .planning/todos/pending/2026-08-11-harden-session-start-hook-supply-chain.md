@@ -54,3 +54,24 @@ chromium build, and no codex CLI, and rediscovering that cost three rounds on
 Not urgent while this repository is single-maintainer and branches are
 self-authored. It becomes urgent the first time an outside branch is checked
 out, so it should land before any collaboration.
+
+## Also deferred: status file is not tied to a hook invocation
+
+Raised by the Codex re-review on 2026-08-11.
+
+`wait-for-setup.sh` reads `.claude/.session-start-status`, but nothing ties that
+file to a *particular* hook run. Two consequences:
+
+1. The hook clears the status as its first action, but it now runs async, so a
+   waiter can read a previous run's `ok` in the window before that clear.
+2. Two concurrent startups in one checkout let one run's `ok` release the
+   other's waiter while it is still mutating `node_modules`.
+
+Mostly benign in practice: a stale `ok` in this container means a previous run
+in this same container really did finish installing, so the toolchain is in fact
+ready. The genuinely unsafe case is concurrent runs, which needs a session
+identifier the waiter does not currently have. The hook receives `session_id` on
+stdin; the waiter would need it passed through, for example via
+`$CLAUDE_ENV_FILE`.
+
+Fix when concurrent sessions on one checkout become a real workflow, not before.
