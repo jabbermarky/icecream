@@ -92,12 +92,35 @@ fi
 
 # --- 3. codex CLI ----------------------------------------------------------
 # Powers the cross-model outside voice in gstack's /plan-*-review and /codex.
-# Needs OPENAI_API_KEY in the environment config to actually authenticate.
 if ! command -v codex >/dev/null 2>&1; then
   if npm install -g @openai/codex >/dev/null 2>&1; then
     echo "[session-start] codex CLI installed"
   else
     echo "[session-start] WARN codex CLI install failed; outside voice unavailable"
+  fi
+fi
+
+# --- 3b. codex auth --------------------------------------------------------
+# Codex CLI 0.147 does NOT read OPENAI_API_KEY from the environment. Without
+# this step it returns "401 Unauthorized: Missing bearer or basic authentication
+# in header" even with the variable correctly set. The key has to be stored via
+# login, which writes ~/.codex/auth.json -- and that file is container-local, so
+# this has to run on every cold start.
+#
+# Note that gstack's own auth probe only checks that the variable is non-empty,
+# so it reports CODEX_MODE: ready in exactly the state that fails. Do not treat
+# a passing probe as evidence the outside voice will work.
+if command -v codex >/dev/null 2>&1; then
+  if codex login status >/dev/null 2>&1; then
+    echo "[session-start] codex already authenticated"
+  elif [ -n "${OPENAI_API_KEY:-}" ]; then
+    if printenv OPENAI_API_KEY | codex login --with-api-key >/dev/null 2>&1; then
+      echo "[session-start] codex authenticated from OPENAI_API_KEY"
+    else
+      echo "[session-start] WARN codex login failed; outside voice unavailable"
+    fi
+  else
+    echo "[session-start] note: OPENAI_API_KEY unset; codex installed but not authenticated"
   fi
 fi
 
