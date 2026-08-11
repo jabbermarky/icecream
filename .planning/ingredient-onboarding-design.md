@@ -82,6 +82,21 @@ is closing three specific gaps in the onboarding that ships today (G1, G2, B1
 below). This is materially smaller than what was proposed at the start of Phase
 4, and the reduction is the main product of the session.
 
+**What grew, and why.** The task list is ten items, not three. The wedge held;
+these attached to it, each accepted deliberately at the time:
+
+| Item | Relationship to the wedge |
+| --- | --- |
+| T0 — vendor `idb` | **Prerequisite.** The test suite could not run at all until this landed (10 passed / 15 failed → 113 / 1). Nothing in the wedge was verifiable without it. |
+| T4 — FDC error handling | **Adjacent, same function.** Every non-200 response failed silently. A feature whose value is "saves an evening" must not fail in a way indistinguishable from "no data exists." |
+| T9 — Foundation preference | **Adjacent, found by measurement.** The code prefers the record type that carries no sugar data, so it selects the record that cannot produce PAC/POD. |
+| T8 — optimizer logging | **Opportunistic, unrelated.** Four `console.log` per ingredient per `Sums` read, inside the optimizer's objective function. Free win, no connection to ingredients. |
+
+T6 and T7 are test infrastructure for the above rather than separate scope.
+**Use this table as the boundary test for any eleventh task:** if it is neither
+inside G1/G2/B1 nor a prerequisite for verifying them, it needs the same
+explicit acceptance these did.
+
 What already works in `js/features/ingredients.js:635` (`onDownloadIngredientData`):
 searches FDC across Foundation / Survey (FNDDS) / SR Legacy; retries with
 truncated queries on zero hits; fuzzy-matches by Damerau-Levenshtein and presents
@@ -192,40 +207,33 @@ Rationale:
 ### Scope
 
 **In:**
-- **G1 — make the derivation fire.** Two parts, in order of impact.
+> **Where the buildable detail lives.** This section states *why* each item is
+> in scope. **Implementation Tasks is authoritative for what to build** — file
+> paths, exact rules, verification. When a decision changes, that section is the
+> one to update. This split exists because an earlier revision left six
+> passages describing designs that had been abandoned, which is what three
+> copies of a decision reliably produces.
 
-  **G1a — fix the nutrient name constants.** This is the whole ballgame. The
-  code asks FDC for names it no longer returns:
+- **G1 — make the derivation fire.** The PAC/POD derivation has never once run
+  in production: measured, it fails for **0 of 11** representative ingredients.
+  The cause is nutrient-name drift, not chemistry — FDC renamed fields the code
+  still asks for, and the lookups fail silently. A side effect nobody had
+  noticed: total `Sugar` was never populating either.
 
-  | Code asks for | FDC returns | Site |
-  | --- | --- | --- |
-  | `"Glucose (dextrose)"` | `"Glucose"` | `:769` |
-  | `"Sugars, Total NLEA"` / `"Sugars, total including NLEA"` | `"Total Sugars"` | `:763` |
+  Two parts. **G1a** corrects the names, which alone takes the gate from 0/11 to
+  6/11 — the highest value-per-line change in the plan. **G1b** handles records
+  with a partial sugar breakdown by reconciling what is present against the
+  reported total, rather than consulting a hardcoded table of which sugars are
+  safely zero.
 
-  `getNutritionValue` returns `-1.0` on no match (`:743`), and `valid &= ...`
-  (`:780`) ANDs across all seven sugar keys, so one unmatched name suppresses
-  both PAC and POD (`:784-789`). The total-sugars mismatch means **`Sugar`
-  itself has never populated either** — `setValue` skips any negative value
-  (`:753-759`). Two string constants take the gate from 0/11 to 6/11.
-
-  **G1b — reconcile the breakdown against the total.** For records where some
-  individual sugars are absent, sum the ones present and compare to
-  `Total Sugars`:
-
-  - Sum reconciles within tolerance → the absent sugars are genuinely zero.
-    Derive and mark **measured**.
-  - Sum falls short of the total → the shortfall is unattributed. Apportion it
-    under a declared assumption and mark **estimated**.
-  - No `Total Sugars` and an incomplete breakdown → decline, and say why.
-
-  This supersedes the hardcoded safely-zero sugar list proposed during review.
-  Measured against the live API it is both simpler and more accurate: honey
-  reconciles to within 0.03 g despite reporting no lactose, because honey
-  contains no lactose. A hardcoded list would have called that estimated. The
-  data validates itself; no chemistry table needs maintaining.
+  Reconciliation was chosen over the hardcoded list proposed during review
+  because measurement showed it is both simpler and more accurate: honey
+  reconciles to within 0.03 g while reporting no lactose, because honey contains
+  none. A hardcoded list would have marked that estimated. The data validates
+  itself, and no chemistry table needs maintaining.
 
   **Measured outcome across 11 representative ingredients:** 8 measured,
-  2 estimated, 1 undeliverable — against 0 today.
+  2 estimated, 1 undeliverable — against 0 today. See T2a and T2b.
 - **G2 — per-field provenance.** Record source (`usda:foundation`,
   `usda:sr-legacy`, `derived`, `estimated`, `manual`, later `llm`), FDC ID where
   applicable, and date. Additive sidecar; unannotated entries read as `manual`.
@@ -265,9 +273,21 @@ rate-limited, not billable — but it should be rotated and moved to config.
 
 ## Success Criteria
 
-- **Primary:** the share of USDA imports that populate PAC and POD without
-  manual entry rises from its current baseline to >80%. *Baseline is currently
-  unmeasured — establishing it is part of The Assignment.*
+- **Primary — two numbers, deliberately not one.** The original single ">80%
+  populated" criterion could not be evaluated once estimates existed: the same
+  implementation scores 91% counting them and 73% excluding them. Splitting the
+  metric keeps how often the app is *guessing* visible instead of absorbed into
+  a headline figure that can be passed by guessing more.
+
+  | Criterion | Baseline (measured 2026-08-11) | Target |
+  | --- | --- | --- |
+  | Populates PAC/POD as **measured** (breakdown reconciles) | 0/11 → **8/11 (73%)** after T2a+T2b | >70% |
+  | Populates PAC/POD **at all** (measured or estimated) | 0/11 → **10/11 (91%)** | >85% |
+  | *Estimate rate* (the gap between them) | **2/11 (18%)** | watch, not a target |
+
+  A rising estimate rate is a signal about FDC data quality, not a regression to
+  fix by itself. Baseline is measured, not aspirational: the pre-fix value was
+  0 on both criteria.
 - Every PAC/POD value carries a visible measured-vs-estimated marker at point of
   use in a formulation, not only at import.
 - Existing `data/ingredients.json` loads unchanged with no migration step.
@@ -384,6 +404,11 @@ defects in it.
 
 ## Correction — measured against the live API, 2026-08-11
 
+> **Frozen record. Do not edit this section.** It documents what was believed
+> and how it was disproven, dated to when that happened. Its value is being an
+> unaltered account. If a later finding changes the design again, add a new
+> dated section rather than revising this one, and update Implementation Tasks.
+
 Network egress to `api.nal.usda.gov` was opened after the review completed. The
 premise the review rested on could then be measured instead of inferred. **The
 review's diagnosis was wrong on the mechanism, right on the consequence.**
@@ -450,7 +475,8 @@ Foundation preference. P2 moves from unverified to verified; P3 improves.
 
 | New codepath | Realistic production failure | Test? | Error handling? | Silent? |
 | --- | --- | --- | --- | --- |
-| `deriveSugarProperties` — tiered | Wrong safely-zero call on an unusual food yields a plausible but wrong PAC | T6 table cases | Value marked measured/estimated | **Yes — chemistry error, not a crash** |
+| `deriveSugarProperties` — reconciliation | Breakdown reconciles within tolerance but a sugar is genuinely mis-reported by FDC, yielding a plausible but wrong PAC marked *measured* | T6 table cases | Value marked measured/estimated | **Yes — chemistry error, not a crash** |
+| Alias fallback (`firstNutritionValue`) | Loop nesting inverted, so a lower-priority record's primary name beats a higher-priority record's alias and one profile mixes two USDA records | T6 nesting case | None — silent | **Yes.** Occurred twice in implementation; caught by cross-model review, not by tests |
 | `deriveSugarProperties` — unit scale | Caller passes percent where fraction expected; every value off by 100× | T6 + T7 cross-surface | Explicit unit parameter | Partially — 100× is visible if you look |
 | `deriveSugarProperties` — empty breakdown | Total Sugar > 0, no sub-sugars at all. **Behavior undecided** | Not yet | Not yet | **Yes — critical gap** |
 | `rankCandidates` | Correct match ranked out of the pick-list; user concludes FDC lacks the ingredient | T6 | None possible — ranking is heuristic | **Yes** |
@@ -466,18 +492,21 @@ decided before G1 is implemented.
 Almost everything lands in `js/features/ingredients.js`, so this is largely
 sequential.
 
-| Step | Modules touched | Depends on |
-| --- | --- | --- |
-| T1 extract derivation | `js/utils/`, `js/features/` | — |
-| T2 tiered rule | `js/utils/` | T1 |
-| T3 ranking rewrite | `js/features/` | — |
-| T4 error handling | `js/features/` | — |
-| T5 provenance sidecar | `js/features/`, `data/` | T1 |
-| T6 node test lane | `tests/`, `package.json` | — |
-| T7 regression guards | `test-app.js` | T2, T5 |
-| T8 remove hot-path logging | `js/models/`, `js/features/` | — |
+| Step | Modules touched | Depends on | State |
+| --- | --- | --- | --- |
+| T0 vendor `idb` | `js/vendor/`, `js/storage/` | — | ✅ done |
+| T1 extract derivation | `js/utils/`, `js/features/` | — | |
+| T2a nutrient name constants | `js/features/` | — | ✅ done |
+| T2b reconcile against total | `js/utils/` | T1 | blocked on the open decision |
+| T3 ranking rewrite | `js/features/` | — | |
+| T4 error handling | `js/features/` | — | |
+| T5 provenance sidecar | `js/features/`, `data/` | T1 | |
+| T6 node test lane | `tests/`, `package.json` | — | |
+| T7 regression guards | `test-app.js` | T2b, T5 | |
+| T8 remove hot-path logging | `js/models/`, `js/features/` | — | |
+| T9 Foundation preference | `js/features/` | — | |
 
-- **Lane A (sequential, shared `js/features/`):** T1 → T2 → T3 → T4 → T5
+- **Lane A (sequential, shared `js/features/`):** T1 → T2b → T3 → T4 → T9 → T5
 - **Lane B (independent):** T6 — test harness scaffolding touches only `tests/`
   and `package.json`
 - **Lane C (after A):** T7
@@ -502,14 +531,39 @@ finding above. Run with Claude Code or Codex; checkbox as you ship.
   - Files: `js/utils/tools.js`, `js/features/ingredients.js`
   - Verify: both surfaces produce identical results for the same profile; no behavior change in this commit
 - [x] **T2a (P1, human: ~30min / CC: ~5min)** — derivation — Fix the two nutrient name constants ✅ **DONE**
-  - Surfaced by: Correction (measured) — code asks `"Glucose (dextrose)"` and `"Sugars, Total NLEA"`; FDC returns `"Glucose"` and `"Total Sugars"`
-  - Files: `js/features/ingredients.js` (`:767`, `:775`)
+  - Surfaced by: Correction (measured). The names FDC no longer returns:
+
+    | Code asked for | FDC returns |
+    | --- | --- |
+    | `"Glucose (dextrose)"` | `"Glucose"` |
+    | `"Sugars, Total NLEA"` / `"Sugars, total including NLEA"` | `"Total Sugars"` |
+
+    `getNutritionValue` returns `-1.0` on no match, and the validity check ANDs
+    across all seven sugar keys, so one unmatched name suppressed both PAC and
+    POD. The total-sugars mismatch meant `Sugar` never populated either, since
+    `setValue` skips negative values.
+  - Files: `js/features/ingredients.js`
   - Verified against the live API: **PAC/POD gate 0/11 → 6/11**, **`Sugar` populates 0/11 → 10/11**
-  - Both old names retained as fallbacks via `Math.max`, since `getNutritionValue` returns `-1` when absent and so cannot mask a genuine 0
+  - Old names retained as fallbacks via `firstNutritionValue()`, an ordered
+    first-match helper. **Not `Math.max`** — an earlier attempt used it, and
+    taking the max across aliases discards FDC record priority, letting a
+    lower-priority record's value win and assembling one ingredient's profile
+    from two different records. The helper iterates records outer, aliases
+    inner; the other nesting looks equivalent and reintroduces the same defect.
 - [ ] **T2b (P1, human: ~half day / CC: ~15min)** — derivation — Reconcile the breakdown against `Total Sugars`
   - Surfaced by: Correction (measured) — reconciliation beats a hardcoded safely-zero sugar list; honey reconciles to 0.03g without reporting lactose
   - Files: `js/utils/tools.js`
+  - **The rule.** Sum the individual sugars present and compare to `Total Sugars`:
+
+    | Condition | Outcome |
+    | --- | --- |
+    | Sum reconciles within tolerance | Absent sugars are genuinely zero. Derive, mark **measured**. |
+    | Sum falls short of the total | Shortfall is unattributed. Apportion under a declared assumption, mark **estimated**. |
+    | No `Total Sugars`, incomplete breakdown | Decline, and state why. |
+
   - Verify: 8/11 measured, 2/11 estimated, 1/11 declines with a stated reason
+  - **Blocked:** the apportionment target for the middle row is the one open
+    decision (see UNRESOLVED DECISIONS)
 - [ ] **T9 (P2, human: ~2hrs / CC: ~10min)** — matching — Condition the Foundation preference on sugar data
   - Surfaced by: Correction (measured) — Foundation records carry no sugar breakdown and no total, so `:714-735` prefers the record that cannot derive PAC/POD
   - Files: `js/features/ingredients.js`
@@ -544,8 +598,9 @@ finding above. Run with Claude Code or Codex; checkbox as you ship.
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
-| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | issues_open | 7 issues, 1 critical gap |
+| Codex Review | `/codex review` | Independent 2nd opinion | 4 | clean | 5 → 3 → 3 → 0 across four passes |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 2 | clean | Pass 1: 7 issues. Pass 2 (doc): 4 issues, all resolved |
+| Diff Review | `/review` | Pre-landing diff check | 1 | clean | 3 informational, 2 fixed |
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
@@ -556,13 +611,19 @@ consequence is unchanged and now proven at 0/11. See "Correction" above. T2 was
 split into T2a/T2b, the hardcoded safely-zero sugar list was dropped, and T9 was
 added. 10 implementation tasks now, not 8.
 
-**VERDICT:** ENG REVIEW COMPLETE — 7 issues found, 7 resolved, plus 1 corrected
-and 1 new finding from post-review measurement. 10 implementation tasks written.
-Not CLEARED: one critical gap remains (see below). Outside voice deliberately
-skipped — Codex was not installed and a same-family subagent was judged weaker
-than a real cross-model check. `api.openai.com` egress is now open, so
-`npm install -g @openai/codex` plus an API key would enable a genuine
-cross-model pass on the corrected plan.
+**CROSS-MODEL:** Codex ran four adversarial passes over the branch, converging
+5 → 3 → 3 → 0 findings. Two pass-2 findings were defects the pass-1 fixes had
+introduced, and the pass-3 P1 was the third distinct variant of a bug fixed
+twice. Pass 4 returned clean at high confidence, having reproduced the edge
+cases rather than reasoning about them. The self-review that preceded it found
+3 informational issues on the same diff; Codex found 8, five of them P1. Where
+they diverged, Codex was right every time.
+
+**VERDICT:** ENG REVIEW COMPLETE (2 passes) + DIFF REVIEW + CROSS-MODEL CLEARED.
+Pass 1: 7 issues, all resolved, 1 corrected by later measurement. Pass 2 (this
+doc): 4 issues, all resolved. 10 implementation tasks, 2 shipped and verified
+against the live API. Suite 114 passed / 0 failed. Not fully CLEARED: one
+decision remains open below, gating T2b only — every other task is unblocked.
 
 **UNRESOLVED DECISIONS:**
 - When a record carries `Total Sugars` but no individual breakdown at all
