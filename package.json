@@ -1,6 +1,6 @@
 {
   "name": "ice-ed",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Ice Ed - The friendly Ice Cream Editor",
   "type": "module",
   "scripts": {
