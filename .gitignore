@@ -12,3 +12,4 @@ package-lock.json
 .vscode/
 .idea/
 .playwright-cli/
+.gstack/
