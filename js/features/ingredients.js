@@ -763,7 +763,8 @@ export function onDownloadIngredientData(element) {
                     // FDC reports total sugars as "Total Sugars"; the two NLEA
                     // spellings are kept as fallbacks for older/other records.
                     // getNutritionValue returns -1 when absent, so Math.max
-                    // picks the first name that matches without masking a real 0.
+                    // yields whichever name is present, and -1 when none are.
+                    // A legitimate 0 still wins over an absent -1.
                     setValue("Sugar", Math.max(getNutritionValue("Total Sugars"), getNutritionValue("Sugars, Total NLEA"), getNutritionValue("Sugars, total including NLEA")));
                     setValue("kcal", getNutritionValue("Energy", "KCAL"));
 
@@ -772,6 +773,7 @@ export function onDownloadIngredientData(element) {
                         Sucrose: getNutritionValue("Sucrose"),
                         // FDC reports this as "Glucose"; "Glucose (dextrose)"
                         // kept as a fallback for records using the older name.
+                        // Same -1-absent semantics as the Sugar lookup above.
                         Dextrose: Math.max(getNutritionValue("Glucose"), getNutritionValue("Glucose (dextrose)")),
                         Fructose: getNutritionValue("Fructose"),
                         Lactose: getNutritionValue("Lactose"),

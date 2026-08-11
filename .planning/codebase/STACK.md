@@ -69,7 +69,13 @@
 **Production:**
 - Client-side only - runs entirely in browser
 - Can be served from any static file host
-- Single HTML file deployment option available (`IceEd.html` legacy backup)
+- `IceEd.html` is a **frozen snapshot** of the original monolithic app, kept as
+  a historical record. It is **not a maintained deployment target**: it was last
+  touched 2026-01-15 and predates fixes landed in `js/`, including the USDA
+  nutrient-name correction (`IceEd.html:2702` and `:2708` still query
+  `"Sugars, Total NLEA"` and `"Glucose (dextrose)"`, names FoodData Central no
+  longer returns, so its ingredient import cannot populate Sugar, PAC or POD).
+  Deploy `index.html` and the `js/` modules.
 
 ---
 
