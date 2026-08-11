@@ -743,6 +743,31 @@ export function onDownloadIngredientData(element) {
                     return -1.0;
                 }
 
+                /**
+                 * Resolve the first nutrient name that FDC actually reports.
+                 *
+                 * Alias lookups must NOT use Math.max. `foods` is ordered
+                 * Foundation > SR Legacy > Survey, and getNutritionValue
+                 * returns the first match in that order, so each individual
+                 * name already respects record priority. Taking the max across
+                 * aliases discards that: the numerically larger value wins even
+                 * when it came from a lower-priority record, which can assemble
+                 * a single ingredient's profile out of two different USDA
+                 * records. Preference order, first hit wins.
+                 *
+                 * Returns -1.0 when no alias resolves, matching
+                 * getNutritionValue, so a genuine 0 is still distinguishable
+                 * from absent.
+                 */
+                function firstNutritionValue(...names) {
+                    for (const name of names) {
+                        const value = getNutritionValue(name);
+                        if (value >= 0)
+                            return value;
+                    }
+                    return -1.0;
+                }
+
                 if (foods.length > 0) {
                     var imported = Ingredients[ingredientName].copy();
 
@@ -761,11 +786,8 @@ export function onDownloadIngredientData(element) {
                     const water = setValue("Water", getNutritionValue("Water"));
                     const fat = setValue("Fat", getNutritionValue("Total lipid (fat)"));
                     // FDC reports total sugars as "Total Sugars"; the two NLEA
-                    // spellings are kept as fallbacks for older/other records.
-                    // getNutritionValue returns -1 when absent, so Math.max
-                    // yields whichever name is present, and -1 when none are.
-                    // A legitimate 0 still wins over an absent -1.
-                    setValue("Sugar", Math.max(getNutritionValue("Total Sugars"), getNutritionValue("Sugars, Total NLEA"), getNutritionValue("Sugars, total including NLEA")));
+                    // spellings are kept as fallbacks for older records.
+                    setValue("Sugar", firstNutritionValue("Total Sugars", "Sugars, Total NLEA", "Sugars, total including NLEA"));
                     setValue("kcal", getNutritionValue("Energy", "KCAL"));
 
                     var ethanol = Math.max(getNutritionValue("Alcohol, ethyl"), 0.);
@@ -773,8 +795,7 @@ export function onDownloadIngredientData(element) {
                         Sucrose: getNutritionValue("Sucrose"),
                         // FDC reports this as "Glucose"; "Glucose (dextrose)"
                         // kept as a fallback for records using the older name.
-                        // Same -1-absent semantics as the Sugar lookup above.
-                        Dextrose: Math.max(getNutritionValue("Glucose"), getNutritionValue("Glucose (dextrose)")),
+                        Dextrose: firstNutritionValue("Glucose", "Glucose (dextrose)"),
                         Fructose: getNutritionValue("Fructose"),
                         Lactose: getNutritionValue("Lactose"),
                         Maltose: getNutritionValue("Maltose"),
