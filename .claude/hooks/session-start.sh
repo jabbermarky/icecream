@@ -8,6 +8,15 @@
 #   3. gstack's accumulated knowledge lives in ~/.gstack, which is
 #      container-local and gone
 #
+# Runs in ASYNC mode so session startup does not wait on a ~180MB browser
+# download. Consequence: for a short window after startup the toolchain may not
+# be ready yet. Two mitigations:
+#   - the gstack memory restore runs BEFORE the async handoff, since it is
+#     instant and local, so accumulated knowledge is available immediately
+#   - a marker file is written when the slow work finishes, so readiness is
+#     checkable rather than guessed:
+#         test -f "${TMPDIR:-/tmp}/.icecream-session-start-done"
+#
 # Idempotent and non-interactive. Every network step is tolerant of failure so
 # that a hook problem never blocks session startup.
 
@@ -21,7 +30,43 @@ fi
 REPO="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$REPO" || exit 0
 
+DONE_MARKER="${TMPDIR:-/tmp}/.icecream-session-start-done"
+rm -f "$DONE_MARKER"
+
+# --- 0. restore gstack memory (SYNCHRONOUS) --------------------------------
+# Deliberately before the async handoff: no network, effectively instant, and
+# it is the thing the agent benefits from having at turn one. ~/.gstack is
+# container-local; .planning/gstack-memory/ is the durable copy. Restore is
+# additive — only absent files are written — so a session's own newer state is
+# never clobbered.
+#
+# No stdout before the async control line below, so the result is captured and
+# printed afterwards.
+GS_SRC="$REPO/.planning/gstack-memory"
+GS_DST="$HOME/.gstack/projects/jabbermarky-icecream"   # gstack-slug for this repo
+gs_restored=0
+if [ -d "$GS_SRC" ]; then
+  mkdir -p "$GS_DST" 2>/dev/null
+  for f in learnings.jsonl decisions.jsonl decisions.active.json \
+           question-log.jsonl timeline.jsonl tasks-eng-review.jsonl; do
+    if [ -f "$GS_SRC/$f" ] && [ ! -f "$GS_DST/$f" ]; then
+      cp "$GS_SRC/$f" "$GS_DST/$f" 2>/dev/null && gs_restored=$((gs_restored + 1))
+    fi
+  done
+  if [ -f "$GS_SRC/eng-review-test-plan.md" ] && \
+     ! ls "$GS_DST"/*eng-review-test-plan*.md >/dev/null 2>&1; then
+    cp "$GS_SRC/eng-review-test-plan.md" "$GS_DST/eng-review-test-plan.md" 2>/dev/null &&
+      gs_restored=$((gs_restored + 1))
+  fi
+fi
+
+# --- async handoff ---------------------------------------------------------
+# MUST be the first line on stdout. Everything past here runs in the background
+# while the session starts.
+echo '{"async": true, "asyncTimeout": 300000}'
+
 echo "[session-start] preparing $REPO"
+echo "[session-start] gstack memory: $gs_restored file(s) restored (synchronous)"
 
 # --- 1. node dependencies --------------------------------------------------
 # npm install (not ci) so the container's cached state is reused on later runs.
@@ -36,7 +81,7 @@ fi
 # --- 2. playwright browser -------------------------------------------------
 # The image pre-bakes some chromium builds, but package.json's playwright may
 # want a different revision. `playwright install` is a no-op when the matching
-# build is already present.
+# build is already present. This is the slow step the async mode exists for.
 if [ -d node_modules/playwright ]; then
   if npx --no-install playwright install chromium >/dev/null 2>&1; then
     echo "[session-start] playwright chromium ok"
@@ -56,33 +101,12 @@ if ! command -v codex >/dev/null 2>&1; then
   fi
 fi
 
-# --- 4. restore gstack memory ----------------------------------------------
-# ~/.gstack is container-local. .planning/gstack-memory/ is the durable copy.
-# Restore is additive: only files that are absent are written, so a session's
-# own newer state is never clobbered.
-GS_SRC="$REPO/.planning/gstack-memory"
-GS_DST="$HOME/.gstack/projects/jabbermarky-icecream"   # gstack-slug for this repo
-if [ -d "$GS_SRC" ]; then
-  mkdir -p "$GS_DST"
-  restored=0
-  for f in learnings.jsonl decisions.jsonl decisions.active.json \
-           question-log.jsonl timeline.jsonl tasks-eng-review.jsonl; do
-    if [ -f "$GS_SRC/$f" ] && [ ! -f "$GS_DST/$f" ]; then
-      cp "$GS_SRC/$f" "$GS_DST/$f" && restored=$((restored + 1))
-    fi
-  done
-  if [ -f "$GS_SRC/eng-review-test-plan.md" ] && \
-     ! ls "$GS_DST"/*eng-review-test-plan*.md >/dev/null 2>&1; then
-    cp "$GS_SRC/eng-review-test-plan.md" "$GS_DST/eng-review-test-plan.md"
-    restored=$((restored + 1))
-  fi
-  echo "[session-start] gstack memory: $restored file(s) restored"
-fi
-
 # --- notes for the agent ---------------------------------------------------
 # test-app.js launches with headless:false, so the suite needs a virtual
 # display in a container. Until that is made configurable, run:
 #     xvfb-run -a npm test
 echo "[session-start] note: run the suite as 'xvfb-run -a npm test' (test-app.js uses headless:false)"
-echo "[session-start] done"
+
+touch "$DONE_MARKER"
+echo "[session-start] done (marker: $DONE_MARKER)"
 exit 0
