@@ -14,6 +14,22 @@ let accessToken = null;
 let authStateListeners = [];
 
 /**
+ * Build an error marking a Google library as unreachable.
+ *
+ * Tagged with a code rather than matched on message text, so the caller can
+ * tell "the library never loaded" apart from a genuine initialization fault
+ * without depending on wording.
+ *
+ * @param {string} message
+ * @returns {Error}
+ */
+function libraryUnavailable(message) {
+  const error = new Error(message);
+  error.code = 'LIBRARY_UNAVAILABLE';
+  return error;
+}
+
+/**
  * Initialize Google Auth - waits for both gapi and GIS libraries to load
  * @returns {Promise<boolean>} True when ready, false on error
  */
@@ -28,7 +44,17 @@ export async function initGoogleAuth() {
     console.log('Google Auth initialized successfully');
     return true;
   } catch (error) {
-    console.error('Failed to initialize Google Auth:', error);
+    // gapi and GIS load from Google's CDN via script tags in index.html. When
+    // that CDN is unreachable -- offline, restricted network, blocking
+    // extension -- initialization fails in a way that is expected and fully
+    // recoverable: the caller disables the sync button and the app continues
+    // on local storage. Report it as information, not an error, so a normal
+    // offline session does not look like a fault.
+    if (error?.code === 'LIBRARY_UNAVAILABLE') {
+      console.info('Google Auth unavailable (library did not load) - continuing with local storage only.');
+    } else {
+      console.error('Failed to initialize Google Auth:', error);
+    }
     return false;
   }
 }
@@ -145,7 +171,7 @@ function waitForGapi() {
         resolve();
       } else if (attempts >= maxAttempts) {
         clearInterval(interval);
-        reject(new Error('Timeout waiting for gapi library'));
+        reject(libraryUnavailable('Timeout waiting for gapi library'));
       }
     }, 100);
   });
@@ -188,7 +214,7 @@ function waitForGis() {
         resolve();
       } else if (attempts >= maxAttempts) {
         clearInterval(interval);
-        reject(new Error('Timeout waiting for Google Identity Services'));
+        reject(libraryUnavailable('Timeout waiting for Google Identity Services'));
       }
     }, 100);
   });
