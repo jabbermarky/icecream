@@ -14,8 +14,8 @@
 #   - the gstack memory restore runs BEFORE the async handoff, since it is
 #     instant and local, so accumulated knowledge is available immediately
 #   - a marker file is written when the slow work finishes, so readiness is
-#     checkable rather than guessed:
-#         test -f "${TMPDIR:-/tmp}/.icecream-session-start-done"
+#     checkable rather than guessed. Block on it before using the toolchain:
+#         ./.claude/hooks/wait-for-setup.sh && xvfb-run -a npm test
 #
 # Idempotent and non-interactive. Every network step is tolerant of failure so
 # that a hook problem never blocks session startup.
