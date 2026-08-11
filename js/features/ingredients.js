@@ -743,6 +743,38 @@ export function onDownloadIngredientData(element) {
                     return -1.0;
                 }
 
+                /**
+                 * Resolve the first nutrient name that FDC actually reports.
+                 *
+                 * Alias lookups must NOT use Math.max. `foods` is ordered
+                 * Foundation > SR Legacy > Survey, and getNutritionValue
+                 * returns the first match in that order, so each individual
+                 * name already respects record priority. Taking the max across
+                 * aliases discards that: the numerically larger value wins even
+                 * when it came from a lower-priority record, which can assemble
+                 * a single ingredient's profile out of two different USDA
+                 * records. Preference order, first hit wins.
+                 *
+                 * Returns -1.0 when no alias resolves, matching
+                 * getNutritionValue, so a genuine 0 is still distinguishable
+                 * from absent.
+                 */
+                function firstNutritionValue(...names) {
+                    // Records OUTER, aliases INNER. The other nesting looks
+                    // equivalent and is not: it would let SR Legacy's "Glucose"
+                    // win over Foundation's "Glucose (dextrose)", because the
+                    // alias loop would exhaust every record for the first name
+                    // before trying the second. That reintroduces exactly the
+                    // cross-record mixing this helper exists to prevent.
+                    for (const food of foods)
+                        for (const name of names)
+                            for (const nutritient of food.foodNutrients)
+                                if (nutritient.nutrientName === name && nutritient.unitName === "G")
+                                    return nutritient.value / 100.0;
+
+                    return -1.0;
+                }
+
                 if (foods.length > 0) {
                     var imported = Ingredients[ingredientName].copy();
 
@@ -760,13 +792,17 @@ export function onDownloadIngredientData(element) {
 
                     const water = setValue("Water", getNutritionValue("Water"));
                     const fat = setValue("Fat", getNutritionValue("Total lipid (fat)"));
-                    setValue("Sugar", Math.max(getNutritionValue("Sugars, Total NLEA"), getNutritionValue("Sugars, total including NLEA")));
+                    // FDC reports total sugars as "Total Sugars"; the two NLEA
+                    // spellings are kept as fallbacks for older records.
+                    setValue("Sugar", firstNutritionValue("Total Sugars", "Sugars, Total NLEA", "Sugars, total including NLEA"));
                     setValue("kcal", getNutritionValue("Energy", "KCAL"));
 
                     var ethanol = Math.max(getNutritionValue("Alcohol, ethyl"), 0.);
                     const sugars = {
                         Sucrose: getNutritionValue("Sucrose"),
-                        Dextrose: getNutritionValue("Glucose (dextrose)"),
+                        // FDC reports this as "Glucose"; "Glucose (dextrose)"
+                        // kept as a fallback for records using the older name.
+                        Dextrose: firstNutritionValue("Glucose", "Glucose (dextrose)"),
                         Fructose: getNutritionValue("Fructose"),
                         Lactose: getNutritionValue("Lactose"),
                         Maltose: getNutritionValue("Maltose"),

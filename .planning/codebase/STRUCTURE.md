@@ -25,19 +25,36 @@ icecream/
 │   └── ingredients.json    # Database: 76 ingredient definitions
 │
 ├── js/
-│   ├── app.js              # Main orchestration (1,666 lines)
+│   ├── app.js              # Main orchestration (454 lines)
 │   │
 │   ├── features/           # Business logic modules
 │   │   ├── calculations.js # 98 lines - PAC/POD/freezing math
-│   │   └── ingredients.js  # 749 lines - Ingredient CRUD, USDA API
+│   │   └── ingredients.js  # 862 lines - Ingredient CRUD, USDA API
+│   │
+│   ├── models/             # Domain model
+│   │   └── core.js         # Recipe and ingredient types
+│   │
+│   ├── storage/            # Persistence and sync
+│   │   ├── storage.js      # Storage interface
+│   │   ├── indexeddb-storage.js  # Local persistence (uses vendor/idb)
+│   │   ├── google-auth.js  # Google OAuth for cloud sync
+│   │   ├── google-drive-storage.js
+│   │   └── sync-manager.js
 │   │
 │   ├── ui/                 # User interface modules
 │   │   ├── components.js   # 180 lines - Tabs, modals, status bar
 │   │   └── graph.js        # 118 lines - Canvas freezing curve
 │   │
-│   └── utils/              # Utility modules
-│       ├── helpers.js      # 127 lines - Locale parsing, DOM utils
-│       └── file-io.js      # 92 lines - Recipe/ingredient serialization
+│   ├── utils/              # Utility modules
+│   │   ├── helpers.js      # 127 lines - Locale parsing, DOM utils
+│   │   └── file-io.js      # 92 lines - Recipe/ingredient serialization
+│   │
+│   └── vendor/             # Vendored third-party, unmodified
+│       └── idb.js          # idb v8.0.3 (ISC). To update:
+│                           #   npm pack idb@<version> && tar xzf idb-<version>.tgz
+│                           #   cp package/build/index.js js/vendor/idb.js
+│                           # Vendored rather than loaded from a CDN so startup
+│                           # does not depend on a third-party host.
 │
 └── .planning/              # GSD planning documents
     └── codebase/           # Codebase analysis (this directory)
