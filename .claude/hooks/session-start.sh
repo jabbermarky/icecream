@@ -13,8 +13,10 @@
 # ASYNC AND MATCHER ARE CONFIGURED IN .claude/settings.json, NOT HERE.
 # Printing {"async": true} from a hook script does nothing; `async` is a field
 # on the hook handler. See https://code.claude.com/docs/en/hooks. The matcher is
-# set to "startup" so this does not re-run on resume/clear/compact/fork, which
-# would launch concurrent installs against the same files mid-session.
+# "startup|resume": resume MUST be included because a session can resume into a
+# freshly recreated container with no toolchain at all. clear/compact/fork are
+# excluded, since those happen mid-session in a container that is already set
+# up and would only launch concurrent installs against the same files.
 #
 # The status file records whether setup actually succeeded, so
 # wait-for-setup.sh can fail fast instead of green-lighting a broken toolchain.

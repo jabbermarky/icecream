@@ -22,23 +22,47 @@ REPO="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
 STATUS_FILE="$REPO/.claude/.session-start-status"
 INTERVAL=2
 
-# Timeout must be a non-negative integer AND small enough for bash arithmetic.
-# A regex check alone is not enough: "999999999999999999999999999999" matches
-# ^[0-9]+$ but overflows bash's signed 64-bit integers, so every `-ge`
-# comparison errors with "integer expression expected" and the bounded wait
-# becomes an infinite loop again (reproduced, exit 124). Bounded to 3600s,
-# which is far beyond any plausible container setup.
+# Validate the timeout. This has bitten three times, each in a different way,
+# so the checks are deliberate:
 #
-# Default matches the hook's own timeout in .claude/settings.json. A shorter
+#   * `grep -qE '^[0-9]+$'` is NOT sufficient. grep matches line by line, so
+#     $'1\ninvalid' passes on its first line, and the loop comparison then
+#     errors forever. `case` matches the WHOLE value and cannot be fooled by an
+#     embedded newline.
+#   * A digit-only check is NOT sufficient either. A very long digit string
+#     overflows bash's signed 64-bit arithmetic, so every `-ge` errors with
+#     "integer expression expected" and the bounded wait becomes infinite.
+#     Magnitude is therefore bounded BEFORE any arithmetic runs.
+#   * Leading zeros are stripped first, so "00000" is understood as 0 rather
+#     than rejected for length.
+#
+# Default matches the hook's own timeout in .claude/settings.json; a shorter
 # default would report a legitimately slow but successful setup as failed.
 TIMEOUT_DEFAULT=600
 TIMEOUT_MAX=3600
 TIMEOUT_RAW="${1:-${WAIT_FOR_SETUP_TIMEOUT:-$TIMEOUT_DEFAULT}}"
-if ! printf '%s' "$TIMEOUT_RAW" | grep -qE '^[0-9]{1,4}$' || [ "$TIMEOUT_RAW" -gt "$TIMEOUT_MAX" ] 2>/dev/null; then
-  echo "[wait-for-setup] invalid timeout '$TIMEOUT_RAW' (want 0-${TIMEOUT_MAX} seconds); using ${TIMEOUT_DEFAULT}" >&2
-  TIMEOUT="$TIMEOUT_DEFAULT"
-else
-  TIMEOUT="$TIMEOUT_RAW"
+TIMEOUT="$TIMEOUT_DEFAULT"
+timeout_error=""
+
+case "$TIMEOUT_RAW" in
+  '' | *[!0-9]*)
+    # Empty, or contains anything that is not a digit: a sign, a decimal
+    # point, whitespace, a newline, letters.
+    timeout_error="not a whole number of seconds"
+    ;;
+  *)
+    timeout_trimmed=$(printf '%s' "$TIMEOUT_RAW" | sed 's/^0*//')
+    timeout_trimmed="${timeout_trimmed:-0}"
+    if [ "${#timeout_trimmed}" -gt 4 ] || [ "$timeout_trimmed" -gt "$TIMEOUT_MAX" ]; then
+      timeout_error="out of range"
+    else
+      TIMEOUT="$timeout_trimmed"
+    fi
+    ;;
+esac
+
+if [ -n "$timeout_error" ]; then
+  echo "[wait-for-setup] invalid timeout ($timeout_error); want 0-${TIMEOUT_MAX} seconds, using ${TIMEOUT_DEFAULT}" >&2
 fi
 
 # The SessionStart hook only does work in remote containers and exits early
