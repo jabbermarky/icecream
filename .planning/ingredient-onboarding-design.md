@@ -305,3 +305,161 @@ measurement and building on my inference.
   noticed the method had gone off the rails. That is unusual, and it caught a
   real failure — the design doc had been written to the wrong place, in the
   wrong format, skipping the review handoff entirely.
+
+---
+
+# Engineering Review — 2026-08-11
+
+Seven issues raised, seven resolved. Scope accepted as-is (complexity check did
+not trigger: ~4 files, no new services). The review changed the design in three
+material ways, recorded below.
+
+## What already exists
+
+| Sub-problem | Status | Plan's treatment |
+| --- | --- | --- |
+| FDC search, truncate-retry, pick-list | Exists — `ingredients.js:635-707` | Reused |
+| Foundation > SR Legacy > Survey preference | Exists — `:714-735` | Reused |
+| PAC/POD derivation from sugar breakdown | Exists **twice** — `ingredients.js:776-786` and `tools.js:174-179` | **Was going to be rebuilt in one copy only. Now extracted and shared (Issue 2).** |
+| Diff-and-confirm before overwrite | Exists — `importIngredients:515` | Reused |
+| Damerau-Levenshtein distance | Exists — `helpers.js` | Reused; ranking around it rewritten (Issue 5) |
+| Playwright harness, 24 methods / 116 assertions | Exists — `test-app.js` | Extended; new node lane added alongside (Issue 6) |
+| Value-asserting tests for PAC/POD math | **Does not exist** | Added (Issue 6) |
+
+The central correction: this plan originally read as "build ingredient
+onboarding." Onboarding already exists and is substantial. The work is closing
+defects in it.
+
+## Review-driven changes to the design
+
+1. **G1's rule is now tiered, not blanket** (Issue 1). Absent galactose or
+   maltose resolves to 0 and stays **measured** — chemically sound, since
+   galactose is not free in quantity in most foods and maltose appears mainly in
+   malted or starch-converted products. Only a missing *major* sugar with total
+   Sugar > 0 apportions a remainder and marks **estimated**. The design doc's
+   original blanket-apportionment rule would have marked nearly every import
+   estimated, destroying the label's meaning. USDA's routine panel is five
+   sugars; the code requires seven.
+2. **A DRY extraction now precedes G1** (Issue 2). The derivation is duplicated
+   across the importer and the PAC/POD calculator at 100× different unit scales.
+   Changing one copy would have silently desynchronized the user's own
+   cross-check tool. Structural commit first, behavioral second.
+3. **Two defects were found that the design doc never mentioned** — silent
+   failure on every non-200 FDC response (Issue 4), and debug logging inside the
+   optimizer's hot path (Issue 7).
+
+## NOT in scope
+
+| Deferred | Rationale |
+| --- | --- |
+| G3 — LLM fallback for ingredients FDC lacks | Depends on G1/G2 landing first; requires an API key, therefore a backend, which this app deliberately does not have |
+| Full web recipe importer | `.planning/todos/pending/2026-01-15-ai-recipe-importer-from-web.md`; strictly larger, and depends on trustworthy ingredient values existing first |
+| Flavor-profile research | The other half of the multi-day gap; least verifiable output, also needs a backend |
+| Approach D — batch notes linked to recipe versions | Real, but gap 1 has a year-old working workaround; see `2026-01-14-versioned-recipes-in-library.md` |
+| Fixing absent-vs-zero in `cIngredient` | Issue 3 chose the additive sidecar; changing the constructor would produce diff noise against years of curated data |
+| USDA API key rotation | Captured as `.planning/todos/pending/2026-08-11-rotate-usda-api-key.md` |
+| Anything in the Sprinkles rewrite | This lands in the current vanilla app |
+
+## Failure modes
+
+| New codepath | Realistic production failure | Test? | Error handling? | Silent? |
+| --- | --- | --- | --- | --- |
+| `deriveSugarProperties` — tiered | Wrong safely-zero call on an unusual food yields a plausible but wrong PAC | T6 table cases | Value marked measured/estimated | **Yes — chemistry error, not a crash** |
+| `deriveSugarProperties` — unit scale | Caller passes percent where fraction expected; every value off by 100× | T6 + T7 cross-surface | Explicit unit parameter | Partially — 100× is visible if you look |
+| `deriveSugarProperties` — empty breakdown | Total Sugar > 0, no sub-sugars at all. **Behavior undecided** | Not yet | Not yet | **Yes — critical gap** |
+| `rankCandidates` | Correct match ranked out of the pick-list; user concludes FDC lacks the ingredient | T6 | None possible — ranking is heuristic | **Yes** |
+| `resultHandler` error branches | 429 mid-session; button appears dead | T7 | Added by Issue 4 | No, after Issue 4 |
+| Provenance sidecar | Legacy entry with no sidecar throws on read | T6 + T7 | Defaults to `manual` | No |
+
+**Critical gaps: 1.** The empty-breakdown case has no test, no handling, and
+would fail silently by producing no PAC/POD with no explanation. It must be
+decided before G1 is implemented.
+
+## Worktree parallelization strategy
+
+Almost everything lands in `js/features/ingredients.js`, so this is largely
+sequential.
+
+| Step | Modules touched | Depends on |
+| --- | --- | --- |
+| T1 extract derivation | `js/utils/`, `js/features/` | — |
+| T2 tiered rule | `js/utils/` | T1 |
+| T3 ranking rewrite | `js/features/` | — |
+| T4 error handling | `js/features/` | — |
+| T5 provenance sidecar | `js/features/`, `data/` | T1 |
+| T6 node test lane | `tests/`, `package.json` | — |
+| T7 regression guards | `test-app.js` | T2, T5 |
+| T8 remove hot-path logging | `js/models/`, `js/features/` | — |
+
+- **Lane A (sequential, shared `js/features/`):** T1 → T2 → T3 → T4 → T5
+- **Lane B (independent):** T6 — test harness scaffolding touches only `tests/`
+  and `package.json`
+- **Lane C (after A):** T7
+
+**Execution:** launch A and B in parallel. T8 touches `js/models/core.js` plus
+the `cIngredient` getter in `js/features/ingredients.js` — **conflict flag:**
+that second file is Lane A's primary module, so run T8 either before Lane A
+starts or after it merges, not concurrently.
+
+## Implementation Tasks
+
+Synthesized from this review's findings. Each task derives from a specific
+finding above. Run with Claude Code or Codex; checkbox as you ship.
+
+- [ ] **T1 (P1, human: ~half day / CC: ~20min)** — derivation — Extract the shared sugar→PAC/POD function
+  - Surfaced by: Architecture Issue 2 — same formula at `ingredients.js:781` and `tools.js:174`, 100× apart in scale
+  - Files: `js/utils/tools.js`, `js/features/ingredients.js`
+  - Verify: both surfaces produce identical results for the same profile; no behavior change in this commit
+- [ ] **T2 (P1, human: ~1 day / CC: ~20min)** — derivation — Implement the tiered measured/estimated rule
+  - Surfaced by: Architecture Issue 1 — `valid &= sugars[key] >= 0.0` at `:780` requires galactose, which USDA rarely reports
+  - Files: `js/utils/tools.js`
+  - Verify: T6 table cases; complete profiles still marked measured
+  - **Blocked on the unresolved decision below**
+- [ ] **T3 (P2, human: ~half day / CC: ~20min)** — matching — Rewrite the candidate ranking block
+  - Surfaced by: Code Quality Issue 5 — lexicographic `distances.sort()` at `:673`, unnormalized distance, duplicate computation
+  - Files: `js/features/ingredients.js`
+  - Verify: numeric sort test fails against current code; Foundation records always retained
+- [ ] **T4 (P1, human: ~3hrs / CC: ~15min)** — import — Handle non-200 FDC responses
+  - Surfaced by: Code Quality Issue 4 — `resultHandler:655` has no else branch and no `onerror`
+  - Files: `js/features/ingredients.js`
+  - Verify: 429 / 403 / 5xx / transport each produce a distinct message, all distinguishable from "no data found"
+- [ ] **T5 (P2, human: ~2 days / CC: ~30min)** — provenance — Add the additive provenance sidecar
+  - Surfaced by: Architecture Issue 3 — `cIngredient:55-72` drops zero values, so measured-zero is unrepresentable
+  - Files: `js/features/ingredients.js`, `data/ingredients.json`
+  - Verify: existing ingredients load unchanged; unannotated entries read as `manual`
+- [ ] **T6 (P1, human: ~1 day / CC: ~30min)** — tests — Add the node unit lane with table-driven cases
+  - Surfaced by: Test Review — 0/24 new paths covered; `testUSDAStructure` asserts only that functions exist
+  - Files: `tests/`, `package.json`
+  - Verify: `npm test` runs node lane then Playwright lane
+- [ ] **T7 (P1, human: ~half day / CC: ~20min)** — tests — Add the two CRITICAL regression guards
+  - Surfaced by: Test Review REGRESSION RULE — complete-profile derivation unchanged; `ingredients.json` loads unchanged
+  - Files: `test-app.js`
+  - Verify: both guards pass before and after T2 and T5
+- [ ] **T8 (P2, human: ~15min / CC: ~3min)** — performance — Remove debug logging from the optimizer hot path
+  - Surfaced by: Performance Issue 7 — `Sums` is a getter read once per optimizer candidate; 4 `console.log` per ingredient per access
+  - Files: `js/models/core.js`, `js/features/ingredients.js`
+  - Verify: optimize a 12-ingredient recipe with the console open; no per-ingredient output
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | issues_open | 7 issues, 1 critical gap |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+
+**VERDICT:** ENG REVIEW COMPLETE — 7 issues found, 7 resolved, 8 implementation
+tasks written. Not CLEARED: one critical gap and one unresolved decision remain
+open. Outside voice deliberately skipped — Codex is not installed and a
+same-family subagent was judged weaker than a real cross-model check; install
+`@openai/codex` and re-run for genuine independence.
+
+**UNRESOLVED DECISIONS:**
+- Behavior when a USDA record reports total `Sugar` > 0 but contains **no**
+  individual sugar breakdown at all. The tiered rule from Issue 1 covers complete
+  and partial profiles; it does not cover empty ones, which are likely common in
+  SR Legacy records. Options are to apportion the entire total under a declared
+  assumption and mark estimated, or to decline and report why. Must be decided
+  before T2 is implemented.
