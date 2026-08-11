@@ -492,15 +492,20 @@ starts or after it merges, not concurrently.
 Synthesized from this review's findings. Each task derives from a specific
 finding above. Run with Claude Code or Codex; checkbox as you ship.
 
+- [x] **T0 (P1, human: ~2hrs / CC: ~15min)** — build — Vendor `idb` instead of importing it from a CDN ✅ **DONE**
+  - Surfaced by: post-review verification — `js/app.js:47` → `js/storage/indexeddb-storage.js:4` imported `idb` from `esm.sh` inside the startup module graph
+  - Files: `js/vendor/idb.js` (new, v8.0.3, ISC, unmodified), `js/storage/indexeddb-storage.js`
+  - Verify: suite went **10 passed / 15 failed → 113 passed / 1 failed**, runtime 358s → 49s
+  - Note: allowing `esm.sh` through the proxy was *not* sufficient — Playwright's Chromium does not inherit `HTTPS_PROXY` and still got `ERR_CONNECTION_RESET`. Vendoring was the actual fix, and it also removes a third-party CDN as a production single point of failure.
 - [ ] **T1 (P1, human: ~half day / CC: ~20min)** — derivation — Extract the shared sugar→PAC/POD function
   - Surfaced by: Architecture Issue 2 — same formula at `ingredients.js:781` and `tools.js:174`, 100× apart in scale
   - Files: `js/utils/tools.js`, `js/features/ingredients.js`
   - Verify: both surfaces produce identical results for the same profile; no behavior change in this commit
-- [ ] **T2a (P1, human: ~30min / CC: ~5min)** — derivation — Fix the two nutrient name constants
+- [x] **T2a (P1, human: ~30min / CC: ~5min)** — derivation — Fix the two nutrient name constants ✅ **DONE**
   - Surfaced by: Correction (measured) — code asks `"Glucose (dextrose)"` and `"Sugars, Total NLEA"`; FDC returns `"Glucose"` and `"Total Sugars"`
-  - Files: `js/features/ingredients.js` (`:763`, `:769`)
-  - Verify: gate passes for 6/11 reference ingredients, up from 0/11; `Sugar` populates for the first time
-  - **Highest value-per-line in the entire plan. Do this first.**
+  - Files: `js/features/ingredients.js` (`:767`, `:775`)
+  - Verified against the live API: **PAC/POD gate 0/11 → 6/11**, **`Sugar` populates 0/11 → 10/11**
+  - Both old names retained as fallbacks via `Math.max`, since `getNutritionValue` returns `-1` when absent and so cannot mask a genuine 0
 - [ ] **T2b (P1, human: ~half day / CC: ~15min)** — derivation — Reconcile the breakdown against `Total Sugars`
   - Surfaced by: Correction (measured) — reconciliation beats a hardcoded safely-zero sugar list; honey reconciles to 0.03g without reporting lactose
   - Files: `js/utils/tools.js`

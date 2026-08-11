@@ -1,7 +1,7 @@
 // IndexedDB Storage Implementation
 // Uses idb library for Promise-based IndexedDB access
 
-import { openDB } from 'https://esm.sh/idb@8';
+import { openDB } from '../vendor/idb.js';
 import { createStorage } from './storage.js';
 
 const DB_NAME = 'ice-ed-recipes';

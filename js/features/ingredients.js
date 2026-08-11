@@ -760,13 +760,19 @@ export function onDownloadIngredientData(element) {
 
                     const water = setValue("Water", getNutritionValue("Water"));
                     const fat = setValue("Fat", getNutritionValue("Total lipid (fat)"));
-                    setValue("Sugar", Math.max(getNutritionValue("Sugars, Total NLEA"), getNutritionValue("Sugars, total including NLEA")));
+                    // FDC reports total sugars as "Total Sugars"; the two NLEA
+                    // spellings are kept as fallbacks for older/other records.
+                    // getNutritionValue returns -1 when absent, so Math.max
+                    // picks the first name that matches without masking a real 0.
+                    setValue("Sugar", Math.max(getNutritionValue("Total Sugars"), getNutritionValue("Sugars, Total NLEA"), getNutritionValue("Sugars, total including NLEA")));
                     setValue("kcal", getNutritionValue("Energy", "KCAL"));
 
                     var ethanol = Math.max(getNutritionValue("Alcohol, ethyl"), 0.);
                     const sugars = {
                         Sucrose: getNutritionValue("Sucrose"),
-                        Dextrose: getNutritionValue("Glucose (dextrose)"),
+                        // FDC reports this as "Glucose"; "Glucose (dextrose)"
+                        // kept as a fallback for records using the older name.
+                        Dextrose: Math.max(getNutritionValue("Glucose"), getNutritionValue("Glucose (dextrose)")),
                         Fructose: getNutritionValue("Fructose"),
                         Lactose: getNutritionValue("Lactose"),
                         Maltose: getNutritionValue("Maltose"),
