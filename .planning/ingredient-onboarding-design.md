@@ -111,13 +111,17 @@ through `importIngredients` for diff-and-confirm rather than silent overwrite.
 - **P1 — The days are dominated by research, not balancing.** *Confidence: high.*
   Stated directly by the founder and consistent with the app's feature coverage.
 - **P2 — Manual PAC/POD entry is a major share of ingredient research time.**
-  *Confidence: medium. UNVERIFIED — this is the load-bearing premise of the whole
-  design.* The mechanism is confirmed in code (see G1), but the frequency with
-  which it fires against real FDC records is inferred, not measured.
-- **P3 — FDC covers most ingredients actually being added.** *Confidence: low.
-  UNVERIFIED.* If coverage is poor, G1 and G2 help less than expected and the
-  LLM fallback (G3) becomes the priority instead. See Open Questions and
-  The Assignment.
+  *Confidence: high. **VERIFIED 2026-08-11** against the live FDC API.* The
+  derivation gate passes for **0 of 11** representative ice cream ingredients
+  under the current code. It has never fired. The cause is **not** what this
+  document originally claimed — see "Correction" below.
+- **P3 — FDC covers most ingredients actually being added.** *Confidence:
+  medium-high. **Partially verified 2026-08-11.*** SR Legacy records carry rich
+  sugar data: 10 of 11 report `Total Sugars`, and 8 of 11 carry an individual
+  breakdown that reconciles against it. Foundation records carry none at all.
+  Coverage is better than feared, which weakens the case for the G3 LLM
+  fallback. Still unmeasured: how many ingredients actually being added are
+  absent from FDC entirely.
 - **P4 — A clearly labelled estimated value is more useful than a blank field.**
   *Confidence: medium.* The opposite is defensible: a blank forces attention, an
   estimate can be ignored. Mitigated by requiring estimates to be visually
@@ -188,13 +192,40 @@ Rationale:
 ### Scope
 
 **In:**
-- **G1 — graded PAC/POD derivation.** Today `getNutritionValue` returns `-1.0`
-  for absent nutrients (`:743`) and `valid &= sugars[key] >= 0.0` (`:780`) ANDs
-  across all seven sugar keys, so a single missing sub-sugar suppresses both PAC
-  and POD (`:784-789`). Separate *absent* from *zero*; when the breakdown is
-  partial but total Sugar is known, apportion the remainder under a declared
-  assumption and mark the result **estimated**; when complete, mark **measured**
-  and preserve today's behavior exactly.
+- **G1 — make the derivation fire.** Two parts, in order of impact.
+
+  **G1a — fix the nutrient name constants.** This is the whole ballgame. The
+  code asks FDC for names it no longer returns:
+
+  | Code asks for | FDC returns | Site |
+  | --- | --- | --- |
+  | `"Glucose (dextrose)"` | `"Glucose"` | `:769` |
+  | `"Sugars, Total NLEA"` / `"Sugars, total including NLEA"` | `"Total Sugars"` | `:763` |
+
+  `getNutritionValue` returns `-1.0` on no match (`:743`), and `valid &= ...`
+  (`:780`) ANDs across all seven sugar keys, so one unmatched name suppresses
+  both PAC and POD (`:784-789`). The total-sugars mismatch means **`Sugar`
+  itself has never populated either** — `setValue` skips any negative value
+  (`:753-759`). Two string constants take the gate from 0/11 to 6/11.
+
+  **G1b — reconcile the breakdown against the total.** For records where some
+  individual sugars are absent, sum the ones present and compare to
+  `Total Sugars`:
+
+  - Sum reconciles within tolerance → the absent sugars are genuinely zero.
+    Derive and mark **measured**.
+  - Sum falls short of the total → the shortfall is unattributed. Apportion it
+    under a declared assumption and mark **estimated**.
+  - No `Total Sugars` and an incomplete breakdown → decline, and say why.
+
+  This supersedes the hardcoded safely-zero sugar list proposed during review.
+  Measured against the live API it is both simpler and more accurate: honey
+  reconciles to within 0.03 g despite reporting no lactose, because honey
+  contains no lactose. A hardcoded list would have called that estimated. The
+  data validates itself; no chemistry table needs maintaining.
+
+  **Measured outcome across 11 representative ingredients:** 8 measured,
+  2 estimated, 1 undeliverable — against 0 today.
 - **G2 — per-field provenance.** Record source (`usda:foundation`,
   `usda:sr-legacy`, `derived`, `estimated`, `manual`, later `llm`), FDC ID where
   applicable, and date. Additive sidecar; unannotated entries read as `manual`.
@@ -218,12 +249,17 @@ rate-limited, not billable — but it should be rotated and moved to config.
 ## Open Questions
 
 1. **Roughly what fraction of the ingredients added in the past year did FDC
-   actually have?** This decides whether G3 is a nice-to-have or the real
-   priority. Directly tests P3.
-2. **When the sugar breakdown is partial, is sucrose the right default for the
-   unattributed remainder** — or should the app refuse to guess above some sugar
-   threshold? Sucrose is reasonable for fruit and most non-dairy ingredients and
-   wrong for anything lactose- or maltose-dominated.
+   actually have?** *Partially answered 2026-08-11:* for common ice cream
+   ingredients FDC coverage is good and SR Legacy sugar data is rich. Still open
+   is the specialty end — pistachio paste, glucose syrups by DE, commercial
+   stabilizer blends — which is where G3 would earn its place.
+2. **When a record has `Total Sugars` but no breakdown at all, what does the
+   apportioned remainder get attributed to?** *Narrowed 2026-08-11:* this is now
+   known to affect 2 of 11 reference ingredients (cocoa powder, vanilla
+   extract), and the reconciliation rule means it no longer fires for records
+   that merely omit a sugar which is genuinely zero. Sucrose is the obvious
+   default and is wrong for some foods; declining and prompting for manual entry
+   is the alternative.
 3. **Should re-importing an existing ingredient auto-upgrade estimated values to
    measured, or always require review?**
 
@@ -271,18 +307,21 @@ via `npm test` as today.
 
 ## The Assignment
 
-**Go through the last 20 ingredients you added to the library and record, for
-each: did FDC have it at all, and did you end up typing PAC and POD in by hand?**
+*Superseded in part on 2026-08-11.* The original assignment was to audit the
+last 20 ingredients for two things: whether FDC had them, and whether PAC/POD
+were typed in by hand. **The second half is now answered by direct
+measurement** — the gate passes 0 of 11, so PAC and POD were always typed by
+hand. No audit needed.
 
-That is an hour with your own git history and your memory, and it resolves the
-two premises this entire design rests on. If most were in FDC and most needed
-manual PAC/POD, G1 is exactly right and the estimated success criterion is
-measurable against a real baseline. If most were not in FDC at all, P3 is false,
-Approach A is the wrong first move, and G3 — the thing this design explicitly
-scopes out — should be first instead.
+**What remains worth an hour: list the last 20 ingredients you added and mark
+which ones FDC did not have at all.** Not whether the import worked — it never
+did — but whether the ingredient existed in the database. Common dairy, sugars,
+fruit and nuts are well covered. The open question is the specialty end:
+pistachio paste, glucose syrup by DE, commercial stabilizer blends, regional
+products.
 
-Do this before writing any code. It is the difference between building on a
-measurement and building on my inference.
+That count is the only thing that decides whether G3, the LLM fallback this
+design scopes out, is a nice-to-have or the actual next priority after G1.
 
 ## What I noticed about how you think
 
@@ -332,14 +371,9 @@ defects in it.
 
 ## Review-driven changes to the design
 
-1. **G1's rule is now tiered, not blanket** (Issue 1). Absent galactose or
-   maltose resolves to 0 and stays **measured** — chemically sound, since
-   galactose is not free in quantity in most foods and maltose appears mainly in
-   malted or starch-converted products. Only a missing *major* sugar with total
-   Sugar > 0 apportions a remainder and marks **estimated**. The design doc's
-   original blanket-apportionment rule would have marked nearly every import
-   estimated, destroying the label's meaning. USDA's routine panel is five
-   sugars; the code requires seven.
+1. **G1 is two nutrient-name constants, plus a reconciliation rule** (Issue 1,
+   **corrected 2026-08-11 — see Correction below**). The original review finding
+   blamed galactose. Live API data disproved it.
 2. **A DRY extraction now precedes G1** (Issue 2). The derivation is duplicated
    across the importer and the PAC/POD calculator at 100× different unit scales.
    Changing one copy would have silently desynchronized the user's own
@@ -347,6 +381,58 @@ defects in it.
 3. **Two defects were found that the design doc never mentioned** — silent
    failure on every non-200 FDC response (Issue 4), and debug logging inside the
    optimizer's hot path (Issue 7).
+
+## Correction — measured against the live API, 2026-08-11
+
+Network egress to `api.nal.usda.gov` was opened after the review completed. The
+premise the review rested on could then be measured instead of inferred. **The
+review's diagnosis was wrong on the mechanism, right on the consequence.**
+
+**What the review claimed:** the gate fails because it requires galactose, which
+USDA rarely reports.
+
+**What the data shows:** galactose is present in 6 of 7 records first probed and
+in every SR Legacy record with a sugar profile. The gate fails because of two
+nutrient-name mismatches — the code asks FDC for `"Glucose (dextrose)"` and
+`"Sugars, Total NLEA"`, and FDC returns `"Glucose"` and `"Total Sugars"`. Both
+lookups return `-1.0` and fail silently.
+
+**Consequence, unchanged and now proven:** the gate passes for **0 of 11**
+representative ingredients under current code. The derivation has never fired.
+Also newly discovered: because the total-sugars name never matches either,
+`Sugar` has not been populating on import at all — a field nobody had noticed
+was broken.
+
+**A third finding the review missed entirely.** Foundation records carry no
+sugar breakdown and no `Total Sugars`:
+
+```
+Cheese, ricotta, whole milk [Foundation]
+   OK       Water, Total lipid (fat), Energy
+   MISSING  Sucrose, Glucose, Fructose, Lactose, Maltose, Galactose, Total Sugars
+```
+
+The code prefers Foundation over SR Legacy over Survey (`:714-735`), so for
+formulation purposes it deliberately selects the record that **cannot** produce
+PAC/POD over the one that can. Foundation has better sampling metadata; SR
+Legacy has the sugar chemistry. The preference should depend on whether the
+record actually carries sugar data.
+
+**Measured gate results, 11 representative ice cream ingredients:**
+
+| | current code | + corrected names | + reconciliation rule |
+| --- | --- | --- | --- |
+| Derives, marked measured | 0 | 6 | **8** |
+| Derives, marked estimated | 0 | 0 | 2 |
+| Cannot derive | 11 | 5 | 1 |
+
+The single undeliverable case is nonfat dry milk, which reports no individual
+sugars and no total. It should decline and say so.
+
+**What this changes about the plan:** T2 shrinks from a chemistry rule to two
+string constants plus a reconciliation check. The hardcoded safely-zero sugar
+list agreed during review is dropped as unnecessary. A new task (T9) covers the
+Foundation preference. P2 moves from unverified to verified; P3 improves.
 
 ## NOT in scope
 
@@ -410,11 +496,19 @@ finding above. Run with Claude Code or Codex; checkbox as you ship.
   - Surfaced by: Architecture Issue 2 — same formula at `ingredients.js:781` and `tools.js:174`, 100× apart in scale
   - Files: `js/utils/tools.js`, `js/features/ingredients.js`
   - Verify: both surfaces produce identical results for the same profile; no behavior change in this commit
-- [ ] **T2 (P1, human: ~1 day / CC: ~20min)** — derivation — Implement the tiered measured/estimated rule
-  - Surfaced by: Architecture Issue 1 — `valid &= sugars[key] >= 0.0` at `:780` requires galactose, which USDA rarely reports
+- [ ] **T2a (P1, human: ~30min / CC: ~5min)** — derivation — Fix the two nutrient name constants
+  - Surfaced by: Correction (measured) — code asks `"Glucose (dextrose)"` and `"Sugars, Total NLEA"`; FDC returns `"Glucose"` and `"Total Sugars"`
+  - Files: `js/features/ingredients.js` (`:763`, `:769`)
+  - Verify: gate passes for 6/11 reference ingredients, up from 0/11; `Sugar` populates for the first time
+  - **Highest value-per-line in the entire plan. Do this first.**
+- [ ] **T2b (P1, human: ~half day / CC: ~15min)** — derivation — Reconcile the breakdown against `Total Sugars`
+  - Surfaced by: Correction (measured) — reconciliation beats a hardcoded safely-zero sugar list; honey reconciles to 0.03g without reporting lactose
   - Files: `js/utils/tools.js`
-  - Verify: T6 table cases; complete profiles still marked measured
-  - **Blocked on the unresolved decision below**
+  - Verify: 8/11 measured, 2/11 estimated, 1/11 declines with a stated reason
+- [ ] **T9 (P2, human: ~2hrs / CC: ~10min)** — matching — Condition the Foundation preference on sugar data
+  - Surfaced by: Correction (measured) — Foundation records carry no sugar breakdown and no total, so `:714-735` prefers the record that cannot derive PAC/POD
+  - Files: `js/features/ingredients.js`
+  - Verify: for an ingredient present in both, the record carrying sugar data wins
 - [ ] **T3 (P2, human: ~half day / CC: ~20min)** — matching — Rewrite the candidate ranking block
   - Surfaced by: Code Quality Issue 5 — lexicographic `distances.sort()` at `:673`, unnormalized distance, duplicate computation
   - Files: `js/features/ingredients.js`
@@ -450,16 +544,25 @@ finding above. Run with Claude Code or Codex; checkbox as you ship.
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
-**VERDICT:** ENG REVIEW COMPLETE — 7 issues found, 7 resolved, 8 implementation
-tasks written. Not CLEARED: one critical gap and one unresolved decision remain
-open. Outside voice deliberately skipped — Codex is not installed and a
-same-family subagent was judged weaker than a real cross-model check; install
-`@openai/codex` and re-run for genuine independence.
+**CORRECTION (2026-08-11, post-review):** Issue 1's diagnosis was wrong on the
+mechanism. Measured against the live API after network egress was opened, the
+gate fails on two nutrient-name mismatches, not on galactose coverage. The
+consequence is unchanged and now proven at 0/11. See "Correction" above. T2 was
+split into T2a/T2b, the hardcoded safely-zero sugar list was dropped, and T9 was
+added. 10 implementation tasks now, not 8.
+
+**VERDICT:** ENG REVIEW COMPLETE — 7 issues found, 7 resolved, plus 1 corrected
+and 1 new finding from post-review measurement. 10 implementation tasks written.
+Not CLEARED: one critical gap remains (see below). Outside voice deliberately
+skipped — Codex was not installed and a same-family subagent was judged weaker
+than a real cross-model check. `api.openai.com` egress is now open, so
+`npm install -g @openai/codex` plus an API key would enable a genuine
+cross-model pass on the corrected plan.
 
 **UNRESOLVED DECISIONS:**
-- Behavior when a USDA record reports total `Sugar` > 0 but contains **no**
-  individual sugar breakdown at all. The tiered rule from Issue 1 covers complete
-  and partial profiles; it does not cover empty ones, which are likely common in
-  SR Legacy records. Options are to apportion the entire total under a declared
-  assumption and mark estimated, or to decline and report why. Must be decided
-  before T2 is implemented.
+- When a record carries `Total Sugars` but no individual breakdown at all
+  (measured: 2 of 11 — cocoa powder, vanilla extract), what does the apportioned
+  remainder get attributed to? Sucrose is the obvious default and is wrong for
+  some foods. The alternative is to decline and prompt for manual entry. This is
+  narrower than the original open question — the no-total case (1 of 11) is
+  settled: decline and state why — but it still gates T2b.
