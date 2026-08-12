@@ -31,6 +31,7 @@ const NEWER = RECIPE_SCHEMA_VERSION + 1;
 function harness({ record, loadThrows = false } = {}) {
   const state = {
     recipe: new cRecipe('Currently Open'),
+    identity: 'UNSET',          // sentinel: distinguishes "never called" from null
     imports: [],
     displayed: 0,
     modifiedCalls: [],
@@ -52,6 +53,7 @@ function harness({ record, loadThrows = false } = {}) {
       },
     },
     setRecipe: (r) => { state.recipe = r; },
+    setRecipeIdentity: (id) => { state.identity = id; },
     importIngredients: (ingredients, ...rest) => state.imports.push({ ingredients, rest }),
     DisplayRecipe: () => { state.displayed++; },
     SetRecipeModified: (v) => state.modifiedCalls.push(v),
@@ -232,6 +234,7 @@ test('a throw while APPLYING reports a half-loaded app, not a damaged record', a
   const loader = createLibraryRecipeLoader({
     storage: { loadRecipe: async () => libraryRecord({ Recipe: { Name: 'Render Boom', Ingredients: [] }, Ingredients: {} }) },
     setRecipe: (r) => { state.recipe = r; },
+    setRecipeIdentity: () => {},
     importIngredients: () => {},
     DisplayRecipe: () => { throw new Error('render exploded'); },
     SetRecipeModified: () => {},
@@ -283,6 +286,55 @@ test('a record with NO Ingredients key still loads — and importIngredients get
   // anything. Pin the fallback the loader now supplies.
   assert.equal(state.imports.length, 1);
   assert.deepEqual(state.imports[0].ingredients, {});
+});
+
+// --- P0.3: identity adoption on load ---
+
+test('P0.3: loading an identified record adopts its RecipeId, silently', async () => {
+  const { state, load } = harness({
+    record: libraryRecord({
+      SchemaVersion: 2, RecipeId: 'id-loaded',
+      Recipe: { Name: 'Identified', Ingredients: [] }, Ingredients: {},
+    }),
+  });
+  await load('Identified');
+  state.restoreConsole();
+  assert.equal(state.identity, 'id-loaded');
+  assert.equal(state.warning.length, 0);       // a healthy record does not warn
+  assert.equal(state.error.length, 0);
+});
+
+test('P0.3 DECISION 7: a v2 record with NO id loads, warns, and adopts null', async () => {
+  const { state, load } = harness({
+    record: libraryRecord({ SchemaVersion: 2, Recipe: { Name: 'Stripped', Ingredients: [] }, Ingredients: {} }),
+  });
+  await load('Stripped');
+  state.restoreConsole();
+  assert.equal(state.recipe.Name, 'Stripped');  // loaded, not locked out
+  assert.equal(state.identity, null);           // re-mints at the next save
+  assert.equal(state.warning.length, 1);
+  assert.match(state.warning[0], /identity/);
+  assert.equal(state.info.length, 1, 'the warning must not replace the success message');
+  assert.equal(state.error.length, 0, 'and must not read as a failure');
+});
+
+test('P0.3: a legacy v1 record adopts null identity with NO warning (absence is expected)', async () => {
+  const { state, load } = harness({
+    record: libraryRecord({ Recipe: { Name: 'Legacy Id', Ingredients: [] }, Ingredients: {} }),
+  });
+  await load('Legacy Id');
+  state.restoreConsole();
+  assert.equal(state.identity, null);
+  assert.equal(state.warning.length, 0);
+});
+
+test('P0.3: a REFUSED record never touches identity', async () => {
+  const { state, load } = harness({
+    record: libraryRecord({ SchemaVersion: NEWER, Recipe: { Name: 'X' }, Ingredients: {} }),
+  });
+  await load('X');
+  state.restoreConsole();
+  assert.equal(state.identity, 'UNSET', 'the open recipe\'s identity must survive a refused load');
 });
 
 // --- The deliberate divergence from .ier import, pinned so it stays a decision ---

@@ -37,6 +37,7 @@
         import {
             initRecipeManager,
             initRecipeButtons,
+            setCurrentRecipeIdentity,
             SetRecipeModified,
             DisplayRecipe,
             DisplayBackupList,
@@ -276,6 +277,7 @@
                 onLoad: createLibraryRecipeLoader({
                     storage: recipeStorage,
                     setRecipe: (r) => { Recipe = r; },
+                    setRecipeIdentity: setCurrentRecipeIdentity,
                     importIngredients,
                     DisplayRecipe,
                     SetRecipeModified,

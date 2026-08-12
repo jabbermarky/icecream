@@ -20,8 +20,11 @@ installDom();
 const { cRecipe } = await import('../../js/models/core.js');
 const { cIngredient, initIngredients, Ingredients: IngredientLibrary } =
   await import('../../js/features/ingredients.js');
-const { initRecipeManager, initRecipeButtons, getRecipeStack, SetRecipeModified, IsRecipeModified } =
+const { initRecipeManager, initRecipeButtons, getRecipeStack, SetRecipeModified, IsRecipeModified,
+  setCurrentRecipeIdentity, getCurrentRecipeIdentity } =
   await import('../../js/features/recipe-manager.js');
+const { containerRecipeId, isValidRecipeId } =
+  await import('../../js/models/recipe-serialization.js');
 
 // --- Wiring, mirroring app.js ---
 
@@ -29,7 +32,10 @@ let currentRecipe = new cRecipe('');
 const messages = { info: [], warning: [], error: [] };
 const cloudPushes = [];
 let storageCalls = [];
-let storageHasRecipe = false;
+// A real (tiny) record store, keyed by name — the save path now READS records
+// (target lookup + identity scan), so a boolean hasRecipe stub can no longer
+// model it. saveRecipe persists here exactly like IndexedDB's put.
+let storageRecords = {};
 let storageSaveResult = true;
 
 // The library is the REAL module-level map from ingredients.js — the one
@@ -68,8 +74,13 @@ for (const name of ['btnNewRecipe', 'btnStoreAsIngredient', 'btnSaveRecipe', 'bt
   'btnOptimizeRange', 'btnRestoreRecipe', 'btnScale', 'cbxScaleByIngredient', 'edTargetWeight',
   'selTargetWeightMode', 'edRecipeName']) buttons[name] = makeElement('button');
 buttons.storage = {
-  hasRecipe: async () => storageHasRecipe,
-  saveRecipe: async (rec) => { storageCalls.push(rec); return storageSaveResult; },
+  loadRecipe: async (name) => storageRecords[name] ?? null,
+  listRecipes: async () => Object.keys(storageRecords).map((name) => ({ name })),
+  saveRecipe: async (rec) => {
+    storageCalls.push(rec);
+    if (storageSaveResult) storageRecords[rec.name] = rec;
+    return storageSaveResult;
+  },
 };
 buttons.pushRecipe = (rec) => cloudPushes.push(rec);
 initRecipeButtons(buttons);
@@ -85,8 +96,9 @@ function freshState(recipe) {
   messages.info.length = messages.warning.length = messages.error.length = 0;
   cloudPushes.length = 0;
   storageCalls = [];
-  storageHasRecipe = false;
+  storageRecords = {};
   storageSaveResult = true;
+  setCurrentRecipeIdentity(null);   // identity is module state — reset like the stack
   globalThis.confirm = () => true;
   currentRecipe = recipe;
 }
@@ -211,7 +223,7 @@ test('save with an empty name warns and never touches storage', async () => {
 
 test('overwrite prompt: declining confirm() aborts the save', async () => {
   freshState(makeRecipe('Existing'));
-  storageHasRecipe = true;
+  storageRecords['Existing'] = { name: 'Existing', data: { Recipe: { Name: 'Existing' }, Ingredients: {} } };
   globalThis.confirm = () => false;
   await buttons.btnSaveRecipe.onclick();
   assert.equal(storageCalls.length, 0);
@@ -340,20 +352,21 @@ test('P0.5: the snapshot AND the record key are both taken before the awaits', a
   // oninput writes straight to Recipe.Name and the event loop is free while an
   // IndexedDB read resolves.
   freshState(makeRecipe('Mango V2.1'));
-  const origHasRecipe = buttons.storage.hasRecipe;
+  const origLoadRecipe = buttons.storage.loadRecipe;
   // try/finally so a failing assertion cannot leak the mutating stub into
   // every later test in the file (review finding — the leak turns one failure
-  // into an order-dependent cascade that hides the real one).
+  // into an order-dependent cascade that hides the real one). The mutation
+  // now rides the target-lookup await, the save path's first.
   try {
-    buttons.storage.hasRecipe = async () => {
+    buttons.storage.loadRecipe = async () => {
       currentRecipe.Name = 'Mango V2.2';   // the rename that used to fork the key
       currentRecipe.Overrun = 0.99;
       currentRecipe.addIngredient('Sugar', 999);
-      return false;
+      return null;
     };
     await buttons.btnSaveRecipe.onclick();
   } finally {
-    buttons.storage.hasRecipe = origHasRecipe;
+    buttons.storage.loadRecipe = origLoadRecipe;
   }
 
   const stored = storageCalls[0];
@@ -377,12 +390,12 @@ test('P0.5: the modified flag is NOT cleared when an edit landed during the save
   // app — no beforeunload, no undo.
   freshState(makeRecipe('Dirty Flag'));
   SetRecipeModified(true);   // the user has unsaved edits and clicks Save
-  const origHasRecipe = buttons.storage.hasRecipe;
+  const origLoadRecipe = buttons.storage.loadRecipe;
   try {
-    buttons.storage.hasRecipe = async () => { currentRecipe.Overrun = 0.99; return false; };
+    buttons.storage.loadRecipe = async () => { currentRecipe.Overrun = 0.99; return null; };
     await buttons.btnSaveRecipe.onclick();
   } finally {
-    buttons.storage.hasRecipe = origHasRecipe;
+    buttons.storage.loadRecipe = origLoadRecipe;
   }
   assert.equal(storageCalls.length, 1);
   assert.equal(storageCalls[0].data.Recipe.Overrun, 0.3);
@@ -403,23 +416,27 @@ test('STALE BINDING: a recipe swap during the save cannot clear the NEW recipe\'
   // edit the new one, and the resolving save would compare the OLD unchanged
   // object to its own snapshot and clear the flag for work it never saved.
   freshState(makeRecipe('Old One'));
-  const origHasRecipe = buttons.storage.hasRecipe;
+  const origLoadRecipe = buttons.storage.loadRecipe;
   try {
-    buttons.storage.hasRecipe = async () => {
+    buttons.storage.loadRecipe = async () => {
       const swapped = makeRecipe('Brand New');   // the swap, mid-await
       swapped.Overrun = 0.77;                    // ...with unsaved edits
       currentRecipe = swapped;
       SetRecipeModified(true);
-      return false;
+      return null;
     };
     await buttons.btnSaveRecipe.onclick();
   } finally {
-    buttons.storage.hasRecipe = origHasRecipe;
+    buttons.storage.loadRecipe = origLoadRecipe;
   }
   assert.equal(storageCalls.length, 1);
   assert.equal(storageCalls[0].name, 'Old One');  // the save itself is fine
   assert.equal(IsRecipeModified(), true,
     'the flag belongs to the CURRENT recipe, whose edits were never saved');
+  // Same guard, same reason, for identity: the minted id belongs to the
+  // record just written, and the OPEN recipe is a different one now.
+  assert.equal(getCurrentRecipeIdentity(), null,
+    'a swapped-in recipe must not adopt the old save\'s id');
 });
 
 test('a recipe that will not JSON-serialize keeps the modified flag after a successful save', async () => {
@@ -465,16 +482,153 @@ test('a missing structuredClone reports the browser-feature message and writes n
   }
 });
 
-test('P0.3: the real save path stamps SavedAt (RecipeId minting lands in T2)', async () => {
-  // Handler-level pin (review finding: all identity tests used hand-built
-  // containers, leaving the save-path wiring unpinned). RecipeId is expected
-  // ABSENT until the save path mints — T2 flips that half of this test.
-  freshState(makeRecipe('Identity Wiring'));
+// --- P0.3 T2: identity through the REAL handlers ---
+
+test('P0.3: first save MINTS an id; re-saving the same record KEEPS it', async () => {
+  // The T1 interim pin (RecipeId absent) flipped here, as designed: T2 wires
+  // minting, so every record the save path emits is identified.
+  freshState(makeRecipe('Minted'));
   await buttons.btnSaveRecipe.onclick();
-  const data = storageCalls[0].data;
-  assert.equal(typeof data.SavedAt, 'string');
-  assert.ok(Number.isFinite(Date.parse(data.SavedAt)), 'SavedAt must be a parseable clock');
-  assert.equal('RecipeId' in data, false, 'flips when T2 wires minting');
+  const first = storageCalls[0].data;
+  assert.equal(typeof first.SavedAt, 'string');
+  assert.ok(Number.isFinite(Date.parse(first.SavedAt)), 'SavedAt must be a parseable clock');
+  assert.ok(isValidRecipeId(first.RecipeId), 'first save must mint');
+  assert.equal(containerRecipeId(first), first.RecipeId);
+  assert.equal(getCurrentRecipeIdentity(), first.RecipeId, 'the open recipe adopts the minted id');
+
+  // Save again under the same name: the target is my own record → KEEP.
+  await buttons.btnSaveRecipe.onclick();
+  assert.equal(storageCalls[1].data.RecipeId, first.RecipeId,
+    're-saving my own record must not re-mint');
+});
+
+test('P0.3 DECISION 6: save-as-new-name is a COPY and mints — the old record keeps its id', async () => {
+  // The mainline flow (Mango V2.1 -> V2.2). Without the mint, two records
+  // carry one id and the id space is corrupt before sync ever joins on it
+  // (outside-voice finding that merged P0.6's guards into this cut).
+  freshState(makeRecipe('Mango V2.1'));
+  await buttons.btnSaveRecipe.onclick();
+  const idV21 = storageCalls[0].data.RecipeId;
+
+  currentRecipe.Name = 'Mango V2.2';           // the routine rename
+  await buttons.btnSaveRecipe.onclick();
+  const idV22 = storageCalls[1].data.RecipeId;
+
+  assert.ok(isValidRecipeId(idV22));
+  assert.notEqual(idV22, idV21, 'the copy must mint its own id');
+  assert.equal(containerRecipeId(storageRecords['Mango V2.1'].data), idV21,
+    'the old record keeps its identity');
+  assert.equal(getCurrentRecipeIdentity(), idV22, 'the open recipe is now the V2.2 record');
+});
+
+test('P0.3: an identity that arrived by import round-trips through its first local save', async () => {
+  // The KEEP half of the mint rule: no other local record carries this id, so
+  // this save is the first local materialization of an existing identity —
+  // minting here would fork the lineage on every device-to-device .ier hop.
+  freshState(makeRecipe('Traveler'));
+  setCurrentRecipeIdentity('id-from-another-device');
+  await buttons.btnSaveRecipe.onclick();
+  assert.equal(storageCalls[0].data.RecipeId, 'id-from-another-device');
+});
+
+test('P0.3 DECISION 6: overwriting a DIFFERENT identified recipe re-prompts with the real stakes', async () => {
+  // The name-only prompt let "Overwrite?" silently destroy another recipe's
+  // identity and history (review finding). My old record still carries my id,
+  // so the save also MINTS — one id never lands on two records.
+  freshState(makeRecipe('Taken'));
+  storageRecords['Mine'] = { name: 'Mine', data: { SchemaVersion: 2, RecipeId: 'id-mine', Recipe: { Name: 'Mine' }, Ingredients: {} } };
+  storageRecords['Taken'] = { name: 'Taken', data: { SchemaVersion: 2, RecipeId: 'id-victim', Recipe: { Name: 'Taken' }, Ingredients: {} } };
+  setCurrentRecipeIdentity('id-mine');
+  const prompts = [];
+  globalThis.confirm = (msg) => { prompts.push(msg); return true; };
+
+  await buttons.btnSaveRecipe.onclick();
+  assert.equal(prompts.length, 1);
+  assert.match(prompts[0], /DIFFERENT recipe/);
+  assert.match(prompts[0], /permanently replace/);
+  const saved = storageCalls[0].data;
+  assert.ok(isValidRecipeId(saved.RecipeId));
+  assert.notEqual(saved.RecipeId, 'id-mine', 'record "Mine" still carries id-mine — this is a copy');
+  assert.notEqual(saved.RecipeId, 'id-victim', 'the victim\'s identity is not silently reused');
+});
+
+test('P0.3: overwriting my OWN record under its name uses the ordinary prompt and keeps the id', async () => {
+  freshState(makeRecipe('Same'));
+  storageRecords['Same'] = { name: 'Same', data: { SchemaVersion: 2, RecipeId: 'id-same', Recipe: { Name: 'Same' }, Ingredients: {} } };
+  setCurrentRecipeIdentity('id-same');
+  const prompts = [];
+  globalThis.confirm = (msg) => { prompts.push(msg); return true; };
+
+  await buttons.btnSaveRecipe.onclick();
+  assert.equal(prompts.length, 1);
+  assert.doesNotMatch(prompts[0], /DIFFERENT/);
+  assert.equal(storageCalls[0].data.RecipeId, 'id-same');
+});
+
+test('P0.3: a NEWER-schema record cannot be overwritten by this build\'s save', async () => {
+  // The never-truncate rule applied to the one local path that writes without
+  // loading (review finding, red team). Fail-closed, loud, nothing written.
+  freshState(makeRecipe('Future'));
+  storageRecords['Future'] = { name: 'Future', data: { SchemaVersion: 99, Recipe: { Name: 'Future' }, Ingredients: {} } };
+  await buttons.btnSaveRecipe.onclick();
+  assert.equal(storageCalls.length, 0);
+  assert.equal(cloudPushes.length, 0);
+  assert.match(messages.error[0], /newer version/);
+});
+
+test('P0.3: New Recipe clears the open identity — the next save mints fresh', async () => {
+  freshState(makeRecipe('Original'));
+  await buttons.btnSaveRecipe.onclick();
+  assert.ok(getCurrentRecipeIdentity());
+  try {
+    buttons.btnNewRecipe.onclick();
+  } catch { /* render-time throw in stub DOM; the clear already happened */ }
+  assert.equal(getCurrentRecipeIdentity(), null,
+    'a new recipe must not inherit the previous record\'s identity');
+});
+
+test('P0.3: .ier import ADOPTS the file\'s identity; a v2 file with no id warns and adopts null', async () => {
+  // Identified file → the recipe on screen IS that record.
+  freshState(new cRecipe(''));
+  const identified = JSON.stringify({
+    id: 'IER', version: 1,
+    data: { SchemaVersion: 2, RecipeId: 'id-traveled', Recipe: { Name: 'Arrived', Ingredients: [] }, Ingredients: {} },
+  });
+  try {
+    buttons.inputLoadRecipe.onchange({ target: { files: [makeFile(identified)] } });
+  } catch { /* render-time throw in stub DOM; adoption already happened */ }
+  assert.equal(currentRecipe.Name, 'Arrived');
+  assert.equal(getCurrentRecipeIdentity(), 'id-traveled');
+
+  // Stripped/no-id v2 file → decision 7: load, warn, identity null (re-mints
+  // at the next save).
+  freshState(new cRecipe(''));
+  const stripped = JSON.stringify({
+    id: 'IER', version: 1,
+    data: { SchemaVersion: 2, Recipe: { Name: 'Stripped', Ingredients: [] }, Ingredients: {} },
+  });
+  try {
+    buttons.inputLoadRecipe.onchange({ target: { files: [makeFile(stripped)] } });
+  } catch { /* render-time throw in stub DOM */ }
+  assert.equal(currentRecipe.Name, 'Stripped');
+  assert.equal(getCurrentRecipeIdentity(), null);
+  assert.ok(messages.warning.some((w) => /identity/.test(w)), 'the strip must be visible, not silent');
+});
+
+test('P0.3: export carries the open identity but NEVER mints one', async () => {
+  // Identified recipe → the id travels in the .ier file.
+  freshState(makeRecipe('Carry'));
+  setCurrentRecipeIdentity('id-carry');
+  buttons.btnExportRecipe.onclick();
+  const envelope = JSON.parse(await capturedBlobs[0].text());
+  assert.equal(envelope.data.RecipeId, 'id-carry');
+
+  // Unsaved recipe → no id in the file (mint happens at SAVE, in one place);
+  // the file warns on import, which is honest: it has no identity yet.
+  freshState(makeRecipe('Unminted'));
+  buttons.btnExportRecipe.onclick();
+  const envelope2 = JSON.parse(await capturedBlobs[capturedBlobs.length - 1].text());
+  assert.equal('RecipeId' in envelope2.data, false);
 });
 
 test('zero-strip uses LOOSE equality — "" and "0" values are also deleted (pinned)', async () => {

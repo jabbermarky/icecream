@@ -15,7 +15,10 @@
 // behaviour change, and Phase 0 is structural only. Whether library load should
 // also be undoable is a product question, not a refactor.
 
-import { hydrateRecipe, containerProblem, invalidContainerMessage } from '../models/recipe-serialization.js';
+import {
+    hydrateRecipe, containerProblem, invalidContainerMessage,
+    containerRecipeId, containerIdentityWarning
+} from '../models/recipe-serialization.js';
 
 const INGREDIENT_CONFLICT_MESSAGE =
     "This recipe was saved with different ingredient values than your current library. " +
@@ -30,6 +33,7 @@ const INGREDIENT_CONFLICT_MESSAGE =
  * @param {Object} deps
  * @param {Object} deps.storage - Recipe storage backend (needs loadRecipe)
  * @param {Function} deps.setRecipe - Replaces the current recipe
+ * @param {Function} deps.setRecipeIdentity - Adopts the record's RecipeId (or null) as the open recipe's identity
  * @param {Function} deps.importIngredients - Merges the record's ingredients into the library
  * @param {Function} deps.DisplayRecipe - Re-renders after the swap
  * @param {Function} deps.SetRecipeModified - Clears the modified flag
@@ -40,7 +44,7 @@ const INGREDIENT_CONFLICT_MESSAGE =
  */
 export function createLibraryRecipeLoader(deps) {
     const {
-        storage, setRecipe, importIngredients,
+        storage, setRecipe, setRecipeIdentity, importIngredients,
         DisplayRecipe, SetRecipeModified, Info, Warning, ErrorMsg
     } = deps;
 
@@ -111,9 +115,19 @@ export function createLibraryRecipeLoader(deps) {
                 { keep: "Keep Library", replace: "Use Recipe" }
             );
             setRecipe(newRecipe);
+            // P0.3: the recipe on screen IS this record now — adopt its
+            // identity (null for legacy/no-id records; mint-on-save covers
+            // those). Immediately after the swap, before the redraw, so a
+            // render throw cannot leave recipe and identity pointing at
+            // different records.
+            setRecipeIdentity(containerRecipeId(data.data));
             DisplayRecipe();
             SetRecipeModified(false);
             Info(`Loaded "${name}" from library`);
+            // Advisory, AFTER the success message (decision 7: warn and load
+            // anyway — the warning must not read as a failure).
+            const idWarning = containerIdentityWarning(data.data);
+            if (idWarning) Warning(idWarning);
         } catch (err) {
             // importIngredients may have already merged (and its sync hook
             // persisted) ingredient definitions before the throw — the recipe
