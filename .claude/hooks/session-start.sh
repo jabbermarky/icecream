@@ -198,6 +198,17 @@ if [ -d "$GS_SRC" ]; then
       fi
     done
   fi
+  # Checkpoints (/context-save output) -- without this, /context-restore in a
+  # fresh container reports "no saved contexts" while the mirror holds them.
+  if [ -d "$GS_SRC/checkpoints" ]; then
+    mkdir -p "$GS_DST/checkpoints" 2>/dev/null
+    for f in "$GS_SRC"/checkpoints/*.md; do
+      [ -f "$f" ] || continue
+      if needs_restore "$GS_DST/checkpoints/$(basename "$f")"; then
+        atomic_cp "$f" "$GS_DST/checkpoints/$(basename "$f")" && restored=$((restored + 1))
+      fi
+    done
+  fi
   echo "[session-start] gstack memory: $restored file(s) restored"
 )
 fi

@@ -133,6 +133,15 @@ for f in "$GS"/*test-plan*.md; do
   [ -f "$f" ] && copy_if_sane "$f" "$MIRROR/$(basename "$f")"
 done
 
+# Checkpoints (/context-save output, read back by /context-restore). Timestamped
+# filenames, append-only by design, so per-file copy-if-sane is enough.
+if [ -d "$GS/checkpoints" ]; then
+  mkdir -p "$MIRROR/checkpoints" 2>/dev/null
+  for f in "$GS"/checkpoints/*.md; do
+    [ -f "$f" ] && copy_if_sane "$f" "$MIRROR/checkpoints/$(basename "$f")"
+  done
+fi
+
 # --- commit ----------------------------------------------------------------
 # Bail out of anything that would make an automatic commit surprising.
 git rev-parse --verify HEAD >/dev/null 2>&1 || exit 0
