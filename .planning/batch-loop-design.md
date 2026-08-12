@@ -531,8 +531,20 @@ batch entity are prerequisites, not features, so they moved into Phase 0.
 - [ ] **P0.4** — batch record entity and its storage: object store, indexes,
       deletion behaviour, and what happens to batches when a recipe is deleted
       (`app.js:299` currently defines nothing).
-- [ ] **P0.5** — one canonical save path on an immutable `structuredClone`; fixes
-      the cloud write race at `recipe-manager.js:1197`
+- [x] **P0.5 — DONE.** One canonical save path on an immutable
+      `structuredClone`. `buildRecipeContainer` returns a detached, deeply
+      frozen clone instead of a view onto the live recipe, and library save and
+      `.ier` export both take their bytes from one builder
+      (`snapshotForSave`). The cloud write race is closed: the fire-and-forget
+      push and the IndexedDB write now receive the same frozen object, so
+      edits made while Drive's `findFileByName` round trip is in flight can no
+      longer reach the cloud copy. `structuredClone` refuses values
+      `JSON.stringify` used to drop silently (functions, DOM nodes); that
+      refusal is reported rather than swallowed, since an uncaught throw in the
+      async save handler is an unhandled rejection. Also closed the app.js
+      library-load coverage gap (review item 16): the handler moved to
+      `js/features/recipe-library-load.js` and is driven by the unit lane.
+      Unit lane 65/65, browser suite green.
 - [ ] **P0.6** — copy primitive that mints a new identity. **Rename is refused on
       any recipe that has been saved**, full stop — NOT merely on recipes that
       currently have descendants.

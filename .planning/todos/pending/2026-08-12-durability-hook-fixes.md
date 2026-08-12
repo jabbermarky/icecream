@@ -148,15 +148,23 @@ independently verified regardless.**
 
 ## Follow-up from the P0.1+P0.2 code review (2026-08-12, /review)
 
-16. **OPEN — app.js library-load path has zero test coverage.** One of P0.2's
-    four paths, and the one the refusal rule primarily protects (stale-tab
-    save-back). The shared module logic is tested; the thin onLoad wiring is
-    not — a regression that drops or reorders the containerProblem gate there
-    ships undetected. Fix: extract the onLoad callback into an exported,
-    injectable function and drive it with the tests/unit stub harness,
-    mirroring the .ier tests (refused-before-importIngredients, legacy loads,
-    damaged record message, .catch path). Deferred by maintainer decision
-    during the review; do alongside P0.5, which touches the same paths.
+16. **FIXED (P0.5) — app.js library-load path has zero test coverage.** One of
+    P0.2's four paths, and the one the refusal rule primarily protects
+    (stale-tab save-back). The shared module logic was tested; the thin onLoad
+    wiring was not — a regression that dropped or reordered the
+    containerProblem gate would have shipped undetected.
+    **Fixed as specified:** the callback moved to
+    `js/features/recipe-library-load.js` as `createLibraryRecipeLoader(deps)`,
+    injectable and driven by the stub harness in
+    `tests/unit/recipe-library-load.test.js` (11 cases). Mirrors the .ier
+    tests: refused-before-importIngredients with a non-empty ingredient map so
+    the ordering is observable, legacy no-SchemaVersion load, numeric-string
+    "2" refusal, the damaged-record message matrix, missing record, the
+    `.catch` path, and a throw from DisplayRecipe. The pre-existing divergence
+    from .ier import (that path backs up the current recipe; this one does not)
+    was reviewed and **kept deliberately** — aligning them is a user-visible
+    change and Phase 0 is structural only. Pinned by a test so a later change
+    is a decision rather than a drift.
 17. **OPEN — stub FileReader is synchronous and cannot model onerror.**
     Documented in dom-stub.js. Remodel with queueMicrotask + a flushReads
     helper if the lane ever needs read-failure or async-ordering coverage.

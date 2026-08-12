@@ -19,26 +19,33 @@ Suite green at 114 passed / 0 failed.
 
 1. **The batch loop** — linking recipe versions to what happened when they were
    churned. Design: `.planning/batch-loop-design.md`, reviewed four times by an
-   outside model. Draft PR #11. **P0.1 and P0.2 are DONE.** The node unit lane
-   (`npm run test:unit`, 35 cases) drives the real handlers;
-   `js/models/recipe-serialization.js` now owns the container shape and the
+   outside model. Draft PR #11. **P0.1, P0.2 and P0.5 are DONE.** The node unit
+   lane (`npm run test:unit`, 65 cases) drives the real handlers;
+   `js/models/recipe-serialization.js` owns the container shape and the
    declared-fields hydrator behind all four save/load paths, with
    `SchemaVersion` on the record and refusal (not truncation) on a newer
-   schema. P0.1's known gap is closed by construction — both load paths run
-   the same hydrator. **Next unblocked: P0.5** (one canonical save path on an
-   immutable `structuredClone`, which also fixes the cloud-write race).
-   **P0.3 is marked DO NOT START** — identity has to sync and the design does
-   not yet say how; P0.4 (batch record) waits on P0.3's identity.
+   schema. P0.5 made the container a detached, deeply frozen `structuredClone`
+   behind one builder, which closes the cloud-write race, and moved the
+   library-load handler into `js/features/recipe-library-load.js` so it is
+   testable. **P0.5 was the last unblocked task in Phase 0.** Everything left
+   in the phase needs identity: P0.3 is the identity store and is marked **DO
+   NOT START** (identity has to sync and the design does not yet say how); P0.4
+   needs P0.3's identity; P0.6 *mints* an identity; P0.7 persists an
+   *identified* snapshot. So the batch loop is now blocked on a design
+   question, not on typing — do not start P0.6 or P0.7 expecting them to be
+   independent.
 2. **Ingredient onboarding** — nine tasks remain after v0.5.0. The durable ones
    are issues #6–#10. **#7 shrinks to "add ingredient cases"** now that the
    node lane exists: `firstNutritionValue()` still has zero tests and was
    written wrong twice in one session, caught both times by review rather than
    by the suite.
 
-**Waiting on the maintainer:** read the binder — twenty batches, one evening, no
-code. It produces the churn sheet's real schema and answers the open question
-about what counts as a batch. Nothing in the batch loop should be built ahead of
-it.
+**Waiting on the maintainer, and now actually blocking:** read the binder —
+twenty batches, one evening, no code. It produces the churn sheet's real schema
+and answers what counts as a batch (gates P0.4 and P0.7). With P0.5 landed there
+is no unblocked batch-loop code left, so this and the P0.3 identity-sync design
+are the only two things that move the workstream. Ingredient onboarding (#6–#10)
+is the work that *is* available meanwhile.
 
 ### Do these at the start of a session
 
@@ -130,10 +137,13 @@ recipe; identity in a separate object store.
   report success (`sync-manager.js:242` calls `notifyStatus('synced')`,
   `sync-manager.js:122` does `stats.pushed++`). Sync can lie about having saved.
   Pre-existing, unrelated to either workstream. **Filed as issue #12.**
-- **Cloud write race.** Save passes the live `Recipe` object to a
-  fire-and-forget cloud write that stringifies later (`recipe-manager.js:1197`,
-  `:1221`), so edits made after clicking Save can enter the cloud payload while
-  IndexedDB holds the earlier state. Folded into P0.5.
+- ~~**Cloud write race.**~~ **FIXED in P0.5.** Save used to pass the live
+  `Recipe` object to a fire-and-forget cloud write that stringifies only after
+  Drive's `findFileByName` round trip, so edits made in that window entered the
+  cloud payload while IndexedDB held the earlier state. `buildRecipeContainer`
+  now returns a detached, deeply frozen `structuredClone`, and both backends
+  receive that same object. Pinned end to end by
+  `tests/unit/recipe-roundtrip.test.js` ("P0.5 RACE").
 - `.planning/codebase/STRUCTURE.md` omits `recipe-manager.js` (1,407 lines, the
   largest file in the project) even after a sync commit that claimed to fix it.
 
