@@ -21,8 +21,8 @@ system built to survive session clears. The review-log entry is a one-liner;
 this is the actionable list.
 
 **Status: batches one (items 1–3) and two (items 4–11, 14, 15) FIXED
-2026-08-12 and verified. Open: items 12–13, which are maintainer policy
-decisions, and the codex re-review of the combined diff.**
+2026-08-12 and verified. Items 12–13 decided by the maintainer and fixed.
+Open: the codex re-review of the combined diff.**
 
 ## Confirmed by direct verification — FIXED (batch one)
 
@@ -100,20 +100,25 @@ decisions, and the codex re-review of the combined diff.**
     character-budget truncation that only cuts on line boundaries, with an
     explicit truncation marker. *Verified: 9.7KB input cut on a whole line at
     9,532 chars.*
-12. **Push publishes the whole branch, not the memory commit** — HIGH per
-    codex, MEDIUM per author analysis (solo maintainer, no CI, but public repo
-    ⇒ premature publication is irreversible). DECISION PENDING with the
-    maintainer: add pre-push disclosure of non-memory commits vs. document-only.
-    "Stop pushing" and "dedicated ref" were analyzed and rejected — a dedicated
-    ref is write-only durability (nothing fetches it on a fresh container).
+12. **DECIDED & FIXED — Push publishes the whole branch, not the memory
+    commit.** Maintainer chose disclosure: before pushing, the hook enumerates
+    `@{upstream}..HEAD` and names any non-memory commits on stderr, then
+    pushes anyway — durability wins, but the scope is no longer silent. "Stop
+    pushing" and "dedicated ref" were analyzed and rejected — a dedicated ref
+    is write-only durability (nothing fetches it on a fresh container).
+    *Verified against a local bare origin: the real commit is named, memory
+    commits are excluded from the list, the push is delivered, and memory-only
+    pushes stay silent.*
 
 ## Fresh-eyes additions (2026-08-12, second pass)
 
-13. **Hooks auto-commit (and on compact/end, auto-push) on ANY branch,
-    including `main`.** The policy was chosen in feature-branch context. After
-    PR #11 merges, a session on `main` will push memory commits straight to the
-    default branch, unreviewed. Decide: restrict to non-default branches, or
-    accept explicitly.
+13. **DECIDED & FIXED — Hooks auto-commit (and on compact/end, auto-push) on
+    ANY branch, including `main`.** Maintainer chose to restrict: the mirror
+    is silent on the default branch — detected from `origin/HEAD` when set,
+    falling back to the names `main`/`master` (origin/HEAD is unset in this
+    clone, so the fallback is the live path). *Verified: silent on `main` via
+    fallback; silent on a detected default named `trunk`; still commits on a
+    branch named `main` when the detected default is `trunk`.*
 14. **FIXED — Source-precedence inconsistency.** Both hooks now call the shared
     `extract-decisions.sh`, which owns the one ordering: live store first (it
     is never staler than the mirror, which is copied from it every Stop), then

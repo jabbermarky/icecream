@@ -138,6 +138,21 @@ done
 git rev-parse --verify HEAD >/dev/null 2>&1 || exit 0
 BRANCH=$(git branch --show-current 2>/dev/null)
 [ -n "$BRANCH" ] || exit 0                       # detached HEAD
+
+# Never on the default branch (maintainer decision, 2026-08-12). The per-turn
+# policy was chosen in feature-branch context; after a PR merges, a session on
+# the default branch would otherwise auto-commit -- and on PreCompact and
+# SessionEnd auto-PUSH -- straight to it, unreviewed. On working branches the
+# mirror still runs every turn; on the default branch, durable capture is a
+# human decision. origin/HEAD is often unset in cloud clones (it is unset in
+# this one), so fall back to matching the conventional names.
+DEFAULT_BRANCH=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)
+DEFAULT_BRANCH=${DEFAULT_BRANCH#origin/}
+if [ -n "$DEFAULT_BRANCH" ]; then
+  [ "$BRANCH" = "$DEFAULT_BRANCH" ] && exit 0
+else
+  case "$BRANCH" in main|master) exit 0 ;; esac
+fi
 GIT_DIR_PATH=$(git rev-parse --git-dir 2>/dev/null) || exit 0
 # REVERT_HEAD and sequencer (multi-commit cherry-pick/revert) were missing from
 # the first version of this list -- an automatic commit landing mid-revert would
@@ -173,7 +188,22 @@ echo "[mirror-memory] committed gstack state on $BRANCH" >&2
 # --- push ------------------------------------------------------------------
 # Only on the way out (PreCompact, SessionEnd). One retry: this is best-effort,
 # and the next event will push again anyway.
+#
+# SCOPE DISCLOSURE (maintainer decision, 2026-08-12): git cannot push one
+# commit without its ancestors, so pushing the branch publishes EVERYTHING
+# unpushed on it -- not just the memory commit this hook made. On a public
+# repository that publication is effectively irreversible. The push still
+# happens: durability against container reclamation is this hook's entire
+# purpose, and withholding it in exactly the sessions with real unpushed work
+# would be backwards. But it happens NAMED, not silently -- the disclosure
+# lands in the hook log, and the pushed history itself is the durable record.
 if [ "$PUSH" = "1" ]; then
+  EXTRA=$(git log --format='%h %s' "@{upstream}..HEAD" 2>/dev/null |
+            grep -v ' chore(memory): mirror gstack state$' | head -10)
+  if [ -n "$EXTRA" ]; then
+    echo "[mirror-memory] note: pushing $BRANCH also publishes non-memory commits:" >&2
+    printf '%s\n' "$EXTRA" | sed 's/^/[mirror-memory]   /' >&2
+  fi
   git push -q -u origin "$BRANCH" >/dev/null 2>&1 ||
     { sleep 2; git push -q -u origin "$BRANCH" >/dev/null 2>&1; } ||
     echo "[mirror-memory] WARN push failed; state is committed locally only" >&2

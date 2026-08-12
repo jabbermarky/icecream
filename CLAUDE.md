@@ -63,7 +63,7 @@ The machinery, all in `.claude/hooks/`:
 
 | Hook | Event | What it does |
 |---|---|---|
-| `mirror-memory.sh` | `Stop` | Copies `~/.gstack` into `.planning/gstack-memory/` and commits it, every turn. Pathspec-limited, so it can never sweep up work in progress. |
+| `mirror-memory.sh` | `Stop` | Copies `~/.gstack` into `.planning/gstack-memory/` and commits it, every turn — on working branches only; it is deliberately silent on the default branch. Pathspec-limited, so it can never sweep up work in progress. |
 | `pre-compact.sh` | `PreCompact` | Compacts the decision log, writes `.claude/.recovery-digest`, then mirrors and pushes. |
 | `mirror-memory.sh --push` | `SessionEnd` | Mirror and push on the way out. |
 | `session-briefing.sh` | `SessionStart` (all matchers) | Reads the `BRIEFING` block, the recovery digest and the settled decisions into the new session's context. |
