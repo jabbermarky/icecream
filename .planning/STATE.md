@@ -18,34 +18,34 @@ Suite green at 114 passed / 0 failed.
 **In flight:** two workstreams.
 
 1. **The batch loop** — linking recipe versions to what happened when they were
-   churned. Design: `.planning/batch-loop-design.md`, reviewed four times by an
-   outside model. Draft PR #11. **P0.1, P0.2 and P0.5 are DONE.** The node unit
-   lane (`npm run test:unit`, 65 cases) drives the real handlers;
-   `js/models/recipe-serialization.js` owns the container shape and the
-   declared-fields hydrator behind all four save/load paths, with
-   `SchemaVersion` on the record and refusal (not truncation) on a newer
-   schema. P0.5 made the container a detached, deeply frozen `structuredClone`
-   behind one builder, which closes the cloud-write race, and moved the
-   library-load handler into `js/features/recipe-library-load.js` so it is
-   testable. **P0.5 was the last unblocked task in Phase 0.** Everything left
-   in the phase needs identity: P0.3 is the identity store and is marked **DO
-   NOT START** (identity has to sync and the design does not yet say how); P0.4
-   needs P0.3's identity; P0.6 *mints* an identity; P0.7 persists an
-   *identified* snapshot. So the batch loop is now blocked on a design
-   question, not on typing — do not start P0.6 or P0.7 expecting them to be
-   independent.
+   churned. Design: `.planning/batch-loop-design.md`. Draft PR #11. **P0.1,
+   P0.2, P0.5 are DONE; P0.3 is DESIGNED and two-thirds LANDED.** The identity
+   design (`.planning/p0.3-identity-design.md`, eng-reviewed + outside voice,
+   13 decisions) reversed the separate-store plan: identity lives IN the
+   container behind `SchemaVersion: 2` — `RecipeId` + `SavedAt`, minted only
+   at save, validated OUTSIDE the fail-closed gate so a stripped record warns
+   instead of locking the user out. **T1 (v2 container) and T2 (minting,
+   P0.6's merged guards, adoption on load/import, id-aware overwrite prompts)
+   are landed and five-pass reviewed** — unit lane `npm run test:unit` at
+   102 cases, browser suite green. The T1 review also REVERSED a P0.5 pin:
+   typed arrays now refuse at snapshot (JSON backends corrupt them silently).
+   **Remaining: T3** (pure join/merge module — id-first join, name fallback,
+   `SavedAt` clock, never-overwrite-newer-schema guard; spec in the design
+   doc), **T4** (sync-manager swaps to it), **T5** (browser round-trip of a
+   built container, closes item 22), **T6** (lift DO-NOT-START in
+   batch-loop-design.md, rollout note: reload every device at deploy, verify
+   cache-busting). P0.6 shrank to the copy button + rename-refusal UI. P0.4
+   and P0.7 are unblocked by identity but still gated on the binder read.
 2. **Ingredient onboarding** — nine tasks remain after v0.5.0. The durable ones
    are issues #6–#10. **#7 shrinks to "add ingredient cases"** now that the
    node lane exists: `firstNutritionValue()` still has zero tests and was
    written wrong twice in one session, caught both times by review rather than
    by the suite.
 
-**Waiting on the maintainer, and now actually blocking:** read the binder —
-twenty batches, one evening, no code. It produces the churn sheet's real schema
-and answers what counts as a batch (gates P0.4 and P0.7). With P0.5 landed there
-is no unblocked batch-loop code left, so this and the P0.3 identity-sync design
-are the only two things that move the workstream. Ingredient onboarding (#6–#10)
-is the work that *is* available meanwhile.
+**Waiting on the maintainer:** read the binder — twenty batches, one evening,
+no code. It produces the churn sheet's real schema and answers what counts as
+a batch (gates P0.4 and P0.7). The identity-sync design question is ANSWERED;
+T3/T4 are unblocked code. Ingredient onboarding (#6–#10) also remains open.
 
 ### Do these at the start of a session
 
