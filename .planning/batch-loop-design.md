@@ -448,7 +448,7 @@ recipe. It cannot, today. That is the single finding that reorganised the plan.
 | --- | --- | --- | --- | --- |
 | Serializer round-trip | A new field is added without a schema bump; it vanishes on next load | P0.1 + P0.2 round-trip cases | Schema version on the record | **Yes today — this is the current behaviour** |
 | Lazy id assignment | Two devices assign different ids to the same legacy recipe; sync joins by name; one wins; the other's children orphan | P0.1 + a sync case | Advisory lineage degrades to the recorded parent name | Partly — lineage is visibly "unknown", data is not lost |
-| Copy vs rename | Rename creates a second record carrying the same id | P0.1 identity cases | P0.6 mints a new id on copy; rename refused where it would break lineage | **Yes without P0.6** |
+| Copy vs rename | Rename creates a second record carrying the same id | P0.1 identity cases | P0.6 mints a new id on copy; rename refused on any saved recipe | **Yes without P0.6** |
 | Overwrite on save | Saving over an existing name replaces a record whose id had children | P0.1 | P0.6 rejects overwrite when the target carries a different id | **Yes today** |
 | Print snapshot | QR resolves to a formula that was never saved, because print emitted the live DOM | E2E | P0.7 persists an identified snapshot before printing | **Yes — destroys the design's premise** |
 | Cloud write race | Edits after Save leak into the cloud payload; IndexedDB holds the earlier state | P0.1 | P0.5 canonical save on a `structuredClone` | **Yes — pre-existing bug, not caused by this design** |
@@ -457,7 +457,7 @@ recipe. It cannot, today. That is the single finding that reorganised the plan.
 
 | `.ier` export / import | Ids and lineage stripped by two more filtered paths the first revision missed | P0.1 characterization | P0.2 covers all four paths | **Yes** |
 | Cloud save failure | Drive returns `false`; the caller discards it and reports `'synced'` | P0.1 | Pre-existing bug, filed separately | **Yes — sync lies about success** |
-| Rename across backends | Save-new + delete-old is non-atomic; another device can push the old name back, resurrecting or duplicating the recipe | P0.1 | Rename refused where it matters (P0.6) | **Yes** |
+| Rename across backends | Save-new + delete-old is non-atomic; another device can push the old name back, resurrecting or duplicating the recipe | P0.1 | Rename refused unconditionally on any saved recipe (P0.6) | **Yes** |
 | Recipe deletion | No defined behaviour for batches or lineage pointing at the deleted recipe | P0.1 | Defined in P0.4 | **Yes today** |
 | Mixed-version write | A stale tab or older device loads a new record, drops unknown fields on hydration, writes back truncated — silently stripping identity and lineage | P0.1 downgrade case | Identity lives in a store legacy save never writes (P0.3) | **Yes — invisible, no error, no attribution** |
 | Deletion resurrection | Local delete plus fire-and-forget cloud delete; sync restores from whichever side still has the record | P0.1 | Defined in P0.4 | **Yes** |
@@ -491,16 +491,47 @@ batch entity are prerequisites, not features, so they moved into Phase 0.
       only known `cRecipe` fields (`app.js:284`) then writes the truncated object
       back (`recipe-manager.js:1195`). A legacy client would silently strip
       identity from a record the new client created. It cannot strip a store it
-      does not know exists. This is the only fix that survives a client you do
-      not control, without an operational rule.
+      does not know exists.
+
+      **⚠️ P0.3 IS NOT YET FULLY DESIGNED. Do not start it.** The separate store
+      solves the legacy-client problem and creates two others, both found on the
+      fourth cross-model pass:
+
+      1. **It does not sync.** Sync transfers only `recipe.data`
+         (`sync-manager.js:122`) and Drive stores `{name, data}` with no identity
+         sidecar (`google-drive-storage.js:53`). A second device would find no
+         identity and allocate its own. **"No sync changes" is untenable for
+         identity specifically** — cloud identity metadata has to travel, even if
+         nothing else about sync changes. This is the third time the outside
+         voice has raised sync and the first time with a mechanism that has no
+         workaround.
+      2. **Keying it by name bites on deletion and name reuse.** Delete the
+         mapping and a resurrected recipe gets a fresh id; keep it and a
+         genuinely new recipe reusing that name inherits the old id. Either
+         tombstones plus permanent name non-reuse, or key identities by id with a
+         name index and a generation counter. `.ier` import must also reject a
+         same-name / different-id collision.
+
+      P0.1 and P0.2 are unaffected and can start. P0.3 needs this settled first.
 - [ ] **P0.4** — batch record entity and its storage: object store, indexes,
       deletion behaviour, and what happens to batches when a recipe is deleted
       (`app.js:299` currently defines nothing).
 - [ ] **P0.5** — one canonical save path on an immutable `structuredClone`; fixes
       the cloud write race at `recipe-manager.js:1197`
-- [ ] **P0.6** — copy primitive that mints a new identity. Rename is **refused**
-      on any recipe carrying descendants or printed batches (see Open Decisions).
+- [ ] **P0.6** — copy primitive that mints a new identity. **Rename is refused on
+      any recipe that has been saved**, full stop — NOT merely on recipes that
+      currently have descendants.
+      **Why unconditional:** a state-dependent guard is evaluated at the wrong
+      moment. Rename an unreferenced `A` to `B`; an offline device still holds
+      `A`; `B` later gains a child; that device reconnects and republishes `A`.
+      Two names now carry one id, and the guard could not have known. Sync joins
+      by name (`sync-manager.js:113`) and Drive identity is the filename
+      (`google-drive-storage.js:60`), so there is no window in which a
+      conditional check is sound.
       Overwrite rejects a target carrying a different id.
+      **Deletion has the same shape** and is handled in P0.4: local delete is
+      followed by a fire-and-forget cloud delete (`app.js:303`), and sync later
+      restores whatever survives on one side.
 - [ ] **P0.7** — print persists an identified snapshot before emitting the sheet
 - [ ] **P1.1** — advisory lineage: parent id + parent name snapshot
 - [ ] **P1.2** — mechanical diff over ordered ingredient occurrences, plus optional intent
