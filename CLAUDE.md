@@ -41,6 +41,43 @@ Planning documents live in `.planning/`. Deferred work lives in
 `.planning/todos/pending/` **or** as an issue — issues for anything that must
 survive a change of focus.
 
+## Session state — capture on the way through, not on the way out
+
+Sessions end in ways that run no shutdown code. The container gets reclaimed,
+context runs out, someone types `/clear`. Anything written "at the end of the
+session" is therefore written in exactly the case that never arrives. This is
+the same mistake as opening the PR after the work: it is capture that is
+technically complete and practically too late.
+
+`.planning/STATE.md` is the file that carries state between sessions. Two rules
+about it:
+
+1. **Write to it when something changes, not when a session ends.** A decision
+   made, a task unblocked, a bug found and not fixed — that is the moment. If
+   the session died right now, STATE.md should still be true.
+2. **The `BRIEFING` block is a context budget, not a summary.** It is injected
+   verbatim into every new session, so it holds what a session needs before it
+   can act. Detail goes below the markers.
+
+The machinery, all in `.claude/hooks/`:
+
+| Hook | Event | What it does |
+|---|---|---|
+| `mirror-memory.sh` | `Stop` | Copies `~/.gstack` into `.planning/gstack-memory/` and commits it, every turn. Pathspec-limited, so it can never sweep up work in progress. |
+| `mirror-memory.sh --push` | `PreCompact`, `SessionEnd` | Same, and pushes. |
+| `session-briefing.sh` | `SessionStart` (all matchers) | Reads the `BRIEFING` block into the new session's context. |
+| `session-start.sh` | `SessionStart` (`startup\|resume`) | Restores the mirror, installs the toolchain. Async. |
+
+**Two hook facts worth not rediscovering.** `SessionStart` is one of only three
+events whose stdout becomes model-visible context — but an `async: true` hook's
+output is discarded, so a briefing hook must be synchronous and must therefore
+do no network work. And `Stop` fires per turn while `SessionEnd` does not fire
+on container reclamation, which is why the mirror runs on `Stop`.
+
+**What no hook can restore:** the `subscribe_pr_activity` subscription. It is
+the first line of the briefing for that reason. Re-arm it early in a session
+with an open PR.
+
 ## Testing
 Run tests before and after any code changes:
 ```bash

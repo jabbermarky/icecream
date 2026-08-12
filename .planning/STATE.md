@@ -1,22 +1,151 @@
-# Project State
+# Project state
 
-## Project Reference
+**This file is written when things change, not at the end of a session.**
 
-See: .planning/PROJECT.md (updated 2026-01-15)
+The section between the `BRIEFING` markers is read by
+`.claude/hooks/session-briefing.sh` and injected into every new session's
+context — including after `/clear` and after compaction. Keep it short and
+keep it true; everything below the markers is the detail it points at.
 
-**Core value:** Ice cream recipe formulation with full user control
-**Current focus:** v1.4 Multi-Device Access milestone COMPLETE
+<!-- BRIEFING:START -->
+### Where things are
 
-## Current Position
+**Shipped:** v0.5.0 (PR #4, merged). USDA ingredient import populates PAC, POD
+and Sugar for the first time — measured 0/11 → 6/11 against the live FDC API,
+Sugar 0/11 → 10/11. `idb` is vendored, so startup no longer depends on a CDN.
+Suite green at 114 passed / 0 failed.
 
-Phase: 20 of 20 (cloud-sync-google-drive)
-Plan: 4 of 4 complete
-Status: Milestone archived
-Last activity: 2026-01-15 — Archived v1.4 milestone
+**In flight:** two workstreams, both planned, neither started.
 
-Progress: ██████████ 100% (v1.4 Complete)
+1. **The batch loop** — linking recipe versions to what happened when they were
+   churned. Design: `.planning/batch-loop-design.md`, reviewed four times by an
+   outside model. Draft PR #11. **P0.1 (node test lane) is cleared to start.
+   P0.3 is marked DO NOT START** — identity has to sync and the design does not
+   yet say how.
+2. **Ingredient onboarding** — nine tasks remain after v0.5.0. The durable ones
+   are issues #6–#10. **#7 (node unit test lane) is the most urgent thing in the
+   project**: `firstNutritionValue()` has zero tests and was written wrong twice
+   in one session, caught both times by review rather than by the suite.
 
-## Accumulated Decisions
+**Waiting on the maintainer:** read the binder — twenty batches, one evening, no
+code. It produces the churn sheet's real schema and answers the open question
+about what counts as a batch. Nothing in the batch loop should be built ahead of
+it.
+
+### Do these at the start of a session
+
+- **Re-subscribe to PR #11** with `subscribe_pr_activity` — a subscription does
+  not survive a container, and this is the only piece of state that cannot be
+  restored from disk.
+- Tests need a virtual display and the async provisioning hook:
+  `./.claude/hooks/wait-for-setup.sh && xvfb-run -a npm test`
+
+### Conventions that are easy to violate by accident
+
+- Draft PR on the **first** commit of a branch, never at the end. The PR body
+  carries a live checklist.
+- Durable work becomes a GitHub issue; session-scoped steps stay in the PR
+  checklist.
+- Decisions get written down when made — into this file, the PR, or
+  `decisions.jsonl` — because the session they were made in will not survive.
+<!-- BRIEFING:END -->
+
+## Open on GitHub
+
+| | |
+|---|---|
+| PR #5 | Durable ingredient tasks carried forward (draft) |
+| PR #11 | Batch loop design (draft, live checklist) |
+| #6 | T1 extract shared derivation — P1, gates #7 |
+| #7 | T6 node test lane — **P1, most urgent**, blocked by #6 |
+| #8 | T7 regression guards — P1, blocked by #7 |
+| #9 | T2b reconciliation — P1, **blocked on the apportionment decision** |
+| #10 | T5 provenance sidecar — P2 |
+
+Branch: `claude/batch-loop-design`. The old
+`claude/garry-tan-gstack-install-lp58z2` is merged and its remote ref still
+exists — the git proxy refuses branch deletion, so remove it from the GitHub UI
+when convenient.
+
+## The two workstreams
+
+### 1. Ingredient onboarding
+
+Design: `.planning/ingredient-onboarding-design.md`
+Carryover: `.planning/todos/pending/2026-08-11-durable-ingredient-tasks-carryover.md`
+
+T0 and T2a shipped. Of the nine remaining, four (T3, T4, T8, T9) are repairs to
+code a rewrite would delete; the rest are issues #6–#10.
+
+`/ship` overrode its coverage gate at 25% on the explicit understanding that #7
+lands next. That promise is outstanding.
+
+### 2. The batch loop
+
+Design: `.planning/batch-loop-design.md` — the current source of truth, carrying
+its own review report.
+
+The maintainer already runs a working manual version-control system: versioned
+recipe names, print as an immutable snapshot, annotate the page during the
+churn, file by base recipe, copy-and-tweak for the next version. **The design
+feeds that paper workflow rather than replacing it** — paper wins at capture.
+
+## Decided, and still open
+
+**Decided** (reasoning in the design doc and in commit messages): print-first
+over a full digital loop; advisory lineage rather than referential integrity;
+mechanical diff stored as printed plus optional intent; a new
+`js/features/recipe-versions.js`; the batch loop builds the node test lane
+itself; photos as separate Blobs; rename refused unconditionally on any saved
+recipe; identity in a separate object store.
+
+**Open, and blocking P0.3:**
+
+1. **Identity has to sync.** The separate identity store solves legacy-client
+   downgrade writes and creates a cross-device problem: sync carries only
+   `recipe.data` (`sync-manager.js:122`) and Drive stores `{name, data}` with no
+   sidecar, so a second device allocates its own id. "No sync changes" holds for
+   everything except identity.
+2. **Keying that store by name collides on delete and name reuse.** Needs
+   tombstones plus name non-reuse, or keying by id with a name index.
+
+**Open, not blocking:**
+
+3. Is a reprint a new batch or the same batch? Is a cancelled print a record?
+   Gates P0.4 and P0.7. **Answerable from the binder.**
+4. Are photos portable or local-only? Gates P3.3 only.
+
+## Known bugs found but not fixed
+
+- **Silent cloud-save failure, two instances.** Drive's `saveRecipe` returns
+  `false` on error (`google-drive-storage.js:79`); the callers discard it and
+  report success (`sync-manager.js:242` calls `notifyStatus('synced')`,
+  `sync-manager.js:122` does `stats.pushed++`). Sync can lie about having saved.
+  Pre-existing, unrelated to either workstream. **Not yet filed as an issue.**
+- **Cloud write race.** Save passes the live `Recipe` object to a
+  fire-and-forget cloud write that stringifies later (`recipe-manager.js:1197`,
+  `:1221`), so edits made after clicking Save can enter the cloud payload while
+  IndexedDB holds the earlier state. Folded into P0.5.
+- `.planning/codebase/STRUCTURE.md` omits `recipe-manager.js` (1,407 lines, the
+  largest file in the project) even after a sync commit that claimed to fix it.
+
+## How state survives a cleared session
+
+| Mechanism | What it covers |
+|---|---|
+| `.claude/hooks/mirror-memory.sh` on `Stop` | Copies `~/.gstack` into `.planning/gstack-memory/` and commits it, every turn. Pushes on `PreCompact` and `SessionEnd`. |
+| `.claude/hooks/session-briefing.sh` on `SessionStart` | Reads the briefing above into the new session's context. Synchronous, because an async hook's stdout is discarded. |
+| `.claude/hooks/session-start.sh` on `startup\|resume` | Restores the mirror into `~/.gstack`, installs the toolchain, authenticates codex. Async. |
+| GitHub issues and the PR checklist | Anything that must outlive the branch. |
+
+**The one thing none of that covers** is the PR activity subscription, which is
+why it is the first line of the briefing.
+
+## Historical: accumulated decisions through v1.4
+
+Kept because the reasoning is still load-bearing in the code. This table stops
+at the v1.4 milestone (archived 2026-01-15); everything after it is in
+`decisions.jsonl` and in commit messages.
 
 | Phase | Decision | Rationale |
 |-------|----------|-----------|
@@ -32,7 +161,7 @@ Progress: ██████████ 100% (v1.4 Complete)
 | 10 | Mousedown tracking for drag handle restriction | dragstart target is always the row, not clicked element |
 | 11 | Clear sortBy on drag-drop reorder | Prevent misleading sort indicator after manual reorder |
 | 11 | DOM-based test verification | window.Recipe reference becomes stale after setRecipe() calls |
-| 12 | idb library from ESM CDN | No npm install or bundler needed, lightweight |
+| 12 | idb library from ESM CDN | No npm install or bundler needed, lightweight — **superseded in v0.5.0, now vendored** |
 | 12 | Storage interface pattern | Enables future backend swaps (cloud sync) without changing consumers |
 | 12 | Graceful error handling in storage | Return null/empty array on failure, matches existing parseRecipeFile pattern |
 | 13 | Callback pattern for library actions | onLoad/onDelete callbacks allow flexible action handling |
@@ -43,7 +172,7 @@ Progress: ██████████ 100% (v1.4 Complete)
 | 15 | Storage methods return boolean | Enables caller to check success/failure and show appropriate feedback |
 | 16 | Single 'library' record for ingredients | Simpler than individual records, sufficient for current needs |
 | 16 | Storage-first initialization | Enable library-first loading pattern |
-| 17 | Fire-and-forget sync (no await) | Don't block user workflow for storage operations |
+| 17 | Fire-and-forget sync (no await) | Don't block user workflow for storage operations — **see "cloud write race" above** |
 | 17 | Export sync function for recipe-manager | Allow cross-module sync when storing recipe as ingredient |
 | 18 | columnLabels/buttonLabels parameters | Configurable dialog labels via parameter objects with defaults |
 | 18 | Recipe-specific merge context | Library/Recipe columns + Keep Library/Use Recipe buttons |
@@ -54,36 +183,5 @@ Progress: ██████████ 100% (v1.4 Complete)
 | 20-04 | Store files in IceCream App Data subfolder | Keep user's Drive root clean |
 | 20-04 | Timestamp-based conflict resolution | Newer wins; simple, predictable behavior |
 
-## Deferred Issues
-
-- ISS-003: Scale button enabled without valid input (pre-existing bug, logged for future fix)
-
-## Process Improvements
-
-- Added strict mode audit as pre-requisite for Phases 8-9
-- Created STRICT-MODE-AUDIT.md reference guide
-- Future extractions will scan for undeclared variables before moving code
-- Audit magic numbers when touching modules (e.g., RECIPE_COLS pattern from Phase 10)
-
-## Pending Todos
-
-10 todos in `.planning/todos/pending/`
-
-## Blockers/Concerns Carried Forward
-
-None.
-
-## Brief Alignment Status
-
-v1.4 Multi-Device Access milestone ARCHIVED.
-
-**Deployed URL:** https://www.marklummus.com/icecream/
-**Archive:** .planning/milestones/v1.4-ARCHIVE.md
-
-All 5 milestones complete (v1.0 through v1.4). Ready for next milestone when needed.
-
-## Session Continuity
-
-Last session: 2026-01-15
-Stopped at: Archived v1.4 milestone
-Resume file: None
+**Deployed:** https://www.marklummus.com/icecream/
+**v1.4 archive:** `.planning/milestones/v1.4-ARCHIVE.md`
