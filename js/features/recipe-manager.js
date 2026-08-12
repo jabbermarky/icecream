@@ -1196,15 +1196,57 @@ function snapshotForSave(recipe, ingredients) {
     try {
         return buildRecipeContainer(recipe, ingredients, Warning);
     } catch (error) {
-        // structuredClone refuses values JSON.stringify used to drop silently
-        // (functions, DOM nodes). Reported rather than rethrown: handleSaveRecipe
-        // is async, so an uncaught throw is an unhandled rejection and the user
-        // sees Save do nothing at all — the same silent-no-op the library load
-        // path was fixed for.
+        // Reported rather than rethrown, for BOTH callers: handleSaveRecipe is
+        // async, so an uncaught throw is an unhandled rejection; handleExport
+        // is sync, so it would reach the console and nowhere else. Either way
+        // the user sees the button do nothing at all — the same silent no-op
+        // the library-load path was fixed for.
+        //
+        // The causes are distinct and the message says which (review finding —
+        // one sentence used to blame the user's data for all of them):
         console.error('Failed to snapshot recipe for saving:', error);
-        ErrorMsg('This recipe could not be prepared for saving because it holds a value that cannot be stored. Nothing was written.');
+        if (error instanceof RangeError) {
+            ErrorMsg('This recipe is nested too deeply to be stored. Nothing was saved or exported.');
+        } else if (typeof structuredClone !== 'function') {
+            ErrorMsg('This browser is missing a feature Ice Ed needs to save recipes (structuredClone). Nothing was saved or exported. Try a newer browser version.');
+        } else {
+            ErrorMsg('This recipe could not be prepared because it holds a value that cannot be stored. Nothing was saved or exported.');
+        }
         return null;
     }
+}
+
+/**
+ * Clear the unsaved-work indicator, but ONLY if the recipe still matches what
+ * was actually persisted.
+ *
+ * Review finding, and a regression this change introduced rather than
+ * inherited. Before the snapshot, the container held the live recipe, so an
+ * edit landing during the save window still reached storage — inconsistently
+ * between backends, which was the bug P0.5 set out to fix. Now the snapshot
+ * provably excludes that edit. Clearing the flag unconditionally would turn
+ * "inconsistent but captured" into "discarded and reported clean", and
+ * ModifiedIndicator is the ONLY signal of outstanding work in this app — there
+ * is no beforeunload guard and no undo for it.
+ *
+ * The comparison is on the serialized snapshot, not object identity: the
+ * container is a detached clone, so it never shares references with the live
+ * recipe. Cheap at recipe scale (measured in the tens of microseconds).
+ *
+ * @param {cRecipe} liveRecipe - The recipe as it stands now
+ * @param {Object} container - The frozen snapshot that was persisted
+ */
+function clearModifiedIfUnchanged(liveRecipe, container) {
+    let unchanged;
+    try {
+        unchanged = JSON.stringify(liveRecipe) === JSON.stringify(container.Recipe);
+    } catch {
+        // A recipe that will not serialize cannot be proven unchanged. Keep the
+        // flag set: a false "modified" costs a redundant save, a false "saved"
+        // costs the user's work.
+        unchanged = false;
+    }
+    if (unchanged) SetRecipeModified(false);
 }
 
 /**
@@ -1227,33 +1269,48 @@ async function handleSaveRecipe() {
     const container = snapshotForSave(Recipe, Ingredients);
     if (!container) return;
 
+    // The KEY comes from the snapshot too, not from the live recipe (review
+    // finding, reproduced). edRecipeName.oninput writes straight to Recipe.Name
+    // on every keystroke, and the event loop is free while hasRecipe resolves,
+    // so re-reading Recipe.Name after that await sampled a DIFFERENT name than
+    // the snapshot carries. Three failures came out of that, all silent:
+    //   - the record was stored under one name while its payload claimed another
+    //   - the existence check asked about the old name while the write targeted
+    //     the new one, so IndexedDB's unconditional put could replace a
+    //     different saved recipe with no "already exists" prompt
+    //   - the local write and the fire-and-forget cloud write read the name
+    //     independently, so the two backends could be keyed differently
+    // One read, used everywhere. Renaming is routine here (Mango V2.1 -> V2.2),
+    // so this window is not exotic.
+    const savedName = container.Recipe.Name;
+
     // Check if recipe already exists and prompt for overwrite
     if (recipeStorage) {
-        const exists = await recipeStorage.hasRecipe(Recipe.Name);
+        const exists = await recipeStorage.hasRecipe(savedName);
         if (exists) {
-            if (!confirm(`Recipe "${Recipe.Name}" already exists. Overwrite?`)) {
+            if (!confirm(`Recipe "${savedName}" already exists. Overwrite?`)) {
                 return;
             }
         }
 
-        // Both backends write the SAME frozen snapshot. That is the whole point
-        // of P0.5: the cloud copy and the local copy can no longer diverge,
-        // because neither is reading a live object.
-        const success = await recipeStorage.saveRecipe({ name: Recipe.Name, data: container });
+        // Both backends write the SAME frozen snapshot under the SAME key. That
+        // is the point of P0.5: the cloud copy and the local copy can no longer
+        // diverge, because neither is reading live state.
+        const success = await recipeStorage.saveRecipe({ name: savedName, data: container });
         if (success) {
             // Push to cloud if signed in (fire-and-forget)
             if (pushRecipeToCloud) {
-                pushRecipeToCloud({ name: Recipe.Name, data: container });
+                pushRecipeToCloud({ name: savedName, data: container });
             }
-            Info(`Saved "${Recipe.Name}" to library`);
-            SetRecipeModified(false);
+            Info(`Saved "${savedName}" to library`);
+            clearModifiedIfUnchanged(Recipe, container);
         } else {
             ErrorMsg('Failed to save recipe. Please try again.');
         }
     } else {
         // Fallback to file download if storage not available
-        saveToFile(container, Recipe.Name + ".ier", "IER", 1);
-        SetRecipeModified(false);
+        saveToFile(container, savedName + ".ier", "IER", 1);
+        clearModifiedIfUnchanged(Recipe, container);
     }
 }
 

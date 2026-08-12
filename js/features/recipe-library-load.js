@@ -45,8 +45,12 @@ export function createLibraryRecipeLoader(deps) {
     } = deps;
 
     return async function loadRecipeFromLibrary(name) {
+        // PHASE 1 — fetch, validate, hydrate. Nothing here touches app state, so
+        // a throw is genuinely "the stored record is the problem" and the
+        // message below is truthful.
+        let data, newRecipe;
         try {
-            const data = await storage.loadRecipe(name);
+            data = await storage.loadRecipe(name);
             if (!data) {
                 Warning(`Recipe "${name}" not found`);
                 return;
@@ -63,16 +67,10 @@ export function createLibraryRecipeLoader(deps) {
                 return;
             }
 
-            importIngredients(
-                data.data.Ingredients,
-                false,
-                INGREDIENT_CONFLICT_MESSAGE,
-                { current: "Library", imported: "Recipe" },
-                { keep: "Keep Library", replace: "Use Recipe" }
-            );
-
             // Shared declared-fields hydrator — the same code as .ier import.
-            const newRecipe = hydrateRecipe(data.data);
+            // Hydrating BEFORE any mutation means a malformed record cannot
+            // leave the app half-loaded.
+            newRecipe = hydrateRecipe(data.data);
             if (!newRecipe) {
                 // Unreachable while containerProblem gates above, and kept
                 // anyway: the two must never disagree silently, and a null here
@@ -80,17 +78,34 @@ export function createLibraryRecipeLoader(deps) {
                 ErrorMsg(containerProblem(data.data) || invalidContainerMessage());
                 return;
             }
+        } catch (err) {
+            // Without this, a throw is an unhandled rejection: the user clicks
+            // Load and nothing happens, no message, console only.
+            console.error('Failed to load recipe from library:', err);
+            ErrorMsg('Failed to load recipe. The stored record may be damaged.');
+            return;
+        }
 
+        // PHASE 2 — apply. The record is known good by here, so a throw is a
+        // rendering or merge failure, NOT a damaged record (review finding: the
+        // single try used to span this and told the user their stored record
+        // was damaged after their open recipe had already been replaced, on a
+        // path that deliberately keeps no backup).
+        try {
+            importIngredients(
+                data.data.Ingredients,
+                false,
+                INGREDIENT_CONFLICT_MESSAGE,
+                { current: "Library", imported: "Recipe" },
+                { keep: "Keep Library", replace: "Use Recipe" }
+            );
             setRecipe(newRecipe);
             DisplayRecipe();
             SetRecipeModified(false);
             Info(`Loaded "${name}" from library`);
         } catch (err) {
-            // Without this, a throw anywhere above is an unhandled rejection:
-            // the user clicks Load and nothing happens, no message, console
-            // only (review finding).
-            console.error('Failed to load recipe from library:', err);
-            ErrorMsg('Failed to load recipe. The stored record may be damaged.');
+            console.error('Failed to apply the loaded recipe:', err);
+            ErrorMsg(`"${name}" was read successfully but could not be applied, so the app may be in a half-loaded state. The stored copy is unchanged — reload the page and try again.`);
         }
     };
 }

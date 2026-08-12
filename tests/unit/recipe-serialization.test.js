@@ -190,6 +190,42 @@ test('REFUSAL: a newer schema hydrates to null, never to a truncated recipe', ()
   assert.equal(hydrateRecipe(c), null);
 });
 
+// --- P0.5 freeze: what it does and does not guarantee (review findings) ---
+
+test('P0.5: a typed array does not break the snapshot (Object.freeze throws on it)', () => {
+  // Object.freeze throws "Cannot freeze array buffer views with elements" on a
+  // value structuredClone accepts and IndexedDB stores natively. Freezing must
+  // never be the reason a storable recipe cannot be saved OR exported.
+  const r = makeRecipe();
+  r.Thumbnail = new Uint8Array([1, 2, 3]);
+  const c = buildRecipeContainer(r, library, () => {});
+  assert.ok(Object.isFrozen(c), 'the container itself is still frozen');
+  assert.deepEqual(Array.from(c.Recipe.Thumbnail), [1, 2, 3], 'the value survives');
+});
+
+test('P0.5 KNOWN LIMIT: Map/Set/Date contents stay mutable inside a "frozen" snapshot', () => {
+  // deepFreeze walks Object.keys, which is empty for these, so their internals
+  // are untouched. No recipe holds them today; pinned so the limit is a
+  // recorded fact rather than a surprise, and so extending deepFreeze later
+  // flips a test rather than silently changing behaviour.
+  const r = makeRecipe();
+  r.LastChurned = new Date(0);
+  const c = buildRecipeContainer(r, library, () => {});
+  assert.ok(Object.isFrozen(c.Recipe.LastChurned), 'marked frozen...');
+  c.Recipe.LastChurned.setTime(99999);
+  assert.equal(c.Recipe.LastChurned.getTime(), 99999, '...but its contents are not');
+});
+
+test('P0.5 HAZARD: an in-memory build -> hydrate round-trip yields an uneditable recipe', () => {
+  // Documented in hydrateRecipe's JSDoc and previously untested. A future undo
+  // or duplicate feature is the call pattern that hits it. When hydrateRecipe
+  // starts cloning the array, invert this test rather than deleting it.
+  const c = buildRecipeContainer(makeRecipe(), library, () => {});
+  const h = hydrateRecipe(c);
+  assert.ok(Object.isFrozen(h.Ingredients), 'hydration copies the frozen array by reference');
+  assert.throws(() => h.addIngredient('Cream', 200), TypeError);
+});
+
 // --- FAIL CLOSED: the SchemaVersion type matrix (review finding, 3 passes) ---
 
 test('a numeric-string SchemaVersion "2" REFUSES as 2 — the bypass that shipped first', () => {

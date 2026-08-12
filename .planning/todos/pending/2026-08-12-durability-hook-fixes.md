@@ -169,3 +169,50 @@ independently verified regardless.**
     Documented in dom-stub.js. Remodel with queueMicrotask + a flushReads
     helper if the lane ever needs read-failure or async-ordering coverage.
     Low priority; the Playwright suite owns those paths today.
+
+## Open from the P0.5 review (2026-08-12) — red-team findings, NOT yet fixed
+
+18. **OPEN, CRITICAL — the record KEY and `container.Recipe.Name` can fork on
+    the LOAD side.** The save side is fixed (the key now comes from the
+    snapshot), but `recipe-library-load.js` still hydrates the container's name
+    while reporting the key's name, so a record stored under key A whose payload
+    says B loads as B and the next Save writes a NEW record under B, orphaning
+    A. `libraryRecord()` in the test fixture bakes the mismatch in (key
+    'Stored' vs Recipe.Name 'Vanilla') and asserts nothing about it. Fix: after
+    the gate, compare `name` with `data.data.Recipe.Name` and either adopt the
+    key or refuse; make the fixture agree; pin the chosen behaviour.
+19. **OPEN, CRITICAL — "both backends write the SAME snapshot" is false in
+    REPRESENTATION.** IndexedDB stores the structured clone verbatim; Drive and
+    `.ier` go through `JSON.stringify`, so `NaN`/`Infinity` become `null` and
+    undefined-valued keys vanish on the cloud side only. NaN is reachable
+    today: `cRecipe`'s Amount setter divides by `this.Amount`, so scaling a
+    zero-sum recipe NaNs every amount (already pinned in core-recipe.test.js).
+    P0.5 removed the timing divergence, not the representation one. Fix:
+    canonicalize the snapshot through the narrowest destination before
+    freezing, or reject non-finite numbers in `buildRecipeContainer` — then
+    soften the comment to what is actually guaranteed.
+20. **OPEN — no re-entrancy guard on save; concurrent cloud writes.** Two Save
+    clicks issue two fire-and-forget Drive writes. With no existing Drive file,
+    both take the upload branch and Drive ends up with TWO `recipe-{name}.json`
+    files; `findFileByName` uses `pageSize:1` and thereafter updates an
+    arbitrary one. Freezing pins WHAT is written, not WHICH write wins. Fix:
+    serialize cloud pushes per recipe name and disable the Save button for the
+    duration of the handler.
+21. **OPEN — `saveToFile`'s `JSON.stringify` is outside the snapshot guard.**
+    `structuredClone` is LOOSER than `JSON.stringify`, not stricter as the
+    JSDoc claims: a cyclic recipe clones and freezes fine, then `.ier` export
+    throws uncaught inside `saveToFile` and does nothing at all — the silent
+    no-op `snapshotForSave` exists to prevent. Fix: validate serializability
+    once inside `snapshotForSave`, or wrap the `saveToFile` call.
+22. **OPEN — the Playwright suite never round-trips a built container.**
+    `testSaveWorkflow` saves via the button but only checks the name appears in
+    the library list; `testRecipeLibrary` loads hand-authored fixtures with no
+    SchemaVersion. So the browser lane exercises neither the clone/freeze shape
+    nor the refusal gate. A container-shape regression ships green in BOTH
+    lanes. Fix: read the record back after saving and assert the container
+    shape, then load it through the Load button.
+23. **OPEN — Drive name recovery uses unanchored `String.replace`.** A recipe
+    named `My.json Test` round-trips out of Drive as `My Test.json`
+    (`google-drive-storage.js:144`), forking key from `Recipe.Name` the same way
+    as #18 but arriving from the cloud. Fix: slice by known prefix/suffix
+    lengths, and prefer the name inside the content when both are available.

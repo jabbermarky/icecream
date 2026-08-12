@@ -214,8 +214,13 @@ test('a throwing storage layer is reported, not swallowed into an unhandled reje
   assert.equal(state.consoleErrors.length, 1);
 });
 
-test('a throw from DisplayRecipe is caught and reported (the whole body is guarded)', async () => {
-  const { state, load } = harness({
+test('a throw while APPLYING reports a half-loaded app, not a damaged record', async () => {
+  // Review finding: the loader used to guard fetch and apply in one try, so a
+  // render crash — after the open recipe had already been replaced, on a path
+  // that deliberately keeps no backup — told the user their STORED record was
+  // damaged. The stored record is fine; their open work is what is gone. The
+  // two phases now have separate catches and separate, truthful messages.
+  const { state } = harness({
     record: libraryRecord({ Recipe: { Name: 'Render Boom', Ingredients: [] }, Ingredients: {} }),
   });
   const loader = createLibraryRecipeLoader({
@@ -232,8 +237,37 @@ test('a throw from DisplayRecipe is caught and reported (the whole body is guard
   state.restoreConsole();
 
   assert.equal(state.error.length, 1);
-  assert.match(state.error[0], /Failed to load recipe/);
+  assert.match(state.error[0], /could not be applied/);
+  assert.match(state.error[0], /stored copy is unchanged/);
+  assert.doesNotMatch(state.error[0], /record may be damaged/); // the old lie
   assert.equal(state.info.length, 0);   // no success message after a failed render
+});
+
+test('a record whose Ingredients is not a name->definition map is refused at the gate', async () => {
+  // The gate exists to run BEFORE importIngredients touches the live library.
+  // An array there merged entries under numeric keys "0","1"; a string threw
+  // mid-merge. Both now refuse, and importIngredients is never reached.
+  for (const bad of [[{ Water: 1.0 }], 'garbage', 42]) {
+    const { state, load } = harness({
+      record: libraryRecord({ Recipe: { Name: 'Bad Ingredients', Ingredients: [] }, Ingredients: bad }),
+    });
+    await load('Bad Ingredients');
+    state.restoreConsole();
+    assert.equal(state.error.length, 1, `Ingredients=${JSON.stringify(bad)} must be refused`);
+    assert.match(state.error[0], /damaged/);
+    assert.equal(state.imports.length, 0, 'importIngredients must not run');
+    assert.equal(state.info.length, 0);
+  }
+});
+
+test('a record with NO Ingredients key still loads (absent is legal, unlike garbage)', async () => {
+  const { state, load } = harness({
+    record: libraryRecord({ Recipe: { Name: 'No Ingredients', Ingredients: [] } }),
+  });
+  await load('No Ingredients');
+  state.restoreConsole();
+  assert.equal(state.error.length, 0);
+  assert.equal(state.recipe.Name, 'No Ingredients');
 });
 
 // --- The deliberate divergence from .ier import, pinned so it stays a decision ---

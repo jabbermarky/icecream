@@ -30,17 +30,31 @@ import { cRecipe } from './core.js';
 export const RECIPE_SCHEMA_VERSION = 1;
 
 /**
- * Freeze an object graph in place, cycle-safe.
+ * Freeze a PLAIN-object/array graph in place, cycle-safe.
  *
  * The isFrozen check is the cycle guard, not an optimization: structuredClone
  * PRESERVES cycles, so a naive recursion over a self-referencing record would
  * not terminate. A node is frozen before its children are visited, so a cycle
  * back to it returns immediately.
+ *
+ * KNOWN LIMIT (review finding, measured): this only walks Object.keys, so the
+ * container types structuredClone preserves but Object.keys does not enumerate
+ * — Map, Set, Date, typed arrays — are marked frozen while their CONTENTS stay
+ * mutable (`map.set(...)`, `date.setTime(...)` both succeed on a "frozen"
+ * snapshot), and objects reachable only through a Map/Set are never visited at
+ * all. Recipes hold no such values today; the guarantee below is therefore
+ * accurate for the shapes actually built, and narrower than "any object graph".
  * @param {*} value
  * @returns {*} the same value
  */
 function deepFreeze(value) {
     if (value === null || typeof value !== 'object' || Object.isFrozen(value)) return value;
+    // Object.freeze THROWS on a typed array with elements ("Cannot freeze array
+    // buffer views with elements") — a value structuredClone accepts and
+    // IndexedDB stores natively. Freezing must never be the reason a storable
+    // recipe cannot be saved OR exported, so skip what cannot be frozen and
+    // keep going. Measured, not theorised (review finding).
+    if (ArrayBuffer.isView(value)) return value;
     Object.freeze(value);
     for (const key of Object.keys(value)) deepFreeze(value[key]);
     return value;
@@ -66,7 +80,9 @@ function deepFreeze(value) {
  * WHY FROZEN. Detaching alone is a convention any later caller can break by
  * mutating the snapshot between build and write. Module code is strict, so a
  * write to a frozen snapshot throws at the line that does it rather than
- * producing a third version of the record.
+ * producing a third version of the record. This holds for the plain
+ * objects/arrays a recipe is made of; see deepFreeze for the Map/Set/Date
+ * limit.
  *
  * Cloning drops prototypes: container.Recipe is a plain object, not a cRecipe,
  * and each container.Ingredients entry is a plain object, not a cIngredient.
@@ -171,11 +187,18 @@ export function invalidContainerMessage() {
  * Why a container cannot be hydrated, as a user-facing message — or null when
  * it can. THE one refusal gate, shared by every load path, so refusals are
  * identical everywhere and each cause gets a truthful message:
- *   - garbage SchemaVersion (true, NaN, "")  → damaged-record message
- *   - genuinely newer schema                 → update-the-app message
- *   - Recipe missing / null / not an object → damaged-record message
+ *   - garbage SchemaVersion (true, NaN, "")   → damaged-record message
+ *   - genuinely newer schema                  → update-the-app message
+ *   - Recipe missing / null / not an object   → damaged-record message
+ *   - Ingredients present but not a plain map → damaged-record message
  * Callers run this BEFORE any mutation (backup, importIngredients) and stop
  * on non-null.
+ *
+ * Ingredients is validated because the gate's whole job is to run before
+ * importIngredients touches the live library (review finding): an array there
+ * merges entries under numeric keys "0", "1" into the user's ingredient
+ * library, and a string throws mid-merge. Absent is allowed — a record with no
+ * ingredient definitions is legal and importIngredients handles the empty case.
  * @param {Object} container
  * @returns {string|null}
  */
@@ -186,6 +209,9 @@ export function containerProblem(container) {
     if (v > RECIPE_SCHEMA_VERSION) return newerSchemaMessage(container);
     const r = container.Recipe;
     if (!r || typeof r !== 'object' || Array.isArray(r)) return invalidContainerMessage();
+    const ing = container.Ingredients;
+    if (ing !== undefined && ing !== null &&
+        (typeof ing !== 'object' || Array.isArray(ing))) return invalidContainerMessage();
     return null;
 }
 
@@ -194,18 +220,25 @@ export function containerProblem(container) {
  * current cRecipe declares — the same declared-fields filter the two previous
  * inline loops applied, now in one place.
  *
- * Returns null when the container claims a newer schema (see the refusal rule
- * above). Callers must treat null as "do not touch the current recipe and do
- * not write anything": show newerSchemaMessage() and stop.
+ * Returns null for ANY container containerProblem() rejects — newer schema,
+ * garbage SchemaVersion, or a damaged Recipe shape. Callers must treat null as
+ * "do not touch the current recipe and do not write anything": show
+ * containerProblem(container) and stop. (Do not show newerSchemaMessage()
+ * unconditionally — it would tell a user with a corrupted record to update the
+ * app.)
  *
  * NOTE: fields are copied by REFERENCE from the container, Ingredients
  * included. Every current caller hydrates from parsed JSON or an IndexedDB
  * record, so the container is already a private, mutable copy. An in-memory
  * build→hydrate round-trip (a future undo or duplicate feature) is the case
- * that breaks: since P0.5 buildRecipeContainer returns a DEEPLY FROZEN
- * snapshot, the hydrated recipe would take that frozen Ingredients array as
- * its own and the next addIngredient would throw. Clone the array here if that
- * ever becomes a call pattern.
+ * that breaks, because P0.5 makes buildRecipeContainer return a DEEPLY FROZEN
+ * snapshot. The FIRST casualty is not this function: on the library-load
+ * ordering importIngredients runs before hydration and write-backs into its
+ * argument (ingredients.js: `dataObj[key] = Object.assign(...)`), so a frozen
+ * container.Ingredients throws there first. Hydration is the second: the
+ * recipe would take the frozen Ingredients array as its own and the next
+ * addIngredient would throw. Clone at both points if this becomes a call
+ * pattern.
  *
  * @param {Object} container - A {SchemaVersion?, Recipe, Ingredients} container
  * @returns {cRecipe|null}

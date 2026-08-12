@@ -1,10 +1,11 @@
 // Tests for the recipe save / export / import paths in
 // js/features/recipe-manager.js — driving the REAL handlers through
 // initRecipeManager/initRecipeButtons with stub elements, exactly as the
-// app wires them. Two layers: pre-P0.2 characterization pins where the
-// behaviour survives (declared-fields filtering, zero-strip, live-object
-// container), and the P0.2 serializer contract (SchemaVersion on the
-// record, refusal on newer schema).
+// app wires them. Two layers: characterization pins where the behaviour
+// survives (declared-fields filtering, zero-strip), and the serializer
+// contract — P0.2's SchemaVersion and refusal-on-newer-schema, plus P0.5's
+// detached, deeply frozen snapshot shared by both backends. The live-object
+// container this file once pinned was REPLACED by P0.5, deliberately.
 //
 // The central pin: the round-trip DROPS any field cRecipe does not declare
 // within the same schema version. A field added WITH a schema bump makes
@@ -19,7 +20,7 @@ installDom();
 const { cRecipe } = await import('../../js/models/core.js');
 const { cIngredient, initIngredients, Ingredients: IngredientLibrary } =
   await import('../../js/features/ingredients.js');
-const { initRecipeManager, initRecipeButtons, getRecipeStack } =
+const { initRecipeManager, initRecipeButtons, getRecipeStack, SetRecipeModified, IsRecipeModified } =
   await import('../../js/features/recipe-manager.js');
 
 // --- Wiring, mirroring app.js ---
@@ -134,7 +135,10 @@ test('P0.5 RACE: edits made after Save cannot reach the cloud payload', async ()
     assert.equal(payload.Recipe.Overrun, 0.3, `${label} payload took a later edit`);
     assert.equal(payload.Recipe.Ingredients.length, 2, `${label} payload took a later edit`);
   }
-  assert.deepEqual(cloud.Recipe, local.Recipe); // and the two agree, which was the point
+  // NOT deepEqual(cloud.Recipe, local.Recipe): the two are the SAME object
+  // reference (pinned above), so that assertion could never fail. What is worth
+  // pinning is that both backends were handed the one snapshot object.
+  assert.equal(cloud, local, 'both backends must write the same snapshot object');
 });
 
 test('P0.5: the saved snapshot is frozen, so nothing downstream can amend it in flight', async () => {
@@ -325,6 +329,59 @@ test('P0.2 REFUSAL: a newer-schema .ier is rejected before ANY mutation', async 
   assert.equal(currentRecipe, before);                       // current recipe untouched
   assert.equal(messages.info.length, 0);                     // no "loaded" message
   assert.equal('Trojan' in IngredientLibrary, false);        // library untouched
+});
+
+test('P0.5: the snapshot AND the record key are both taken before the awaits', async () => {
+  // The invariant had zero coverage: moving snapshotForSave below the await
+  // kept every test green, because the hasRecipe stub was inert. This drives a
+  // mutation from INSIDE the await, which is the real window — edRecipeName's
+  // oninput writes straight to Recipe.Name and the event loop is free while an
+  // IndexedDB read resolves.
+  freshState(makeRecipe('Mango V2.1'));
+  const origHasRecipe = buttons.storage.hasRecipe;
+  buttons.storage.hasRecipe = async () => {
+    currentRecipe.Name = 'Mango V2.2';   // the rename that used to fork the key
+    currentRecipe.Overrun = 0.99;
+    currentRecipe.addIngredient('Sugar', 999);
+    return false;
+  };
+  await buttons.btnSaveRecipe.onclick();
+  buttons.storage.hasRecipe = origHasRecipe;
+
+  const stored = storageCalls[0];
+  // Payload pinned to click time...
+  assert.equal(stored.data.Recipe.Overrun, 0.3, 'payload took a mid-await edit');
+  assert.equal(stored.data.Recipe.Ingredients.length, 2, 'payload took a mid-await edit');
+  // ...and the KEY agrees with the payload it labels. Before the fix the record
+  // was stored under "Mango V2.2" while its snapshot said "Mango V2.1".
+  assert.equal(stored.name, 'Mango V2.1');
+  assert.equal(stored.name, stored.data.Recipe.Name, 'record key must match its own snapshot');
+  assert.equal(cloudPushes[0].name, stored.name, 'both backends must use one key');
+  // And the user is not told the edit was saved: it was not.
+  assert.equal(messages.info.length, 1);
+  assert.match(messages.info[0], /Mango V2\.1/);
+});
+
+test('P0.5: the modified flag is NOT cleared when an edit landed during the save', async () => {
+  // Regression this change introduced: the snapshot provably excludes a
+  // mid-save edit, so clearing the dirty flag would discard the work AND
+  // report it clean. ModifiedIndicator is the only unsaved-work signal in the
+  // app — no beforeunload, no undo.
+  freshState(makeRecipe('Dirty Flag'));
+  SetRecipeModified(true);   // the user has unsaved edits and clicks Save
+  const origHasRecipe = buttons.storage.hasRecipe;
+  buttons.storage.hasRecipe = async () => { currentRecipe.Overrun = 0.99; return false; };
+  await buttons.btnSaveRecipe.onclick();
+  buttons.storage.hasRecipe = origHasRecipe;
+  assert.equal(storageCalls.length, 1);
+  assert.equal(storageCalls[0].data.Recipe.Overrun, 0.3);
+  assert.equal(IsRecipeModified(), true, 'the excluded edit must still read as unsaved');
+
+  // The clean case still clears it.
+  freshState(makeRecipe('Clean Save'));
+  SetRecipeModified(true);
+  await buttons.btnSaveRecipe.onclick();
+  assert.equal(IsRecipeModified(), false, 'an unraced save must clear the flag');
 });
 
 test('zero-strip uses LOOSE equality — "" and "0" values are also deleted (pinned)', async () => {
