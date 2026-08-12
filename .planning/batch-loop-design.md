@@ -207,25 +207,30 @@ not exist**, and every downstream feature is blocked on them. Verified in code:
 | Printing captures the formula | `btnPrintRecipe.onclick = () => { window.print(); }` prints the live DOM, including unsaved edits. Nothing is saved, nothing is identified. | `recipe-manager.js:1400` |
 | Copying a recipe makes a distinct thing | `copyFrom` is `Object.assign(new cRecipe(""), original)` — it would clone a stable id verbatim. Rename and copy are currently the same operation: edit the name, save, get a second record. | `core.js:108`, `recipe-manager.js:1209` |
 
-**Phase 0 delivers:**
+**Phase 0 delivers, in this order:**
 
-- **P0.1 — A versioned serializer and hydrator.** Fields survive a save/load
-  round-trip. Schema version stamped on the record. Without this, a parent
-  pointer written today is silently discarded tomorrow.
-- **P0.2 — One canonical save path**, operating on an immutable
-  `structuredClone`. This also fixes a pre-existing bug: save passes the *live*
-  `Recipe` object to a fire-and-forget cloud write which stringifies later
+- **P0.1 — The node unit test lane**, plus characterization tests pinning the
+  *current* save, load, export and import behaviour before anything changes.
+  Nothing else in Phase 0 is safe without this.
+- **P0.2 — A versioned serializer and hydrator** covering all four filtered
+  paths, not just the two the first revision noticed: library save, library
+  load, `.ier` export and `.ier` import. A reader meeting an unknown newer
+  schema must refuse a destructive write rather than truncate.
+- **P0.3 — Stable recipe id**, unique index, and `loadRecipeById` on the storage
+  interface. Identity has to exist before anything can mint or reference it.
+- **P0.4 — The batch record entity and its storage**, including what happens to
+  batches when their recipe is deleted.
+- **P0.5 — One canonical save path** on an immutable `structuredClone`. This also
+  fixes a pre-existing bug: save passes the *live* `Recipe` object to a
+  fire-and-forget cloud write that stringifies later
   (`recipe-manager.js:1197`, `:1221`), so edits made after clicking Save can
   leak into the cloud payload while IndexedDB holds the earlier state.
-- **P0.3 — A copy primitive that mints a new identity**, distinct from
-  `copyFrom`. Rename must move the record or be refused; overwrite must reject a
+- **P0.6 — A copy primitive that mints a new identity**, distinct from
+  `copyFrom`. Rename is refused where it would break things; overwrite rejects a
   target carrying a different id.
-- **P0.4 — Print that persists an identified snapshot** rather than printing the
+- **P0.7 — Print that persists an identified snapshot** rather than printing the
   live DOM. This is what makes the printed page an immutable record *in the app*
   and not only on paper.
-- **P0.5 — The node unit test lane**, with the serializer round-trip and the
-  migration guard as its first cases. Built here because Phase 0 is what
-  migrates data.
 
 Phase 0 is **structural only — no behaviour change visible to the user.** Beck's
 rule: make the change easy, then make the easy change.
@@ -441,37 +446,62 @@ recipe. It cannot, today. That is the single finding that reorganised the plan.
 
 | Path | Realistic failure | Test? | Handling | Silent? |
 | --- | --- | --- | --- | --- |
-| Serializer round-trip | A new field is added without a schema bump; it vanishes on next load | P0.5 round-trip cases | Schema version on the record | **Yes today — this is the current behaviour** |
-| Lazy id assignment | Two devices assign different ids to the same legacy recipe; sync joins by name; one wins; the other's children orphan | P0.5 + a sync case | Advisory lineage degrades to the recorded parent name | Partly — lineage is visibly "unknown", data is not lost |
-| Copy vs rename | Rename creates a second record carrying the same id | P0.5 identity cases | P0.3 mints a new id on copy; rename moves or is refused | **Yes without P0.3** |
-| Overwrite on save | Saving over an existing name replaces a record whose id had children | P0.5 | Reject overwrite when the target carries a different id | **Yes today** |
-| Print snapshot | QR resolves to a formula that was never saved, because print emitted the live DOM | E2E | P0.4 persists an identified snapshot before printing | **Yes — destroys the design's premise** |
-| Cloud write race | Edits after Save leak into the cloud payload; IndexedDB holds the earlier state | P0.5 | P0.2 canonical save on a `structuredClone` | **Yes — pre-existing bug, not caused by this design** |
-| Mechanical diff | Ingredients are an ordered array permitting duplicate names; a name-keyed diff collapses duplicates and cannot express reordering | P0.5 diff cases | Diff array occurrences, and decide explicitly whether order is meaningful | **Yes** |
+| Serializer round-trip | A new field is added without a schema bump; it vanishes on next load | P0.1 + P0.2 round-trip cases | Schema version on the record | **Yes today — this is the current behaviour** |
+| Lazy id assignment | Two devices assign different ids to the same legacy recipe; sync joins by name; one wins; the other's children orphan | P0.1 + a sync case | Advisory lineage degrades to the recorded parent name | Partly — lineage is visibly "unknown", data is not lost |
+| Copy vs rename | Rename creates a second record carrying the same id | P0.1 identity cases | P0.6 mints a new id on copy; rename refused where it would break lineage | **Yes without P0.6** |
+| Overwrite on save | Saving over an existing name replaces a record whose id had children | P0.1 | P0.6 rejects overwrite when the target carries a different id | **Yes today** |
+| Print snapshot | QR resolves to a formula that was never saved, because print emitted the live DOM | E2E | P0.7 persists an identified snapshot before printing | **Yes — destroys the design's premise** |
+| Cloud write race | Edits after Save leak into the cloud payload; IndexedDB holds the earlier state | P0.1 | P0.5 canonical save on a `structuredClone` | **Yes — pre-existing bug, not caused by this design** |
+| Mechanical diff | Ingredients are an ordered array permitting duplicate names; a name-keyed diff collapses duplicates and cannot express reordering | P0.1 diff cases | Diff array occurrences, and decide explicitly whether order is meaningful | **Yes** |
 | Photo reference | Reference syncs, Blob does not; other devices show a broken record | Integration | Either photos are explicitly local-only, or binary Drive storage is added | **Yes** |
+
+| `.ier` export / import | Ids and lineage stripped by two more filtered paths the first revision missed | P0.1 characterization | P0.2 covers all four paths | **Yes** |
+| Cloud save failure | Drive returns `false`; the caller discards it and reports `'synced'` | P0.1 | Pre-existing bug, filed separately | **Yes — sync lies about success** |
+| Rename across backends | Save-new + delete-old is non-atomic; another device can push the old name back, resurrecting or duplicating the recipe | P0.1 | Rename refused where it matters (P0.6) | **Yes** |
+| Recipe deletion | No defined behaviour for batches or lineage pointing at the deleted recipe | P0.1 | Defined in P0.4 | **Yes today** |
+| Print then cancel | A batch record exists for a sheet that was never churned | P0.1 | Depends on batch-vs-sheet identity (open) | **Yes** |
 
 **Critical gaps: 2.** The print snapshot (destroys the core premise) and the
 serializer (silently discards every field this design adds). Both are Phase 0.
 
 ## Implementation tasks
 
-Phase 0 blocks everything below it. Within Phase 0, P0.5 should land first so
-the rest is guarded.
+Phase 0 blocks everything below it. **The order below was wrong in the first
+revision** — it placed "mint a new identity" (P0.3) and "print an identified
+snapshot" (P0.4) *before* identity and batch records existed. Identity and the
+batch entity are prerequisites, not features, so they moved into Phase 0.
 
-- [ ] **P0.5** — node unit test lane, with serializer round-trip and identity cases
-- [ ] **P0.1** — versioned serializer and hydrator; schema version on the record
-- [ ] **P0.2** — one canonical save path on an immutable `structuredClone`; fixes the cloud write race
-- [ ] **P0.3** — copy primitive that mints a new identity; rename moves or is refused; overwrite rejects a differing id
-- [ ] **P0.4** — print persists an identified snapshot before emitting the sheet
-- [ ] **P1.1** — stable recipe id, unique index, `loadRecipeById` on the storage interface
-- [ ] **P1.2** — advisory lineage: parent id + parent name snapshot
-- [ ] **P1.3** — mechanical diff over ordered ingredient occurrences, plus optional intent
-- [ ] **P1.4** — batch record entity, distinct from recipe, N per version
+- [ ] **P0.1** — node unit test lane; characterization tests for the CURRENT
+      save/load/export/import behaviour before anything changes
+- [ ] **P0.2** — versioned serializer and hydrator, covering **all four** filtered
+      paths: library save (`recipe-manager.js:1195`), library load
+      (`app.js:284`), `.ier` export (`recipe-manager.js:1251`) and `.ier` import
+      (`recipe-manager.js:1291`). A reader that meets an unknown newer schema
+      must refuse a destructive write rather than silently dropping fields.
+- [ ] **P0.3** — stable recipe id, unique index, `loadRecipeById` on the storage
+      interface. Identity allocation and storage migration land here, before any
+      writer depends on them.
+- [ ] **P0.4** — batch record entity and its storage: object store, indexes,
+      deletion behaviour, and what happens to batches when a recipe is deleted
+      (`app.js:299` currently defines nothing).
+- [ ] **P0.5** — one canonical save path on an immutable `structuredClone`; fixes
+      the cloud write race at `recipe-manager.js:1197`
+- [ ] **P0.6** — copy primitive that mints a new identity. Rename is **refused**
+      on any recipe carrying descendants or printed batches (see Open Decisions).
+      Overwrite rejects a target carrying a different id.
+- [ ] **P0.7** — print persists an identified snapshot before emitting the sheet
+- [ ] **P1.1** — advisory lineage: parent id + parent name snapshot
+- [ ] **P1.2** — mechanical diff over ordered ingredient occurrences, plus optional intent
 - [ ] **P2.1** — dedicated fixed-geometry print surface (`@page`, physical units, registration marks)
 - [ ] **P2.2** — the churn sheet itself, with prompts derived from the binder read
 - [ ] **P3.1** — QR encode/decode of batch id + recipe id + schema version
 - [ ] **P3.2** — optical mark recognition against the fixed layout
 - [ ] **P3.3** — photo attachment as a separate Blob store, with an explicit cloud policy
+
+**Migration cutover order, and it is not negotiable:** characterization tests →
+legacy-compatible readers → identity allocation and storage migration → only
+then new-format writers. A schema version on the record does not by itself
+prevent field loss; the reader has to refuse rather than truncate.
 
 **Not in scope:** handwriting recognition (needs a backend); improvement
 suggestions (needs outcome data that does not exist yet); anything multi-user.
@@ -485,24 +515,44 @@ suggestions (needs outcome data that does not exist yet); anything multi-user.
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
 
-**CROSS-MODEL:** Codex reviewed the design and all seven review decisions
-against the real code and rejected the sequencing. Every load-bearing finding
-was verified independently before acceptance: the container rebuild at
-`recipe-manager.js:1195`, the hydration filter at `app.js:284`, the bare
-`window.print()` at `recipe-manager.js:1400`, and `Object.assign` in
-`core.js:108`. All confirmed. The review's own Step 0 conclusion — that existing
-print support made the churn sheet cheaper — was wrong, and Codex caught it.
+**CROSS-MODEL (two passes):** Codex reviewed the design and all review
+decisions against the real code, twice.
 
-**VERDICT:** ENG REVIEW COMPLETE — 7 issues resolved, plus 11 cross-model
-findings absorbed and the plan re-sequenced around a Phase 0 that did not
-previously exist. Not CLEARED for implementation: Phase 0 must land first, and
-two decisions remain open below.
+*Pass 1* found 11 blocking misses and rejected the sequencing. Every
+load-bearing finding was verified independently: the container rebuild at
+`recipe-manager.js:1195`, the hydration filter at `app.js:284`, the bare
+`window.print()` at `recipe-manager.js:1400`, `Object.assign` in `core.js:108`.
+All confirmed. The review's own Step 0 conclusion — that existing print support
+made the churn sheet cheaper — was wrong, and Codex caught it.
+
+*Pass 2* reviewed the revision and found the repaired plan still not
+implementable. Four of the original 11 were genuinely closed; seven only
+appeared closed. The decisive finding: **the Phase 0 task order was logically
+impossible** — it placed "mint a new identity" and "print an identified
+snapshot" before identity and batch records existed. Also verified in code: two
+further filtered paths the revision missed (`.ier` export at
+`recipe-manager.js:1251`, import at `:1291`), and a pre-existing bug where a
+failed cloud save reports success (`sync-manager.js:242` discards the `false`
+returned by `google-drive-storage.js:79`).
+
+Both passes were told not to manufacture findings. Pass 2 explicitly stated
+which findings only *appeared* addressed rather than accepting the revision.
+
+**VERDICT:** ENG REVIEW COMPLETE — 8 issues resolved interactively, 22
+cross-model findings absorbed across two passes, and the plan re-sequenced
+twice. Phase 0 grew from five tasks to seven and its order was corrected. Not
+CLEARED for implementation: Phase 0 must land first, and two decisions remain
+open below. The plan is now internally consistent and its dependencies are
+acyclic, which was not true of either previous revision.
 
 **UNRESOLVED DECISIONS:**
-- Are photos explicitly local-only, or is binary Drive storage added? The design
-  says "attach a photo" without deciding whether it is portable, and a reference
-  that syncs without its Blob produces broken records on every other device.
-- Is ingredient order meaningful in the mechanical diff? Ingredients are an
-  ordered array permitting duplicate names, so a name-keyed diff collapses
-  duplicates and cannot express a reorder. Answerable from the binder read: if
-  reordering was never something you recorded, order is presentational.
+- **Is a reprint a new batch, or the same batch?** And is a cancelled print a
+  record at all? The QR identifies a batch, but "batch" currently conflates a
+  printed sheet with an actual churn. A version can be printed twice and churned
+  once, or printed once and churned twice. This gates P0.4 and P0.7. Answerable
+  from the binder read: if a reprinted sheet was ever filed alongside the
+  original, they are different things.
+- **Are photos portable, or explicitly local-only?** A reference that syncs
+  without its Blob produces broken records on every other device. Either photos
+  are declared local-only and never advertised as portable, or binary Drive
+  storage is added. This gates P3.3 only, so it does not block Phase 0.
