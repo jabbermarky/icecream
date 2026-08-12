@@ -60,22 +60,32 @@ const IDENTITY_SCHEMA_VERSION = 2;
  *
  * KNOWN LIMIT (review finding, measured): this only walks Object.keys, so the
  * container types structuredClone preserves but Object.keys does not enumerate
- * — Map, Set, Date, typed arrays — are marked frozen while their CONTENTS stay
- * mutable (`map.set(...)`, `date.setTime(...)` both succeed on a "frozen"
- * snapshot), and objects reachable only through a Map/Set are never visited at
- * all. Recipes hold no such values today; the guarantee below is therefore
- * accurate for the shapes actually built, and narrower than "any object graph".
+ * — Map, Set, Date — are marked frozen while their CONTENTS stay mutable
+ * (`map.set(...)`, `date.setTime(...)` both succeed on a "frozen" snapshot),
+ * and objects reachable only through a Map/Set are never visited at all.
+ * Typed arrays are no longer in this list: they are REFUSED outright (see the
+ * reversal note in the function). Recipes hold none of these today; the
+ * guarantee below is therefore accurate for the shapes actually built, and
+ * narrower than "any object graph".
  * @param {*} value
  * @returns {*} the same value
  */
 function deepFreeze(value) {
     if (value === null || typeof value !== 'object' || Object.isFrozen(value)) return value;
-    // Object.freeze THROWS on a typed array with elements ("Cannot freeze array
-    // buffer views with elements") — a value structuredClone accepts and
-    // IndexedDB stores natively. Freezing must never be the reason a storable
-    // recipe cannot be saved OR exported, so skip what cannot be frozen and
-    // keep going. Measured, not theorised (review finding).
-    if (ArrayBuffer.isView(value)) return value;
+    // REVERSAL of a P0.5 call, decided in the T1 review. P0.5 skipped typed
+    // arrays ("freezing must never be the reason a storable recipe cannot be
+    // saved") because Object.freeze throws on them. The review then showed
+    // they are not storable, they are silently CORRUPTED: IndexedDB stores
+    // the real typed array, but Drive and .ier go through JSON.stringify,
+    // which turns Uint8Array([1,2,3]) into {"0":1,"1":2,"2":3} with no error
+    // — and the next sync pull overwrites the good local copy with the
+    // corrupted shape, permanently. The skip also left the view mutable
+    // inside a "frozen" snapshot, reopening the in-flight-edit race P0.5
+    // exists to close. Refusing loudly here is the same policy as functions:
+    // the save path catches and reports, nothing is written anywhere.
+    if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer)
+        throw new TypeError('Recipes cannot hold binary data (typed arrays): ' +
+            'cloud storage and .ier files would silently corrupt it.');
     Object.freeze(value);
     for (const key of Object.keys(value)) deepFreeze(value[key]);
     return value;

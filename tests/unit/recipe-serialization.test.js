@@ -196,15 +196,18 @@ test('REFUSAL: a newer schema hydrates to null, never to a truncated recipe', ()
 
 // --- P0.5 freeze: what it does and does not guarantee (review findings) ---
 
-test('P0.5: a typed array does not break the snapshot (Object.freeze throws on it)', () => {
-  // Object.freeze throws "Cannot freeze array buffer views with elements" on a
-  // value structuredClone accepts and IndexedDB stores natively. Freezing must
-  // never be the reason a storable recipe cannot be saved OR exported.
+test('REVERSAL (T1 review): typed arrays are REFUSED at snapshot time, loudly', () => {
+  // This inverts the P0.5 pin that typed arrays pass through unfrozen. The
+  // review showed JSON backends corrupt Uint8Array to {"0":1,...} silently
+  // while IndexedDB stores it real — same record, two shapes, and sync then
+  // overwrites the good copy. Not storable → refused like functions, so the
+  // save path reports it and writes NOTHING to either backend.
   const r = makeRecipe();
   r.Thumbnail = new Uint8Array([1, 2, 3]);
-  const c = buildRecipeContainer(r, library, () => {});
-  assert.ok(Object.isFrozen(c), 'the container itself is still frozen');
-  assert.deepEqual(Array.from(c.Recipe.Thumbnail), [1, 2, 3], 'the value survives');
+  assert.throws(() => buildRecipeContainer(r, library, () => {}), TypeError);
+  const r2 = makeRecipe();
+  r2.Raw = new ArrayBuffer(8);
+  assert.throws(() => buildRecipeContainer(r2, library, () => {}), TypeError);
 });
 
 test('P0.5 KNOWN LIMIT: Map/Set/Date contents stay mutable inside a "frozen" snapshot', () => {
