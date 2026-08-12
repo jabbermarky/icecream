@@ -15,17 +15,23 @@ and Sugar for the first time — measured 0/11 → 6/11 against the live FDC API
 Sugar 0/11 → 10/11. `idb` is vendored, so startup no longer depends on a CDN.
 Suite green at 114 passed / 0 failed.
 
-**In flight:** two workstreams, both planned, neither started.
+**In flight:** two workstreams.
 
 1. **The batch loop** — linking recipe versions to what happened when they were
    churned. Design: `.planning/batch-loop-design.md`, reviewed four times by an
-   outside model. Draft PR #11. **P0.1 (node test lane) is cleared to start.
-   P0.3 is marked DO NOT START** — identity has to sync and the design does not
-   yet say how.
+   outside model. Draft PR #11. **P0.1 is DONE**: node unit test lane at
+   `tests/unit/` (`npm run test:unit`, 23 cases) drives the real
+   save/export/import handlers and pins round-trip field drop, zero-key
+   deletion, copyFrom identity cloning, and IER version refusal. Known gap:
+   the `app.js:284` library-load hydration loop is pinned only by proxy (it
+   duplicates the `.ier` import loop); P0.2's shared hydrator closes that.
+   **P0.2 is next. P0.3 is marked DO NOT START** — identity has to sync and
+   the design does not yet say how.
 2. **Ingredient onboarding** — nine tasks remain after v0.5.0. The durable ones
-   are issues #6–#10. **#7 (node unit test lane) is the most urgent thing in the
-   project**: `firstNutritionValue()` has zero tests and was written wrong twice
-   in one session, caught both times by review rather than by the suite.
+   are issues #6–#10. **#7 shrinks to "add ingredient cases"** now that the
+   node lane exists: `firstNutritionValue()` still has zero tests and was
+   written wrong twice in one session, caught both times by review rather than
+   by the suite.
 
 **Waiting on the maintainer:** read the binder — twenty batches, one evening, no
 code. It produces the churn sheet's real schema and answers the open question
@@ -121,7 +127,7 @@ recipe; identity in a separate object store.
   `false` on error (`google-drive-storage.js:79`); the callers discard it and
   report success (`sync-manager.js:242` calls `notifyStatus('synced')`,
   `sync-manager.js:122` does `stats.pushed++`). Sync can lie about having saved.
-  Pre-existing, unrelated to either workstream. **Not yet filed as an issue.**
+  Pre-existing, unrelated to either workstream. **Filed as issue #12.**
 - **Cloud write race.** Save passes the live `Recipe` object to a
   fire-and-forget cloud write that stringifies later (`recipe-manager.js:1197`,
   `:1221`), so edits made after clicking Save can enter the cloud payload while

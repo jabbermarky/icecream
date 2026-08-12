@@ -474,8 +474,16 @@ revision** — it placed "mint a new identity" (P0.3) and "print an identified
 snapshot" (P0.4) *before* identity and batch records existed. Identity and the
 batch entity are prerequisites, not features, so they moved into Phase 0.
 
-- [ ] **P0.1** — node unit test lane; characterization tests for the CURRENT
-      save/load/export/import behaviour before anything changes
+- [x] **P0.1** — node unit test lane; characterization tests for the CURRENT
+      save/load/export/import behaviour before anything changes.
+      Landed as `tests/unit/` (`npm run test:unit`, 23 cases): real
+      `handleSaveRecipe`/`handleExportRecipe`/`handleLoadRecipeFile` driven
+      through `initRecipeButtons` with stub elements; round-trip field drop,
+      zero-key deletion, copyFrom identity cloning, IER envelope, and
+      version-refusal all pinned. **Known gap:** the library-load path in
+      `app.js:284` is a second inline copy of the hydration loop and is pinned
+      only by proxy via the identical `.ier` import loop — P0.2's shared
+      hydrator closes that by construction.
 - [ ] **P0.2** — versioned serializer and hydrator, covering **all four** filtered
       paths: library save (`recipe-manager.js:1195`), library load
       (`app.js:284`), `.ier` export (`recipe-manager.js:1251`) and `.ier` import
