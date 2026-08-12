@@ -341,14 +341,20 @@ test('P0.5: the snapshot AND the record key are both taken before the awaits', a
   // IndexedDB read resolves.
   freshState(makeRecipe('Mango V2.1'));
   const origHasRecipe = buttons.storage.hasRecipe;
-  buttons.storage.hasRecipe = async () => {
-    currentRecipe.Name = 'Mango V2.2';   // the rename that used to fork the key
-    currentRecipe.Overrun = 0.99;
-    currentRecipe.addIngredient('Sugar', 999);
-    return false;
-  };
-  await buttons.btnSaveRecipe.onclick();
-  buttons.storage.hasRecipe = origHasRecipe;
+  // try/finally so a failing assertion cannot leak the mutating stub into
+  // every later test in the file (review finding — the leak turns one failure
+  // into an order-dependent cascade that hides the real one).
+  try {
+    buttons.storage.hasRecipe = async () => {
+      currentRecipe.Name = 'Mango V2.2';   // the rename that used to fork the key
+      currentRecipe.Overrun = 0.99;
+      currentRecipe.addIngredient('Sugar', 999);
+      return false;
+    };
+    await buttons.btnSaveRecipe.onclick();
+  } finally {
+    buttons.storage.hasRecipe = origHasRecipe;
+  }
 
   const stored = storageCalls[0];
   // Payload pinned to click time...
@@ -372,9 +378,12 @@ test('P0.5: the modified flag is NOT cleared when an edit landed during the save
   freshState(makeRecipe('Dirty Flag'));
   SetRecipeModified(true);   // the user has unsaved edits and clicks Save
   const origHasRecipe = buttons.storage.hasRecipe;
-  buttons.storage.hasRecipe = async () => { currentRecipe.Overrun = 0.99; return false; };
-  await buttons.btnSaveRecipe.onclick();
-  buttons.storage.hasRecipe = origHasRecipe;
+  try {
+    buttons.storage.hasRecipe = async () => { currentRecipe.Overrun = 0.99; return false; };
+    await buttons.btnSaveRecipe.onclick();
+  } finally {
+    buttons.storage.hasRecipe = origHasRecipe;
+  }
   assert.equal(storageCalls.length, 1);
   assert.equal(storageCalls[0].data.Recipe.Overrun, 0.3);
   assert.equal(IsRecipeModified(), true, 'the excluded edit must still read as unsaved');
@@ -384,6 +393,88 @@ test('P0.5: the modified flag is NOT cleared when an edit landed during the save
   SetRecipeModified(true);
   await buttons.btnSaveRecipe.onclick();
   assert.equal(IsRecipeModified(), false, 'an unraced save must clear the flag');
+});
+
+test('STALE BINDING: a recipe swap during the save cannot clear the NEW recipe\'s flag', async () => {
+  // Red-team finding: clearModifiedIfUnchanged compares the handler-captured
+  // recipe, but the modified flag is one GLOBAL bit describing whichever
+  // recipe is current. Swap recipes inside the save's await (New Recipe /
+  // Restore / a completing library load all call setRecipe synchronously),
+  // edit the new one, and the resolving save would compare the OLD unchanged
+  // object to its own snapshot and clear the flag for work it never saved.
+  freshState(makeRecipe('Old One'));
+  const origHasRecipe = buttons.storage.hasRecipe;
+  try {
+    buttons.storage.hasRecipe = async () => {
+      const swapped = makeRecipe('Brand New');   // the swap, mid-await
+      swapped.Overrun = 0.77;                    // ...with unsaved edits
+      currentRecipe = swapped;
+      SetRecipeModified(true);
+      return false;
+    };
+    await buttons.btnSaveRecipe.onclick();
+  } finally {
+    buttons.storage.hasRecipe = origHasRecipe;
+  }
+  assert.equal(storageCalls.length, 1);
+  assert.equal(storageCalls[0].name, 'Old One');  // the save itself is fine
+  assert.equal(IsRecipeModified(), true,
+    'the flag belongs to the CURRENT recipe, whose edits were never saved');
+});
+
+test('a recipe that will not JSON-serialize keeps the modified flag after a successful save', async () => {
+  // The catch branch in clearModifiedIfUnchanged was an invariant stated only
+  // in a comment (review finding). The branch is reachable: structuredClone
+  // preserves cycles, so a cyclic recipe snapshots and SAVES fine, then
+  // JSON.stringify(liveRecipe) throws in the comparison. Unprovable-unchanged
+  // must fail toward keep-flag-set.
+  freshState(makeRecipe('Cyclic'));
+  currentRecipe.Self = currentRecipe;
+  SetRecipeModified(true);
+  await buttons.btnSaveRecipe.onclick();
+  assert.equal(storageCalls.length, 1, 'the save itself must succeed');
+  assert.equal(IsRecipeModified(), true, 'unprovable-unchanged must keep the flag set');
+});
+
+test('a RangeError from snapshotting reports the nesting message and writes nothing', async () => {
+  // One of snapshotForSave's three error classifications (review finding: the
+  // dispatch had zero coverage, so a regression in the instanceof chain kept
+  // every test green).
+  const r = makeRecipe('Deep');
+  let p = r;
+  for (let i = 0; i < 200000; i++) { p.Next = {}; p = p.Next; }
+  freshState(r);
+  await buttons.btnSaveRecipe.onclick();
+  assert.equal(storageCalls.length, 0);
+  assert.equal(cloudPushes.length, 0);
+  assert.match(messages.error[0], /nested too deeply/);
+  assert.match(messages.error[0], /Nothing was saved or exported/);
+});
+
+test('a missing structuredClone reports the browser-feature message and writes nothing', async () => {
+  const orig = globalThis.structuredClone;
+  try {
+    globalThis.structuredClone = undefined;
+    freshState(makeRecipe('NoClone'));
+    await buttons.btnSaveRecipe.onclick();
+    assert.equal(storageCalls.length, 0);
+    assert.match(messages.error[0], /structuredClone/);
+    assert.match(messages.error[0], /Nothing was saved or exported/);
+  } finally {
+    globalThis.structuredClone = orig;
+  }
+});
+
+test('P0.3: the real save path stamps SavedAt (RecipeId minting lands in T2)', async () => {
+  // Handler-level pin (review finding: all identity tests used hand-built
+  // containers, leaving the save-path wiring unpinned). RecipeId is expected
+  // ABSENT until the save path mints — T2 flips that half of this test.
+  freshState(makeRecipe('Identity Wiring'));
+  await buttons.btnSaveRecipe.onclick();
+  const data = storageCalls[0].data;
+  assert.equal(typeof data.SavedAt, 'string');
+  assert.ok(Number.isFinite(Date.parse(data.SavedAt)), 'SavedAt must be a parseable clock');
+  assert.equal('RecipeId' in data, false, 'flips when T2 wires minting');
 });
 
 test('zero-strip uses LOOSE equality — "" and "0" values are also deleted (pinned)', async () => {

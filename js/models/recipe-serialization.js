@@ -27,11 +27,12 @@
 //
 // VERSION HISTORY
 //   v1 — {SchemaVersion?, Recipe, Ingredients}. Absence of SchemaVersion IS v1.
-//   v2 (P0.3) — adds container-level identity: RecipeId (minted by the SAVE
-//     path, never by this module and never on load) and SavedAt (author-time
-//     clock stamped at snapshot time, because both storage backends re-stamp
-//     updatedAt at WRITE time and Drive's LWW compares file modifiedTime, so
-//     the storage clock lies about which edit is newer).
+//   v2 (P0.3) — adds container-level identity: RecipeId (stamped here, minted
+//     ONLY by the save path — T2 wires that; this module never mints, and
+//     nothing mints on load) and SavedAt (author-time clock stamped at
+//     snapshot time, because both storage backends re-stamp updatedAt at
+//     WRITE time and Drive's LWW compares file modifiedTime, so the storage
+//     clock lies about which edit is newer).
 //
 // Identity is deliberately NOT validated by containerProblem: a v2 record
 // whose RecipeId was stripped (a pre-P0.2 client rewrote it) still has an
@@ -42,6 +43,12 @@
 import { cRecipe } from './core.js';
 
 export const RECIPE_SCHEMA_VERSION = 2;
+
+// The schema version identity SHIPPED in. Fixed forever at 2 — deliberately
+// not RECIPE_SCHEMA_VERSION, which moves on every bump: at v3 a "cleanup" to
+// the moving constant would silently change which records warn about missing
+// identity (review finding).
+const IDENTITY_SCHEMA_VERSION = 2;
 
 /**
  * Freeze a PLAIN-object/array graph in place, cycle-safe.
@@ -75,8 +82,8 @@ function deepFreeze(value) {
 }
 
 /**
- * Build the persistable {SchemaVersion, Recipe, Ingredients} container used by
- * both library save and .ier export.
+ * Build the persistable {SchemaVersion, SavedAt, RecipeId?, Recipe,
+ * Ingredients} container used by both library save and .ier export.
  *
  * P0.5: the container is a DETACHED, DEEPLY FROZEN snapshot. It was previously
  * a view onto the live recipe (container.Recipe === the live object), which the
@@ -234,8 +241,11 @@ export function invalidContainerMessage() {
  * Ingredients is validated because the gate's whole job is to run before
  * importIngredients touches the live library (review finding): an array there
  * merges entries under numeric keys "0", "1" into the user's ingredient
- * library, and a string throws mid-merge. Absent is allowed — a record with no
- * ingredient definitions is legal and importIngredients handles the empty case.
+ * library, and a string throws mid-merge; entry VALUES and reserved keys are
+ * checked too (see inline note). Absent is allowed — a record with no
+ * ingredient definitions is legal, and CALLERS must pass `Ingredients || {}`
+ * to importIngredients, which throws on undefined (review finding: the old
+ * text claimed importIngredients handled the empty case; it does not).
  * @param {Object} container
  * @returns {string|null}
  */
@@ -247,8 +257,24 @@ export function containerProblem(container) {
     const r = container.Recipe;
     if (!r || typeof r !== 'object' || Array.isArray(r)) return invalidContainerMessage();
     const ing = container.Ingredients;
-    if (ing !== undefined && ing !== null &&
-        (typeof ing !== 'object' || Array.isArray(ing))) return invalidContainerMessage();
+    if (ing !== undefined && ing !== null) {
+        if (typeof ing !== 'object' || Array.isArray(ing)) return invalidContainerMessage();
+        // ONE LEVEL DEEPER (review findings, two independent passes): the gate
+        // exists to run before importIngredients touches the live library, and
+        // importIngredients does Object.assign(new cIngredient(), value) per
+        // entry — a string value spreads its characters into numeric keys
+        // ("0":"A","1":"A") and installs that as a live ingredient, the same
+        // corruption class the top-level check closed. And a key of
+        // "__proto__"/"constructor"/"prototype" reaches an assignment loop
+        // that would rewrite the target object's prototype. Both refuse here.
+        for (const key of Object.keys(ing)) {
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype')
+                return invalidContainerMessage();
+            const entry = ing[key];
+            if (!entry || typeof entry !== 'object' || Array.isArray(entry))
+                return invalidContainerMessage();
+        }
+    }
     // RecipeId is DELIBERATELY not checked here (P0.3 review, decision 7): a
     // v2 record with a stripped id has an intact payload, and this gate
     // refusing it would lock the user out with no repair path. Identity is
@@ -259,26 +285,53 @@ export function containerProblem(container) {
 // --- Identity (P0.3) — advisory, OUTSIDE the fail-closed gate above ---
 
 /**
- * Whether a value is a usable RecipeId: a non-empty string. Deliberately
- * looser than "a UUID" — hand-authored .ier files are legal input, and the
- * only property the system relies on is stable non-empty string equality.
+ * Whether a value is a usable RecipeId: a non-empty string with no
+ * leading/trailing whitespace, at most 256 chars. Looser than "a UUID"
+ * (hand-authored .ier files are legal input), but strict on the two things
+ * string-equality joins cannot survive (review findings): ' abc ' !== 'abc'
+ * would fork a lineage on an invisible space in a hand-edited file, and an
+ * unbounded id from a hostile file would be stamped into every future save.
+ * An untrimmed/oversized id is treated as no id — the record loads, warns,
+ * and re-mints on save, which is the fail-safe direction.
  * @param {*} v
  * @returns {boolean}
  */
 export function isValidRecipeId(v) {
-    return typeof v === 'string' && v.trim() !== '';
+    return typeof v === 'string' && v !== '' && v === v.trim() && v.length <= 256;
 }
 
 /**
  * The container's RecipeId, or null when it has none worth trusting.
- * Version-agnostic on purpose: a valid id is returned even off a v1-shaped
- * container (hand-made files exist), and garbage is null everywhere.
+ * Identity exists from IDENTITY_SCHEMA_VERSION on — an id on a v1/legacy
+ * container is ignored (review finding: honoring it was wider than decision 1
+ * and let a crafted v1 .ier carry a victim recipe's id into the future
+ * id-keyed overwrite prompt).
  * @param {Object} container
  * @returns {string|null}
  */
 export function containerRecipeId(container) {
     if (!container || typeof container !== 'object') return null;
+    if (containerSchemaVersion(container) < IDENTITY_SCHEMA_VERSION) return null;
     return isValidRecipeId(container.RecipeId) ? container.RecipeId : null;
+}
+
+/**
+ * The container's SavedAt as a parseable ISO string, or null when absent or
+ * garbage. The read-side twin of the builder's stamp, added so the sync merge
+ * (T3) never reads the raw field: Date.parse of a garbage SavedAt is NaN, and
+ * NaN compares false in BOTH directions — a merge on the raw field would
+ * silently pick a side (review finding). Null tells the caller to fall back
+ * to the backend's updatedAt, the same shape as the id-first/name-fallback
+ * join. Version-agnostic: a well-formed timestamp is useful wherever it
+ * appears, and unlike RecipeId it steers no destructive prompt.
+ * @param {Object} container
+ * @returns {string|null}
+ */
+export function containerSavedAt(container) {
+    if (!container || typeof container !== 'object') return null;
+    const v = container.SavedAt;
+    if (typeof v !== 'string') return null;
+    return Number.isFinite(Date.parse(v)) ? v : null;
 }
 
 /**
@@ -297,7 +350,7 @@ export function containerRecipeId(container) {
  */
 export function containerIdentityWarning(container) {
     if (containerProblem(container)) return null;
-    if (containerSchemaVersion(container) < 2) return null;
+    if (containerSchemaVersion(container) < IDENTITY_SCHEMA_VERSION) return null;
     if (containerRecipeId(container)) return null;
     return "This recipe record should carry an identity but does not — an " +
         "older version of Ice Ed may have rewritten it. It was loaded " +
@@ -322,15 +375,18 @@ export function containerIdentityWarning(container) {
  * record, so the container is already a private, mutable copy. An in-memory
  * build→hydrate round-trip (a future undo or duplicate feature) is the case
  * that breaks, because P0.5 makes buildRecipeContainer return a DEEPLY FROZEN
- * snapshot. The FIRST casualty is not this function: on the library-load
- * ordering importIngredients runs before hydration and write-backs into its
- * argument (ingredients.js: `dataObj[key] = Object.assign(...)`), so a frozen
- * container.Ingredients throws there first. Hydration is the second: the
- * recipe would take the frozen Ingredients array as its own and the next
- * addIngredient would throw. Clone at both points if this becomes a call
- * pattern.
+ * snapshot. On the .ier-IMPORT ordering (recipe-manager.js) the first
+ * casualty is not this function: importIngredients runs before hydration and
+ * write-backs into its argument (ingredients.js: `dataObj[key] =
+ * Object.assign(...)`), so a frozen container.Ingredients throws there first.
+ * Library load hydrates FIRST (two-phase, P0.5 review), so there hydration is
+ * the first casualty: the recipe takes the frozen Ingredients array as its
+ * own and the next addIngredient throws. Clone at both points if this becomes
+ * a call pattern.
  *
- * @param {Object} container - A {SchemaVersion?, Recipe, Ingredients} container
+ * @param {Object} container - A {SchemaVersion?, SavedAt?, RecipeId?, Recipe,
+ *   Ingredients} container (identity fields are container-level and are
+ *   deliberately NEVER copied onto the recipe)
  * @returns {cRecipe|null}
  */
 export function hydrateRecipe(container) {

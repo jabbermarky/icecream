@@ -1203,14 +1203,17 @@ function snapshotForSave(recipe, ingredients) {
         // the library-load path was fixed for.
         //
         // The causes are distinct and the message says which (review finding —
-        // one sentence used to blame the user's data for all of them):
+        // one sentence used to blame the user's data for all of them). The
+        // shared guarantee is appended once so the three branches cannot
+        // drift apart on the one sentence that matters.
         console.error('Failed to snapshot recipe for saving:', error);
+        const NOTHING_WRITTEN = ' Nothing was saved or exported.';
         if (error instanceof RangeError) {
-            ErrorMsg('This recipe is nested too deeply to be stored. Nothing was saved or exported.');
+            ErrorMsg('This recipe is nested too deeply to be stored.' + NOTHING_WRITTEN);
         } else if (typeof structuredClone !== 'function') {
-            ErrorMsg('This browser is missing a feature Ice Ed needs to save recipes (structuredClone). Nothing was saved or exported. Try a newer browser version.');
+            ErrorMsg('This browser is missing a feature Ice Ed needs to save recipes (structuredClone).' + NOTHING_WRITTEN + ' Try a newer browser version.');
         } else {
-            ErrorMsg('This recipe could not be prepared because it holds a value that cannot be stored. Nothing was saved or exported.');
+            ErrorMsg('This recipe could not be prepared because it holds a value that cannot be stored.' + NOTHING_WRITTEN);
         }
         return null;
     }
@@ -1237,6 +1240,15 @@ function snapshotForSave(recipe, ingredients) {
  * @param {Object} container - The frozen snapshot that was persisted
  */
 function clearModifiedIfUnchanged(liveRecipe, container) {
+    // STALE-BINDING GUARD (red-team finding): liveRecipe is the object the
+    // save handler captured, but SetRecipeModified is one global flag
+    // describing whichever recipe is CURRENT. If the recipe was swapped during
+    // the save's await windows (New Recipe, Restore, a completing library
+    // load) and the user has edited the new one, comparing the OLD object to
+    // its own snapshot would pass — and clear the flag for a different
+    // recipe whose edits were never saved. The flag belongs to the current
+    // recipe, so only clear it while the saved recipe IS the current one.
+    if (getRecipe() !== liveRecipe) return;
     let unchanged;
     try {
         unchanged = JSON.stringify(liveRecipe) === JSON.stringify(container.Recipe);
@@ -1331,7 +1343,11 @@ function handleExportRecipe() {
     const container = snapshotForSave(Recipe, Ingredients);
     if (!container) return;
 
-    saveToFile(container, Recipe.Name + ".ier", "IER", 1);
+    // The filename comes from the SNAPSHOT, matching handleSaveRecipe's rule
+    // (review finding): export is sync today so there is no live-read race,
+    // but one future await between snapshot and write would ship a file whose
+    // name and payload disagree — the exact fork the save path just closed.
+    saveToFile(container, container.Recipe.Name + ".ier", "IER", 1);
 }
 
 /**
@@ -1360,8 +1376,13 @@ function handleLoadRecipeFile(event) {
         }
 
         function loadRecipe() {
+            // Empty-map fallback: absent Ingredients passes the gate (legal),
+            // but importIngredients throws on undefined (Object.entries) —
+            // and this path has no catch, so it would die as an unhandled
+            // rejection after the backup stack already changed (review
+            // finding, same fix as recipe-library-load.js).
             importIngredients(
-                dataObj.data.Ingredients,
+                dataObj.data.Ingredients || {},
                 false,
                 "This recipe was saved with different ingredient values than your current library. The library reflects your latest research.",
                 { current: "Library", imported: "Recipe" },

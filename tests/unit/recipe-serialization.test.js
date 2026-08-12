@@ -21,6 +21,7 @@ const {
   hydrateRecipe,
   isValidRecipeId,
   containerRecipeId,
+  containerSavedAt,
   containerIdentityWarning,
 } = await import('../../js/models/recipe-serialization.js');
 
@@ -341,17 +342,82 @@ test('P0.3: a GARBAGE supplied RecipeId throws — a programmer error, not a dat
   }
 });
 
-test('P0.3: containerRecipeId returns a valid id and null for everything else', () => {
-  assert.equal(isValidRecipeId('abc'), true);       // the underlying predicate,
-  assert.equal(isValidRecipeId(''), false);         // exported for the save path
+test('P0.3: isValidRecipeId is strict on what string-equality joins cannot survive', () => {
+  assert.equal(isValidRecipeId('abc'), true);
+  assert.equal(isValidRecipeId(''), false);
   assert.equal(isValidRecipeId(42), false);
-  assert.equal(containerRecipeId({ RecipeId: 'abc' }), 'abc');
-  assert.equal(containerRecipeId({ SchemaVersion: 1, RecipeId: 'abc' }), 'abc'); // version-agnostic
-  assert.equal(containerRecipeId({}), null);
-  assert.equal(containerRecipeId({ RecipeId: '' }), null);
-  assert.equal(containerRecipeId({ RecipeId: 42 }), null);
+  // Whitespace forks: ' abc ' !== 'abc' under the join, so an untrimmed id in
+  // a hand-edited file would silently fork the lineage. Treated as NO id
+  // (load, warn, re-mint) — the fail-safe direction. Review finding.
+  assert.equal(isValidRecipeId(' abc '), false);
+  assert.equal(isValidRecipeId('abc\n'), false);
+  // Unbounded ids from a hostile file must not be stamped into every future
+  // save. 256 is far above any UUID and far below any payload.
+  assert.equal(isValidRecipeId('x'.repeat(256)), true);
+  assert.equal(isValidRecipeId('x'.repeat(257)), false);
+});
+
+test('P0.3: containerRecipeId honors ids from the identity schema (v2) on — not v1', () => {
+  // Review finding: version-agnostic reading was wider than decision 1. A
+  // crafted v1 .ier carrying a victim recipe's id could steer the future
+  // id-keyed overwrite prompt at a record whose name appears nowhere in the
+  // file. Identity is behind SchemaVersion 2, in reading as in writing.
+  assert.equal(containerRecipeId({ SchemaVersion: 2, RecipeId: 'abc' }), 'abc');
+  assert.equal(containerRecipeId({ RecipeId: 'abc' }), null);                    // no version = v1
+  assert.equal(containerRecipeId({ SchemaVersion: 1, RecipeId: 'abc' }), null); // v1 explicit
+  assert.equal(containerRecipeId({ SchemaVersion: 2 }), null);
+  assert.equal(containerRecipeId({ SchemaVersion: 2, RecipeId: '' }), null);
+  assert.equal(containerRecipeId({ SchemaVersion: 2, RecipeId: ' abc ' }), null);
+  assert.equal(containerRecipeId({ SchemaVersion: 2, RecipeId: 42 }), null);
   assert.equal(containerRecipeId(null), null);
   assert.equal(containerRecipeId('not an object'), null);
+});
+
+test('P0.3: containerSavedAt returns a parseable clock or null — never a raw field', () => {
+  // Review finding: the sync merge (T3) must never read container.SavedAt
+  // raw. Date.parse of garbage is NaN, and NaN compares false BOTH ways — a
+  // merge on the raw field silently picks a side. Null routes the caller to
+  // the updatedAt fallback instead, the same shape as the id-first join.
+  const good = new Date(0).toISOString();
+  assert.equal(containerSavedAt({ SavedAt: good }), good);
+  assert.equal(containerSavedAt({ SavedAt: 'banana' }), null);
+  assert.equal(containerSavedAt({ SavedAt: 42 }), null);
+  assert.equal(containerSavedAt({ SavedAt: '' }), null);
+  assert.equal(containerSavedAt({}), null);
+  assert.equal(containerSavedAt(null), null);
+  // And the builder's own stamp round-trips through its own accessor.
+  const c = buildRecipeContainer(makeRecipe(), library, () => {});
+  assert.equal(containerSavedAt(c), c.SavedAt);
+});
+
+test('GATE DEPTH: Ingredients entry VALUES that would corrupt the library are refused', () => {
+  // Review finding (two independent passes): importIngredients does
+  // Object.assign(new cIngredient(), value) per entry, so a string value
+  // spreads its characters into numeric keys and installs the result as a
+  // live ingredient — the same corruption the top-level check closed, one
+  // level down. The gate exists to run before that loop; it must see this.
+  for (const bad of ['AAAA', 42, null, [1, 2], true]) {
+    const c = { Recipe: { Name: 'X' }, Ingredients: { Cream: bad } };
+    assert.equal(containerProblem(c), invalidContainerMessage(),
+      `entry value ${JSON.stringify(bad)} must refuse`);
+    assert.equal(hydrateRecipe(c), null);
+  }
+  // A well-formed sibling does not save a record with one bad entry.
+  const mixed = { Recipe: { Name: 'X' }, Ingredients: { Milk: { Water: 0.87 }, Cream: 'AAAA' } };
+  assert.equal(containerProblem(mixed), invalidContainerMessage());
+});
+
+test('GATE DEPTH: prototype-pollution-shaped Ingredients keys are refused', () => {
+  // Review finding: a key of "__proto__"/"constructor"/"prototype" reaches an
+  // assignment loop in importIngredients that would rewrite the target
+  // object's prototype. JSON.parse creates "__proto__" as an OWN key, so the
+  // fixture goes through JSON to match what a crafted .ier actually produces.
+  for (const key of ['__proto__', 'constructor', 'prototype']) {
+    const c = JSON.parse(`{"Recipe":{"Name":"X"},"Ingredients":{${JSON.stringify(key)}:{"Water":1}}}`);
+    assert.equal(containerProblem(c), invalidContainerMessage(), `key ${key} must refuse`);
+  }
+  // The guard reads OWN keys only — a clean record still passes.
+  assert.equal(containerProblem({ Recipe: { Name: 'X' }, Ingredients: { Milk: { Water: 1 } } }), null);
 });
 
 test('P0.3 DECISION 7: a v2 record with a missing id PASSES the fail-closed gate', () => {

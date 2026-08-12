@@ -18,7 +18,13 @@ import { installDom } from './support/dom-stub.js';
 installDom();
 
 const { cRecipe } = await import('../../js/models/core.js');
+const { RECIPE_SCHEMA_VERSION } = await import('../../js/models/recipe-serialization.js');
 const { createLibraryRecipeLoader } = await import('../../js/features/recipe-library-load.js');
+
+// Version-relative fixture for "newer than this build" (review finding: these
+// were re-hardcoded to the literal the last bump invalidated; relative
+// fixtures survive every future bump).
+const NEWER = RECIPE_SCHEMA_VERSION + 1;
 
 // --- Wiring, mirroring app.js ---
 
@@ -125,7 +131,7 @@ test('REFUSAL: a newer-schema record is rejected BEFORE importIngredients and be
   // the ordering regression. Same fixture shape as the .ier test.
   const { state, load } = harness({
     record: libraryRecord({
-      SchemaVersion: 3,
+      SchemaVersion: NEWER,
       Recipe: { Name: 'From The Future', LineageId: 'abc', Ingredients: [] },
       Ingredients: { Trojan: { Water: 1.0 } },
     }),
@@ -136,7 +142,7 @@ test('REFUSAL: a newer-schema record is rejected BEFORE importIngredients and be
 
   assert.equal(state.error.length, 1);
   assert.match(state.error[0], /newer version/);
-  assert.match(state.error[0], /schema 3/);
+  assert.match(state.error[0], new RegExp(`schema ${NEWER}`));
   assert.equal(state.imports.length, 0);      // library untouched — the ordering pin
   assert.equal(state.recipe, before);         // open recipe untouched
   assert.equal(state.displayed, 0);
@@ -144,15 +150,15 @@ test('REFUSAL: a newer-schema record is rejected BEFORE importIngredients and be
   assert.equal(state.modifiedCalls.length, 0);
 });
 
-test('REFUSAL: a numeric-string SchemaVersion "3" refuses here too (the fail-closed bypass)', async () => {
+test('REFUSAL: a numeric-string NEWER SchemaVersion refuses here too (the fail-closed bypass)', async () => {
   const { state, load } = harness({
-    record: libraryRecord({ SchemaVersion: '3', Recipe: { Name: 'Stringly Future' }, Ingredients: {} }),
+    record: libraryRecord({ SchemaVersion: String(NEWER), Recipe: { Name: 'Stringly Future' }, Ingredients: {} }),
   });
   await load('Stringly Future');
   state.restoreConsole();
 
   assert.equal(state.error.length, 1);
-  assert.match(state.error[0], /schema 3/);
+  assert.match(state.error[0], new RegExp(`schema ${NEWER}`));
   assert.equal(state.imports.length, 0);
 });
 
@@ -238,7 +244,7 @@ test('a throw while APPLYING reports a half-loaded app, not a damaged record', a
 
   assert.equal(state.error.length, 1);
   assert.match(state.error[0], /could not be applied/);
-  assert.match(state.error[0], /stored copy is unchanged/);
+  assert.match(state.error[0], /recipe copy is unchanged/);
   assert.doesNotMatch(state.error[0], /record may be damaged/); // the old lie
   assert.equal(state.info.length, 0);   // no success message after a failed render
 });
@@ -247,7 +253,10 @@ test('a record whose Ingredients is not a name->definition map is refused at the
   // The gate exists to run BEFORE importIngredients touches the live library.
   // An array there merged entries under numeric keys "0","1"; a string threw
   // mid-merge. Both now refuse, and importIngredients is never reached.
-  for (const bad of [[{ Water: 1.0 }], 'garbage', 42]) {
+  // Includes ENTRY-VALUE garbage (review finding: the gate now checks one
+  // level down — a string entry would spread its characters into numeric keys
+  // inside the live library via Object.assign in importIngredients).
+  for (const bad of [[{ Water: 1.0 }], 'garbage', 42, { Cream: 'AAAA' }, { Cream: 7 }]) {
     const { state, load } = harness({
       record: libraryRecord({ Recipe: { Name: 'Bad Ingredients', Ingredients: [] }, Ingredients: bad }),
     });
@@ -260,7 +269,7 @@ test('a record whose Ingredients is not a name->definition map is refused at the
   }
 });
 
-test('a record with NO Ingredients key still loads (absent is legal, unlike garbage)', async () => {
+test('a record with NO Ingredients key still loads — and importIngredients gets {}, not undefined', async () => {
   const { state, load } = harness({
     record: libraryRecord({ Recipe: { Name: 'No Ingredients', Ingredients: [] } }),
   });
@@ -268,6 +277,12 @@ test('a record with NO Ingredients key still loads (absent is legal, unlike garb
   state.restoreConsole();
   assert.equal(state.error.length, 0);
   assert.equal(state.recipe.Name, 'No Ingredients');
+  // The load-bearing half (review finding): the REAL importIngredients opens
+  // with Object.entries(dataObj) and throws on undefined — the earlier
+  // version of this test stayed green only because the harness stub accepted
+  // anything. Pin the fallback the loader now supplies.
+  assert.equal(state.imports.length, 1);
+  assert.deepEqual(state.imports[0].ingredients, {});
 });
 
 // --- The deliberate divergence from .ier import, pinned so it stays a decision ---

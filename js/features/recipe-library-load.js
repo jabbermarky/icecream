@@ -80,20 +80,31 @@ export function createLibraryRecipeLoader(deps) {
             }
         } catch (err) {
             // Without this, a throw is an unhandled rejection: the user clicks
-            // Load and nothing happens, no message, console only.
+            // Load and nothing happens, no message, console only. A throw here
+            // can also be a transient storage failure (quota, closed
+            // connection), so the message must not flatly blame the record —
+            // teaching a user to distrust intact data is its own damage
+            // (review finding).
             console.error('Failed to load recipe from library:', err);
-            ErrorMsg('Failed to load recipe. The stored record may be damaged.');
+            ErrorMsg('Failed to load recipe. Storage may have failed, or the stored record may be damaged. Nothing was changed — try again.');
             return;
         }
 
-        // PHASE 2 — apply. The record is known good by here, so a throw is a
-        // rendering or merge failure, NOT a damaged record (review finding: the
-        // single try used to span this and told the user their stored record
+        // PHASE 2 — apply. The record passed the gate, so a throw here is a
+        // merge or rendering failure — but the gate validates shape, not every
+        // entry's contents, so record content can still be the trigger; the
+        // message below claims only what is true (review finding: the single
+        // try used to span both phases and told the user their stored record
         // was damaged after their open recipe had already been replaced, on a
         // path that deliberately keeps no backup).
+        //
+        // Ingredients is passed with an EMPTY-MAP FALLBACK: absent is legal at
+        // the gate, but the real importIngredients opens with
+        // Object.entries(dataObj), which throws on undefined (review finding —
+        // the unit test only stayed green because the harness stubs it).
         try {
             importIngredients(
-                data.data.Ingredients,
+                data.data.Ingredients || {},
                 false,
                 INGREDIENT_CONFLICT_MESSAGE,
                 { current: "Library", imported: "Recipe" },
@@ -104,8 +115,11 @@ export function createLibraryRecipeLoader(deps) {
             SetRecipeModified(false);
             Info(`Loaded "${name}" from library`);
         } catch (err) {
+            // importIngredients may have already merged (and its sync hook
+            // persisted) ingredient definitions before the throw — the recipe
+            // claim below is true; no broader "nothing changed" is promised.
             console.error('Failed to apply the loaded recipe:', err);
-            ErrorMsg(`"${name}" was read successfully but could not be applied, so the app may be in a half-loaded state. The stored copy is unchanged — reload the page and try again.`);
+            ErrorMsg(`"${name}" was read successfully but could not be applied, so the app may be in a half-loaded state. Your stored recipe copy is unchanged — reload the page and try again.`);
         }
     };
 }
