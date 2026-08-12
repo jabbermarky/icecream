@@ -5,3 +5,5 @@
 {"skill":"plan-eng-review","event":"completed","branch":"claude/garry-tan-gstack-install-lp58z2","outcome":"success","duration_s":"1500","session":"per2","ts":"2026-08-11T21:46:00.972Z"}
 {"skill":"ship","event":"completed","branch":"claude/garry-tan-gstack-install-lp58z2","outcome":"success","duration_s":"2100","session":"ship1","ts":"2026-08-11T22:08:45.465Z"}
 {"skill":"plan-eng-review","event":"started","branch":"claude/batch-loop-design","session":"per3","ts":"2026-08-12T12:39:00.345Z"}
+{"skill":"context-save","event":"started","branch":"claude/batch-loop-design","session":"22931-1786550994","ts":"2026-08-12T16:09:54.537Z"}
+{"skill":"context-save","event":"completed","branch":"claude/batch-loop-design","outcome":"success","duration_s":"68","session":"22931-1786550994","ts":"2026-08-12T16:11:02.362Z"}
