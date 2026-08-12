@@ -22,7 +22,11 @@ this is the actionable list.
 
 **Status: batches one (items 1–3) and two (items 4–11, 14, 15) FIXED
 2026-08-12 and verified. Items 12–13 decided by the maintainer and fixed.
-Open: the codex re-review of the combined diff.**
+The codex re-review was WAIVED by the maintainer (2026-08-12): four of seven
+codex invocations that afternoon hung at the websocket transport (diagnosis in
+learnings.jsonl, key codex-websocket-flaky-retry-short — retry short, never
+wait long). Run it later if wanted; every code finding in this file is
+independently verified regardless.**
 
 ## Confirmed by direct verification — FIXED (batch one)
 
