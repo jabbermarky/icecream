@@ -19,14 +19,16 @@ Suite green at 114 passed / 0 failed.
 
 1. **The batch loop** — linking recipe versions to what happened when they were
    churned. Design: `.planning/batch-loop-design.md`, reviewed four times by an
-   outside model. Draft PR #11. **P0.1 is DONE**: node unit test lane at
-   `tests/unit/` (`npm run test:unit`, 23 cases) drives the real
-   save/export/import handlers and pins round-trip field drop, zero-key
-   deletion, copyFrom identity cloning, and IER version refusal. Known gap:
-   the `app.js:284` library-load hydration loop is pinned only by proxy (it
-   duplicates the `.ier` import loop); P0.2's shared hydrator closes that.
-   **P0.2 is next. P0.3 is marked DO NOT START** — identity has to sync and
-   the design does not yet say how.
+   outside model. Draft PR #11. **P0.1 and P0.2 are DONE.** The node unit lane
+   (`npm run test:unit`, 35 cases) drives the real handlers;
+   `js/models/recipe-serialization.js` now owns the container shape and the
+   declared-fields hydrator behind all four save/load paths, with
+   `SchemaVersion` on the record and refusal (not truncation) on a newer
+   schema. P0.1's known gap is closed by construction — both load paths run
+   the same hydrator. **Next unblocked: P0.5** (one canonical save path on an
+   immutable `structuredClone`, which also fixes the cloud-write race).
+   **P0.3 is marked DO NOT START** — identity has to sync and the design does
+   not yet say how; P0.4 (batch record) waits on P0.3's identity.
 2. **Ingredient onboarding** — nine tasks remain after v0.5.0. The durable ones
    are issues #6–#10. **#7 shrinks to "add ingredient cases"** now that the
    node lane exists: `firstNutritionValue()` still has zero tests and was

@@ -484,11 +484,18 @@ batch entity are prerequisites, not features, so they moved into Phase 0.
       `app.js:284` is a second inline copy of the hydration loop and is pinned
       only by proxy via the identical `.ier` import loop — P0.2's shared
       hydrator closes that by construction.
-- [ ] **P0.2** — versioned serializer and hydrator, covering **all four** filtered
+- [x] **P0.2** — versioned serializer and hydrator, covering **all four** filtered
       paths: library save (`recipe-manager.js:1195`), library load
       (`app.js:284`), `.ier` export (`recipe-manager.js:1251`) and `.ier` import
       (`recipe-manager.js:1291`). A reader that meets an unknown newer schema
       must refuse a destructive write rather than silently dropping fields.
+      **DONE:** `js/models/recipe-serialization.js` owns the container shape
+      (`SchemaVersion` on the record; `.ier` envelope stays v1 so old readers
+      still accept current files) and the declared-fields hydrator. Both load
+      paths refuse a newer schema before any mutation — before the recipe
+      backup and before `importIngredients` touches the library. The P0.1
+      known gap is closed by construction: library load and `.ier` import now
+      run the same hydrator. 35 unit cases green, browser suite 114/0.
 - [ ] **P0.3** — stable recipe id in a **separate object store**, keyed by
       recipe name, holding id, parent id, parent-name snapshot and batch
       references. Plus `loadRecipeById` on the storage interface. Identity

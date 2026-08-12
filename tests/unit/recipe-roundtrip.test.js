@@ -179,14 +179,67 @@ async function exportThenImport(recipe) {
   return { hydrated: currentRecipe, renderError };
 }
 
-test('round-trip DROPS fields cRecipe does not declare — the P0.2 motivation', async () => {
+test('round-trip DROPS undeclared fields WITHIN the same schema — by design, post-P0.2', async () => {
+  // Pre-P0.2 this pinned the motivating bug. Post-P0.2 it pins the intended
+  // contract: an ad-hoc field with no schema bump is filtered (that is the
+  // declared-fields filter working); a field added WITH a schema bump makes
+  // old readers refuse instead — covered below and in
+  // recipe-serialization.test.js.
   const original = makeRecipe('Field Drop');
-  original.FutureField = 'lineage-or-id';   // simulate a field a newer schema would add
+  original.FutureField = 'lineage-or-id';
   const { hydrated } = await exportThenImport(original);
 
   assert.notEqual(hydrated, original);              // a NEW cRecipe was hydrated
   assert.equal(hydrated.Name, 'Field Drop');        // declared fields survive
-  assert.equal(hydrated.FutureField, undefined);    // undeclared field silently gone
+  assert.equal(hydrated.FutureField, undefined);    // undeclared field filtered
+});
+
+// --- P0.2: schema version on the record, refusal on newer ---
+
+test('P0.2: saved container and exported envelope both carry SchemaVersion 1', async () => {
+  freshState(makeRecipe('Versioned'));
+  await buttons.btnSaveRecipe.onclick();
+  assert.equal(storageCalls[0].data.SchemaVersion, 1);
+
+  freshState(makeRecipe('Versioned'));
+  buttons.btnExportRecipe.onclick();
+  const envelope = JSON.parse(await capturedBlobs[0].text());
+  assert.equal(envelope.version, 1);            // envelope version unchanged —
+  assert.equal(envelope.data.SchemaVersion, 1); // old readers still accept the file
+});
+
+test('P0.2: a legacy .ier (no SchemaVersion) still loads', async () => {
+  freshState(new cRecipe(''));
+  const legacy = JSON.stringify({
+    id: 'IER', version: 1,
+    data: { Recipe: { Name: 'Legacy Record', Notes: 'pre-P0.2', Ingredients: [] }, Ingredients: {} },
+  });
+  try {
+    buttons.inputLoadRecipe.onchange({ target: { files: [makeFile(legacy)] } });
+  } catch { /* render-time throw in stub DOM; hydration already happened */ }
+  assert.equal(currentRecipe.Name, 'Legacy Record');
+  assert.equal(currentRecipe.Notes, 'pre-P0.2');
+  assert.equal(messages.error.length, 0);
+});
+
+test('P0.2 REFUSAL: a newer-schema .ier is rejected before ANY mutation', async () => {
+  freshState(makeRecipe('Untouched By The Future'));
+  const before = currentRecipe;
+  const newer = JSON.stringify({
+    id: 'IER', version: 1,
+    data: {
+      SchemaVersion: 2,
+      Recipe: { Name: 'From The Future', LineageId: 'abc', Ingredients: [] },
+      Ingredients: {},
+    },
+  });
+  buttons.inputLoadRecipe.onchange({ target: { files: [makeFile(newer)] } });
+
+  assert.equal(messages.error.length, 1);
+  assert.match(messages.error[0], /newer version/);
+  assert.match(messages.error[0], /schema 2/);
+  assert.equal(currentRecipe, before);          // current recipe untouched
+  assert.equal(messages.info.length, 0);        // no "loaded" message
 });
 
 test('round-trip preserves every constructor-declared field and the ingredient rows', async () => {

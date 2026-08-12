@@ -33,6 +33,7 @@
         import { showRecipeLibrary } from './ui/recipe-library.js';
         import { initTools, initPACPODCalculator, initGMolCalculator, initYolkCalculator, Sugars, eggTypes, cEgg } from './utils/tools.js';
         import { initModels, Targets, cRecipe } from './models/core.js';
+        import { hydrateRecipe, isNewerSchema, newerSchemaMessage } from './models/recipe-serialization.js';
         import {
             initRecipeManager,
             initRecipeButtons,
@@ -272,6 +273,14 @@
                 onLoad: (name) => {
                     recipeStorage.loadRecipe(name).then(data => {
                         if (data) {
+                            // Refuse a newer schema BEFORE any mutation — a
+                            // stale tab hydrating a newer record and saving it
+                            // back is the silent-truncation path P0.2 closes.
+                            // See js/models/recipe-serialization.js.
+                            if (isNewerSchema(data.data)) {
+                                ErrorMsg(newerSchemaMessage(data.data));
+                                return;
+                            }
                             // Import ingredients from stored recipe
                             importIngredients(
                                 data.data.Ingredients,
@@ -280,12 +289,13 @@
                                 { current: "Library", imported: "Recipe" },
                                 { keep: "Keep Library", replace: "Use Recipe" }
                             );
-                            // Create new recipe and copy properties
-                            const newRecipe = new cRecipe("");
-                            for (const key in newRecipe) {
-                                if (data.data.Recipe.hasOwnProperty(key)) {
-                                    newRecipe[key] = data.data.Recipe[key];
-                                }
+                            // Shared declared-fields hydrator — the same code
+                            // path as .ier import, so the two loops can never
+                            // drift apart again
+                            const newRecipe = hydrateRecipe(data.data);
+                            if (!newRecipe) {
+                                ErrorMsg(newerSchemaMessage(data.data));
+                                return;
                             }
                             Recipe = newRecipe;
                             DisplayRecipe();

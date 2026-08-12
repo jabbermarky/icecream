@@ -10,6 +10,7 @@ import { GetIdealPAC, Fitness } from './calculations.js';
 import { DrawFreezingGraph } from '../ui/graph.js';
 import { getCSS } from '../ui/components.js';
 import { saveToFile, parseRecipeFile } from '../utils/file-io.js';
+import { buildRecipeContainer, hydrateRecipe, isNewerSchema, newerSchemaMessage } from '../models/recipe-serialization.js';
 
 // Module-level state
 let RecipeBackup = [];  // backups recipe states on optimization
@@ -1192,19 +1193,9 @@ async function handleSaveRecipe() {
         return;
     }
 
-    // Build container with recipe and its ingredients
-    var container = {
-        Recipe: Recipe,
-        Ingredients: {}
-    };
-    for (const ingredient of Recipe.Ingredients)
-        if (Ingredients.hasOwnProperty(ingredient.Name)) {
-            container.Ingredients[ingredient.Name] = Ingredients[ingredient.Name].copy();
-            for (const key in container.Ingredients[ingredient.Name])
-                if (container.Ingredients[ingredient.Name][key] == 0.0)
-                    delete container.Ingredients[ingredient.Name][key];
-        } else
-            Warning("Recipe is using undefined ingredient " + ingredient.Name);
+    // Build container with recipe and its ingredients (shared with export —
+    // js/models/recipe-serialization.js is the one place this shape lives)
+    var container = buildRecipeContainer(Recipe, Ingredients, Warning);
 
     // Check if recipe already exists and prompt for overwrite
     if (recipeStorage) {
@@ -1248,18 +1239,7 @@ function handleExportRecipe() {
         return;
     }
 
-    var container = {
-        Recipe: Recipe,
-        Ingredients: {}
-    };
-    for (const ingredient of Recipe.Ingredients)
-        if (Ingredients.hasOwnProperty(ingredient.Name)) {
-            container.Ingredients[ingredient.Name] = Ingredients[ingredient.Name].copy();
-            for (const key in container.Ingredients[ingredient.Name])
-                if (container.Ingredients[ingredient.Name][key] == 0.0)
-                    delete container.Ingredients[ingredient.Name][key];
-        } else
-            Warning("Recipe is using undefined ingredient " + ingredient.Name);
+    var container = buildRecipeContainer(Recipe, Ingredients, Warning);
 
     saveToFile(container, Recipe.Name + ".ier", "IER", 1);
 }
@@ -1278,6 +1258,15 @@ function handleLoadRecipeFile(event) {
             return;
         }
 
+        // Refuse a newer schema BEFORE any mutation — before the recipe backup
+        // and before importIngredients touches the library. Hydrating it would
+        // strip the newer fields and the next save would write the truncated
+        // record back. See js/models/recipe-serialization.js.
+        if (isNewerSchema(dataObj.data)) {
+            ErrorMsg(newerSchemaMessage(dataObj.data));
+            return;
+        }
+
         function loadRecipe() {
             importIngredients(
                 dataObj.data.Ingredients,
@@ -1288,16 +1277,16 @@ function handleLoadRecipeFile(event) {
             );
 
             RecipeBackup = [];
-            const newRecipe = new cRecipe("");
+            // Shared declared-fields hydrator; schema already checked above,
+            // so null cannot happen here — guarded anyway so a future code
+            // motion cannot reintroduce silent truncation.
+            const newRecipe = hydrateRecipe(dataObj.data);
+            if (!newRecipe) {
+                ErrorMsg(newerSchemaMessage(dataObj.data));
+                return;
+            }
             setRecipe(newRecipe);
             sortBy = null;
-
-            const Recipe = getRecipe();
-            for (const key in Recipe) {
-                if (dataObj.data.Recipe.hasOwnProperty(key)) {
-                    Recipe[key] = dataObj.data.Recipe[key];
-                }
-            }
             DisplayRecipe();
             SetRecipeModified(false);
         }
