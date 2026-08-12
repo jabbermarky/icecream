@@ -459,6 +459,9 @@ recipe. It cannot, today. That is the single finding that reorganised the plan.
 | Cloud save failure | Drive returns `false`; the caller discards it and reports `'synced'` | P0.1 | Pre-existing bug, filed separately | **Yes — sync lies about success** |
 | Rename across backends | Save-new + delete-old is non-atomic; another device can push the old name back, resurrecting or duplicating the recipe | P0.1 | Rename refused where it matters (P0.6) | **Yes** |
 | Recipe deletion | No defined behaviour for batches or lineage pointing at the deleted recipe | P0.1 | Defined in P0.4 | **Yes today** |
+| Mixed-version write | A stale tab or older device loads a new record, drops unknown fields on hydration, writes back truncated — silently stripping identity and lineage | P0.1 downgrade case | Identity lives in a store legacy save never writes (P0.3) | **Yes — invisible, no error, no attribution** |
+| Deletion resurrection | Local delete plus fire-and-forget cloud delete; sync restores from whichever side still has the record | P0.1 | Defined in P0.4 | **Yes** |
+| Full-sync save failure | `stats.pushed++` counts a save that returned `false` | P0.1 | Pre-existing bug, filed separately | **Yes — second instance, at `sync-manager.js:122`** |
 | Print then cancel | A batch record exists for a sheet that was never churned | P0.1 | Depends on batch-vs-sheet identity (open) | **Yes** |
 
 **Critical gaps: 2.** The print snapshot (destroys the core premise) and the
@@ -478,9 +481,18 @@ batch entity are prerequisites, not features, so they moved into Phase 0.
       (`app.js:284`), `.ier` export (`recipe-manager.js:1251`) and `.ier` import
       (`recipe-manager.js:1291`). A reader that meets an unknown newer schema
       must refuse a destructive write rather than silently dropping fields.
-- [ ] **P0.3** — stable recipe id, unique index, `loadRecipeById` on the storage
-      interface. Identity allocation and storage migration land here, before any
-      writer depends on them.
+- [ ] **P0.3** — stable recipe id in a **separate object store**, keyed by
+      recipe name, holding id, parent id, parent-name snapshot and batch
+      references. Plus `loadRecipeById` on the storage interface. Identity
+      allocation and storage migration land here, before any writer depends on
+      them.
+      **Why a separate store:** sync runs automatically on sign-in
+      (`sync-manager.js:36`), and a stale cached tab or an older device hydrates
+      only known `cRecipe` fields (`app.js:284`) then writes the truncated object
+      back (`recipe-manager.js:1195`). A legacy client would silently strip
+      identity from a record the new client created. It cannot strip a store it
+      does not know exists. This is the only fix that survives a client you do
+      not control, without an operational rule.
 - [ ] **P0.4** — batch record entity and its storage: object store, indexes,
       deletion behaviour, and what happens to batches when a recipe is deleted
       (`app.js:299` currently defines nothing).
@@ -538,7 +550,16 @@ returned by `google-drive-storage.js:79`).
 Both passes were told not to manufacture findings. Pass 2 explicitly stated
 which findings only *appeared* addressed rather than accepting the revision.
 
-**VERDICT:** ENG REVIEW COMPLETE — 8 issues resolved interactively, 22
+*Pass 3* confirmed the Phase 0 order is now **acyclic** — the defect that was
+wrong in both previous revisions is fixed. It found two remaining blocking
+defects, both verified in code: the rename guard was state-dependent and so
+evaluated at the wrong moment, and a legacy client can silently strip identity
+from a new record because sync runs on sign-in and old hydration filters unknown
+fields. Both were closed by amendment rather than by adding sync machinery.
+Codex's verdict moved from *reject* (pass 1) to *revise* (pass 2) to **"start
+P0.1, but amend before P0.3"** (pass 3).
+
+**VERDICT:** ENG REVIEW COMPLETE — 9 issues resolved interactively, 24
 cross-model findings absorbed across two passes, and the plan re-sequenced
 twice. Phase 0 grew from five tasks to seven and its order was corrected. Not
 CLEARED for implementation: Phase 0 must land first, and two decisions remain
