@@ -226,7 +226,7 @@ not exist**, and every downstream feature is blocked on them. Verified in code:
   (`recipe-manager.js:1197`, `:1221`), so edits made after clicking Save can
   leak into the cloud payload while IndexedDB holds the earlier state.
 - **P0.6 — A copy primitive that mints a new identity**, distinct from
-  `copyFrom`. Rename is refused where it would break things; overwrite rejects a
+  `copyFrom`. Rename is refused on any recipe that has been saved; overwrite rejects a
   target carrying a different id.
 - **P0.7 — Print that persists an identified snapshot** rather than printing the
   live DOM. This is what makes the printed page an immutable record *in the app*
