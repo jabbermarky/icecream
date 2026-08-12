@@ -280,16 +280,18 @@ test('round-trip DROPS undeclared fields WITHIN the same schema — by design, p
 
 // --- P0.2: schema version on the record, refusal on newer ---
 
-test('P0.2: saved container and exported envelope both carry SchemaVersion 1', async () => {
+test('P0.2/P0.3: saved container and exported envelope both carry SchemaVersion 2', async () => {
   freshState(makeRecipe('Versioned'));
   await buttons.btnSaveRecipe.onclick();
-  assert.equal(storageCalls[0].data.SchemaVersion, 1);
+  assert.equal(storageCalls[0].data.SchemaVersion, 2);
 
   freshState(makeRecipe('Versioned'));
   buttons.btnExportRecipe.onclick();
   const envelope = JSON.parse(await capturedBlobs[0].text());
-  assert.equal(envelope.version, 1);            // envelope version unchanged —
-  assert.equal(envelope.data.SchemaVersion, 1); // old readers still accept the file
+  assert.equal(envelope.version, 1);            // envelope stays v1 DELIBERATELY
+  // (P0.3 decision 11): the container's own SchemaVersion 2 is the thing
+  // pre-P0.2 builds cannot check, and that population is closed operationally.
+  assert.equal(envelope.data.SchemaVersion, 2);
 });
 
 test('P0.2: a legacy .ier (no SchemaVersion) still loads', async () => {
@@ -316,7 +318,7 @@ test('P0.2 REFUSAL: a newer-schema .ier is rejected before ANY mutation', async 
   const newer = JSON.stringify({
     id: 'IER', version: 1,
     data: {
-      SchemaVersion: 2,
+      SchemaVersion: 3,
       Recipe: { Name: 'From The Future', LineageId: 'abc', Ingredients: [] },
       Ingredients: { Trojan: { Water: 1.0 } },
     },
@@ -325,7 +327,7 @@ test('P0.2 REFUSAL: a newer-schema .ier is rejected before ANY mutation', async 
 
   assert.equal(messages.error.length, 1);
   assert.match(messages.error[0], /newer version/);
-  assert.match(messages.error[0], /schema 2/);
+  assert.match(messages.error[0], /schema 3/);
   assert.equal(currentRecipe, before);                       // current recipe untouched
   assert.equal(messages.info.length, 0);                     // no "loaded" message
   assert.equal('Trojan' in IngredientLibrary, false);        // library untouched

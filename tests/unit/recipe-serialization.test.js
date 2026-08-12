@@ -19,6 +19,9 @@ const {
   invalidContainerMessage,
   containerProblem,
   hydrateRecipe,
+  isValidRecipeId,
+  containerRecipeId,
+  containerIdentityWarning,
 } = await import('../../js/models/recipe-serialization.js');
 
 // Minimal ingredient stand-ins: the builder only needs .copy() and fields.
@@ -228,13 +231,17 @@ test('P0.5 HAZARD: an in-memory build -> hydrate round-trip yields an uneditable
 
 // --- FAIL CLOSED: the SchemaVersion type matrix (review finding, 3 passes) ---
 
-test('a numeric-string SchemaVersion "2" REFUSES as 2 — the bypass that shipped first', () => {
-  const c = { SchemaVersion: '2', Recipe: { Name: 'X', LineageId: 'abc' }, Ingredients: {} };
-  assert.equal(containerSchemaVersion(c), 2);
+test('a numeric-string NEWER SchemaVersion refuses at its numeric value — the bypass that shipped first', () => {
+  // Originally pinned with the literal '2' when the current version was 1; the
+  // fixture is relative now so the rule (numeric strings refuse as numbers,
+  // not hydrate as v1) survives every version bump.
+  const newer = String(RECIPE_SCHEMA_VERSION + 1);
+  const c = { SchemaVersion: newer, Recipe: { Name: 'X', LineageId: 'abc' }, Ingredients: {} };
+  assert.equal(containerSchemaVersion(c), RECIPE_SCHEMA_VERSION + 1);
   assert.equal(isNewerSchema(c), true);
   assert.equal(hydrateRecipe(c), null);
-  assert.match(containerProblem(c), /newer version/); // truthful message, names schema 2
-  assert.match(containerProblem(c), /schema 2/);
+  assert.match(containerProblem(c), /newer version/); // truthful message, names the schema
+  assert.match(containerProblem(c), new RegExp(`schema ${newer}`));
 });
 
 test('a numeric-string SchemaVersion "1" hydrates as v1', () => {
@@ -289,6 +296,110 @@ test('a Recipe carrying an own "hasOwnProperty" key hydrates cleanly (no shadowi
 });
 
 test('the two refusal messages are distinct — corrupted records are not told to update the app', () => {
-  assert.notEqual(invalidContainerMessage(), newerSchemaMessage({ SchemaVersion: 2 }));
+  assert.notEqual(invalidContainerMessage(),
+    newerSchemaMessage({ SchemaVersion: RECIPE_SCHEMA_VERSION + 1 }));
   assert.doesNotMatch(invalidContainerMessage(), /newer version/);
+});
+
+// --- P0.3: identity in the container — RecipeId, SavedAt, and the advisory limit ---
+
+test('P0.3: the schema version is 2 — identity ships behind a version bump', () => {
+  // Absolute on purpose (everything else is relative): the refusal gate is
+  // what protects RecipeId from pre-P0.3 clients, so the bump IS the feature.
+  assert.equal(RECIPE_SCHEMA_VERSION, 2);
+});
+
+test('P0.3: the builder STAMPS a supplied RecipeId and always stamps SavedAt', () => {
+  const before = Date.now();
+  const c = buildRecipeContainer(makeRecipe(), library, () => {},
+    { RecipeId: 'id-mango-v21' });
+  const after = Date.now();
+
+  assert.equal(c.RecipeId, 'id-mango-v21');
+  const t = Date.parse(c.SavedAt);
+  assert.ok(t >= before && t <= after, `SavedAt ${c.SavedAt} is the snapshot moment`);
+  assert.ok(Object.isFrozen(c)); // identity fields are inside the frozen snapshot
+  assert.throws(() => { c.RecipeId = 'clobbered'; }, TypeError);
+});
+
+test('P0.3: no identity supplied → a v2 container WITHOUT a RecipeId key', () => {
+  // Legal, not an error: this is what an unidentified legacy recipe looks like
+  // the instant before the save path mints. {RecipeId: null} means the same.
+  for (const identity of [undefined, null, {}, { RecipeId: null }, { RecipeId: undefined }]) {
+    const c = buildRecipeContainer(makeRecipe(), library, () => {}, identity);
+    assert.equal('RecipeId' in c, false, `identity ${JSON.stringify(identity)} must omit the key`);
+    assert.equal(typeof c.SavedAt, 'string'); // SavedAt is unconditional
+  }
+});
+
+test('P0.3: a GARBAGE supplied RecipeId throws — a programmer error, not a data state', () => {
+  // Minting is the save path's job (crypto.randomUUID()); handing the builder
+  // a non-string or empty id is a bug and must fail at the line that did it.
+  for (const bad of [42, '', '   ', {}, ['x'], true]) {
+    assert.throws(() => buildRecipeContainer(makeRecipe(), library, () => {}, { RecipeId: bad }),
+      TypeError, `RecipeId ${JSON.stringify(bad)} must throw`);
+  }
+});
+
+test('P0.3: containerRecipeId returns a valid id and null for everything else', () => {
+  assert.equal(isValidRecipeId('abc'), true);       // the underlying predicate,
+  assert.equal(isValidRecipeId(''), false);         // exported for the save path
+  assert.equal(isValidRecipeId(42), false);
+  assert.equal(containerRecipeId({ RecipeId: 'abc' }), 'abc');
+  assert.equal(containerRecipeId({ SchemaVersion: 1, RecipeId: 'abc' }), 'abc'); // version-agnostic
+  assert.equal(containerRecipeId({}), null);
+  assert.equal(containerRecipeId({ RecipeId: '' }), null);
+  assert.equal(containerRecipeId({ RecipeId: 42 }), null);
+  assert.equal(containerRecipeId(null), null);
+  assert.equal(containerRecipeId('not an object'), null);
+});
+
+test('P0.3 DECISION 7: a v2 record with a missing id PASSES the fail-closed gate', () => {
+  // The load-bearing pin of the whole warn-and-load decision: the payload is
+  // intact, so the gate must not lock the user out of their own recipe.
+  const stripped = { SchemaVersion: 2, Recipe: { Name: 'Stripped' }, Ingredients: {} };
+  assert.equal(containerProblem(stripped), null);
+  assert.equal(hydrateRecipe(stripped).Name, 'Stripped');
+});
+
+test('P0.3: containerIdentityWarning fires ONLY for a loadable v2+ record with no usable id', () => {
+  // v2, no id → warn (loads anyway; the message says so and names the cost)
+  const w = containerIdentityWarning({ SchemaVersion: 2, Recipe: { Name: 'S' }, Ingredients: {} });
+  assert.match(w, /identity/);
+  assert.match(w, /loaded normally/);
+  assert.match(w, /next time you save/);
+  // v2, garbage id → warn (same treatment as missing)
+  for (const bad of ['', 42, {}]) {
+    assert.ok(containerIdentityWarning(
+      { SchemaVersion: 2, RecipeId: bad, Recipe: { Name: 'S' }, Ingredients: {} }),
+      `garbage id ${JSON.stringify(bad)} must warn`);
+  }
+  // v2 with a valid id → silent
+  assert.equal(containerIdentityWarning(
+    { SchemaVersion: 2, RecipeId: 'abc', Recipe: { Name: 'S' }, Ingredients: {} }), null);
+  // v1/legacy → silent, absence is what pre-identity records look like
+  assert.equal(containerIdentityWarning({ Recipe: { Name: 'Old' }, Ingredients: {} }), null);
+  assert.equal(containerIdentityWarning(
+    { SchemaVersion: 1, Recipe: { Name: 'Old' }, Ingredients: {} }), null);
+  // unloadable → silent: the REFUSAL message owns every unloadable case
+  assert.equal(containerIdentityWarning({ SchemaVersion: 99, Recipe: {}, Ingredients: {} }), null);
+  assert.equal(containerIdentityWarning(null), null);
+});
+
+test('P0.3: hydration NEVER copies identity onto the recipe (container-level by design)', () => {
+  // Identity off cRecipe is what keeps it out of the declared-fields filter
+  // and out of copyFrom's Object.assign — a copy inherits no id by construction.
+  const c = buildRecipeContainer(makeRecipe(), library, () => {}, { RecipeId: 'id-1' });
+  const h = hydrateRecipe(c);
+  assert.equal(Object.prototype.hasOwnProperty.call(h, 'RecipeId'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(h, 'SavedAt'), false);
+});
+
+test('P0.3: identity survives the JSON round-trip both backends use', () => {
+  const c = buildRecipeContainer(makeRecipe(), library, () => {}, { RecipeId: 'id-rt' });
+  const back = JSON.parse(JSON.stringify(c));
+  assert.equal(containerRecipeId(back), 'id-rt');
+  assert.equal(back.SavedAt, c.SavedAt);
+  assert.equal(containerProblem(back), null);
+  assert.equal(containerIdentityWarning(back), null);
 });

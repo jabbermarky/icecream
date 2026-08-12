@@ -24,10 +24,24 @@
 //
 // Records written before this module carry no SchemaVersion; they are v1 by
 // definition and hydrate normally.
+//
+// VERSION HISTORY
+//   v1 — {SchemaVersion?, Recipe, Ingredients}. Absence of SchemaVersion IS v1.
+//   v2 (P0.3) — adds container-level identity: RecipeId (minted by the SAVE
+//     path, never by this module and never on load) and SavedAt (author-time
+//     clock stamped at snapshot time, because both storage backends re-stamp
+//     updatedAt at WRITE time and Drive's LWW compares file modifiedTime, so
+//     the storage clock lies about which edit is newer).
+//
+// Identity is deliberately NOT validated by containerProblem: a v2 record
+// whose RecipeId was stripped (a pre-P0.2 client rewrote it) still has an
+// intact payload, and refusing it would lock the user out of their own recipe
+// over damage that is not their fault. Identity problems are ADVISORY —
+// containerIdentityWarning below — and the record re-mints on its next save.
 
 import { cRecipe } from './core.js';
 
-export const RECIPE_SCHEMA_VERSION = 1;
+export const RECIPE_SCHEMA_VERSION = 2;
 
 /**
  * Freeze a PLAIN-object/array graph in place, cycle-safe.
@@ -96,17 +110,40 @@ function deepFreeze(value) {
  * instead. Callers must catch and report — an uncaught throw here reaches the
  * user as Save doing nothing at all.
  *
+ * IDENTITY (P0.3). The builder STAMPS identity; it never mints it. Minting
+ * policy lives in the save path (mint on save only — never on load, never on
+ * a startup scan — so an id is born exactly once, on one device, inside the
+ * record itself, and sync carries it everywhere). The rules here:
+ *   - identity omitted/null            → v2 container WITHOUT RecipeId. Legal:
+ *     that is what an unidentified legacy recipe's first save looks like the
+ *     moment before the save path mints. Readers warn (containerIdentityWarning)
+ *     but load.
+ *   - identity.RecipeId null/undefined → same as omitted (caller has none).
+ *   - identity.RecipeId invalid        → TypeError. A garbage id is a
+ *     programmer error, not a data state; fail at the line that did it.
+ * SavedAt is stamped unconditionally: it is the author-time clock the sync
+ * merge needs, because updatedAt is re-stamped by every backend at write time.
+ *
  * @param {cRecipe} recipe - The recipe to serialize
  * @param {Object} ingredientLibrary - Name → cIngredient map
  * @param {Function} warn - Called with a message per ingredient missing from the library
+ * @param {?{RecipeId: ?string}} [identity] - The record's identity, if it has one
  * @returns {Object} The frozen, detached container
  */
-export function buildRecipeContainer(recipe, ingredientLibrary, warn) {
+export function buildRecipeContainer(recipe, ingredientLibrary, warn, identity) {
     const container = {
         SchemaVersion: RECIPE_SCHEMA_VERSION,
+        SavedAt: new Date().toISOString(),
         Recipe: recipe,
         Ingredients: {}
     };
+    if (identity !== undefined && identity !== null &&
+        identity.RecipeId !== undefined && identity.RecipeId !== null) {
+        if (!isValidRecipeId(identity.RecipeId))
+            throw new TypeError("buildRecipeContainer: invalid RecipeId " +
+                JSON.stringify(identity.RecipeId) + " — mint with crypto.randomUUID()");
+        container.RecipeId = identity.RecipeId;
+    }
     for (const ingredient of recipe.Ingredients)
         if (Object.prototype.hasOwnProperty.call(ingredientLibrary, ingredient.Name)) {
             container.Ingredients[ingredient.Name] = ingredientLibrary[ingredient.Name].copy();
@@ -212,7 +249,60 @@ export function containerProblem(container) {
     const ing = container.Ingredients;
     if (ing !== undefined && ing !== null &&
         (typeof ing !== 'object' || Array.isArray(ing))) return invalidContainerMessage();
+    // RecipeId is DELIBERATELY not checked here (P0.3 review, decision 7): a
+    // v2 record with a stripped id has an intact payload, and this gate
+    // refusing it would lock the user out with no repair path. Identity is
+    // advisory — see containerIdentityWarning.
     return null;
+}
+
+// --- Identity (P0.3) — advisory, OUTSIDE the fail-closed gate above ---
+
+/**
+ * Whether a value is a usable RecipeId: a non-empty string. Deliberately
+ * looser than "a UUID" — hand-authored .ier files are legal input, and the
+ * only property the system relies on is stable non-empty string equality.
+ * @param {*} v
+ * @returns {boolean}
+ */
+export function isValidRecipeId(v) {
+    return typeof v === 'string' && v.trim() !== '';
+}
+
+/**
+ * The container's RecipeId, or null when it has none worth trusting.
+ * Version-agnostic on purpose: a valid id is returned even off a v1-shaped
+ * container (hand-made files exist), and garbage is null everywhere.
+ * @param {Object} container
+ * @returns {string|null}
+ */
+export function containerRecipeId(container) {
+    if (!container || typeof container !== 'object') return null;
+    return isValidRecipeId(container.RecipeId) ? container.RecipeId : null;
+}
+
+/**
+ * ADVISORY identity warning — or null when there is nothing to say.
+ *
+ * Non-null only for a container that (a) passes the fail-closed gate, so the
+ * refusal messages own every unloadable case, and (b) claims a schema that
+ * includes identity (v2+), and (c) carries no usable RecipeId. A v1/legacy
+ * container never warns: absence is what pre-identity records look like.
+ *
+ * Callers SHOW this and LOAD ANYWAY (decision 7). The record re-mints on its
+ * next save; any restore affordance must be a user-confirmed action through
+ * the normal save path, never a write triggered from load.
+ * @param {Object} container
+ * @returns {string|null}
+ */
+export function containerIdentityWarning(container) {
+    if (containerProblem(container)) return null;
+    if (containerSchemaVersion(container) < 2) return null;
+    if (containerRecipeId(container)) return null;
+    return "This recipe record should carry an identity but does not — an " +
+        "older version of Ice Ed may have rewritten it. It was loaded " +
+        "normally and will receive a new identity the next time you save; " +
+        "any batch history linked to its old identity will not follow.";
 }
 
 /**

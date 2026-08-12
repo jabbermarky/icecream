@@ -125,7 +125,7 @@ test('REFUSAL: a newer-schema record is rejected BEFORE importIngredients and be
   // the ordering regression. Same fixture shape as the .ier test.
   const { state, load } = harness({
     record: libraryRecord({
-      SchemaVersion: 2,
+      SchemaVersion: 3,
       Recipe: { Name: 'From The Future', LineageId: 'abc', Ingredients: [] },
       Ingredients: { Trojan: { Water: 1.0 } },
     }),
@@ -136,7 +136,7 @@ test('REFUSAL: a newer-schema record is rejected BEFORE importIngredients and be
 
   assert.equal(state.error.length, 1);
   assert.match(state.error[0], /newer version/);
-  assert.match(state.error[0], /schema 2/);
+  assert.match(state.error[0], /schema 3/);
   assert.equal(state.imports.length, 0);      // library untouched — the ordering pin
   assert.equal(state.recipe, before);         // open recipe untouched
   assert.equal(state.displayed, 0);
@@ -144,15 +144,15 @@ test('REFUSAL: a newer-schema record is rejected BEFORE importIngredients and be
   assert.equal(state.modifiedCalls.length, 0);
 });
 
-test('REFUSAL: a numeric-string SchemaVersion "2" refuses here too (the fail-closed bypass)', async () => {
+test('REFUSAL: a numeric-string SchemaVersion "3" refuses here too (the fail-closed bypass)', async () => {
   const { state, load } = harness({
-    record: libraryRecord({ SchemaVersion: '2', Recipe: { Name: 'Stringly Future' }, Ingredients: {} }),
+    record: libraryRecord({ SchemaVersion: '3', Recipe: { Name: 'Stringly Future' }, Ingredients: {} }),
   });
   await load('Stringly Future');
   state.restoreConsole();
 
   assert.equal(state.error.length, 1);
-  assert.match(state.error[0], /schema 2/);
+  assert.match(state.error[0], /schema 3/);
   assert.equal(state.imports.length, 0);
 });
 
