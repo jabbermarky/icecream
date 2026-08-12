@@ -1,0 +1,5 @@
+{"skill":"plan-eng-review","timestamp":"2026-08-12T13:00:43Z","status":"issues_open","issues_found":7,"resolved":7,"critical_gaps":2,"unresolved":2,"mode":"FULL_REVIEW","commit":"108a69a"}
+{"skill":"codex-plan-review","timestamp":"2026-08-12T13:00:43Z","status":"issues_found","findings":11,"verdict":"reject","commit":"108a69a"}
+{"skill":"codex-plan-review","timestamp":"2026-08-12T13:13:06Z","status":"issues_found","findings":11,"pass":2,"verdict":"revise","commit":"a76bebf"}
+{"skill":"codex-plan-review","timestamp":"2026-08-12T13:22:19Z","status":"issues_found","findings":2,"pass":3,"verdict":"start_p0.1_amend_before_p0.3","commit":"c26cfe1"}
+{"skill":"codex-plan-review","timestamp":"2026-08-12T13:29:17Z","status":"issues_found","findings":3,"pass":4,"verdict":"start_p0.1_p0.3_needs_design","commit":"6c9dfb3"}

@@ -118,10 +118,34 @@ if [ -d "$GS_SRC" ]; then
       cp "$GS_SRC/$f" "$GS_DST/$f" 2>/dev/null && restored=$((restored + 1))
     fi
   done
-  if [ -f "$GS_SRC/eng-review-test-plan.md" ] && \
-     ! ls "$GS_DST"/*eng-review-test-plan*.md >/dev/null 2>&1; then
-    cp "$GS_SRC/eng-review-test-plan.md" "$GS_DST/eng-review-test-plan.md" 2>/dev/null &&
-      restored=$((restored + 1))
+  # Markdown artifacts (test plans). gstack writes these with a generated
+  # prefix that encodes user and branch, so the mirrored name and the name a
+  # fresh container would pick rarely match. Restore under the mirrored name --
+  # /qa and /ship glob for these by suffix, not by exact filename.
+  for f in "$GS_SRC"/*.md; do
+    [ -f "$f" ] || continue
+    base=$(basename "$f")
+    [ "$base" = "README.md" ] && continue
+    if [ "$base" = "eng-review-test-plan.md" ] &&
+       ls "$GS_DST"/*eng-review-test-plan*.md >/dev/null 2>&1; then
+      continue
+    fi
+    if [ ! -f "$GS_DST/$base" ]; then
+      cp "$f" "$GS_DST/$base" 2>/dev/null && restored=$((restored + 1))
+    fi
+  done
+  # Review logs. These are what /ship's readiness dashboard reads, so losing
+  # them makes a fresh session believe nothing has ever been reviewed. Filenames
+  # are branch-derived and gstack's own naming is inconsistent for branches
+  # containing a slash, so restore whatever names are present rather than
+  # guessing one.
+  if [ -d "$GS_SRC/reviews" ]; then
+    for f in "$GS_SRC"/reviews/*.jsonl; do
+      [ -f "$f" ] || continue
+      if [ ! -f "$GS_DST/$(basename "$f")" ]; then
+        cp "$f" "$GS_DST/$(basename "$f")" 2>/dev/null && restored=$((restored + 1))
+      fi
+    done
   fi
   echo "[session-start] gstack memory: $restored file(s) restored"
 fi
