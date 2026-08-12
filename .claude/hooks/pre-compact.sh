@@ -116,7 +116,8 @@ for d in rows[:6]:
   done
 
   echo
-  echo "Delete \`.claude/.recovery-digest\` once you have read it."
+  echo "(This digest is injected once by the SessionStart briefing hook, which"
+  echo "consumes the file automatically -- no cleanup needed.)"
 } > "$DIGEST" 2>/dev/null || true
 
 # --- 3. mirror and push ----------------------------------------------------

@@ -118,6 +118,28 @@ if [ -d "$GS_SRC" ]; then
       cp "$GS_SRC/$f" "$GS_DST/$f" 2>/dev/null && restored=$((restored + 1))
     fi
   done
+  # decisions.archive.jsonl is append-only and must MERGE, not copy-if-absent.
+  # This restore is async, so a decision compaction can run before it gets here
+  # and create a local archive holding only newly superseded entries. Under
+  # copy-if-absent that local file would win, and the next mirror would
+  # overwrite the durable history with it -- compaction becoming the way the
+  # record it exists to keep gets lost. Union with exact-line dedupe is safe
+  # because entries are self-contained JSON events; mirrored (older) lines
+  # stay first.
+  if [ -f "$GS_SRC/decisions.archive.jsonl" ]; then
+    if [ ! -f "$GS_DST/decisions.archive.jsonl" ]; then
+      cp "$GS_SRC/decisions.archive.jsonl" "$GS_DST/decisions.archive.jsonl" 2>/dev/null &&
+        restored=$((restored + 1))
+    else
+      _amerge="$GS_DST/.decisions.archive.merge.$$"
+      if awk '!seen[$0]++' "$GS_SRC/decisions.archive.jsonl" \
+             "$GS_DST/decisions.archive.jsonl" > "$_amerge" 2>/dev/null &&
+         mv -f "$_amerge" "$GS_DST/decisions.archive.jsonl" 2>/dev/null; then
+        restored=$((restored + 1))
+      fi
+      rm -f "$_amerge" 2>/dev/null
+    fi
+  fi
   # Markdown artifacts (test plans). gstack writes these with a generated
   # prefix that encodes user and branch, so the mirrored name and the name a
   # fresh container would pick rarely match. Restore under the mirrored name --

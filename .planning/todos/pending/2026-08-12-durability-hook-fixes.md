@@ -20,11 +20,11 @@ context — meaning a session clear would have destroyed the defect list for the
 system built to survive session clears. The review-log entry is a one-liner;
 this is the actionable list.
 
-**None of these are fixed yet.** Status below is as of commit `6d1850e`.
+**Status: batch one (items 1–3) FIXED 2026-08-12 and verified; the rest open.**
 
-## Confirmed by direct verification (fix first)
+## Confirmed by direct verification — FIXED (batch one)
 
-1. **`decisions.archive.jsonl` is mirrored but never restored.** CRITICAL.
+1. **FIXED — `decisions.archive.jsonl` is mirrored but never restored.** CRITICAL.
    `session-start.sh:115` restore list lacks it; `mirror-memory.sh:76` mirror
    list has it. Damage path: fresh container → no archive → next compaction
    creates a new archive holding only newly-superseded entries → mirror
@@ -33,16 +33,24 @@ this is the actionable list.
    one container-recycle later. Fix: add to the restore list — and because it is
    append-only, restore should MERGE (or at least never shrink), not
    copy-if-absent.
+   *Fixed as a union merge (exact-line dedupe, older lines first) in BOTH
+   directions, so neither the async-restore race nor a fresh-container
+   compaction can shrink either copy. Verified both directions plus
+   idempotence.*
 
-2. **Nothing ever deletes `.claude/.recovery-digest`.** MEDIUM alone, HIGH in
+2. **FIXED — Nothing ever deletes `.claude/.recovery-digest`.** MEDIUM alone, HIGH in
    effect. The prose asks the model to delete it; nothing enforces it. A stale
    digest is re-injected on every subsequent SessionStart, and
    `session-briefing.sh:67` gates the settled-decisions block on the digest
    being ABSENT — so one unread digest suppresses decisions from context
    indefinitely. Fix: the briefing hook consumes it (read, then `mv` to
    `.recovery-digest.read` or delete) so injection happens exactly once.
+   *Fixed: content captured to a variable, file moved to `.read` before
+   emission (one-shot even if the hook dies mid-emit), decisions gated on the
+   captured content instead of file absence. Verified over two runs; gitignore
+   widened to `.recovery-digest*`.*
 
-3. **A failed commit wedges the mirror permanently.** (Fresh finding, verified
+3. **FIXED — A failed commit wedges the mirror permanently.** (Fresh finding, verified
    in a scratch repo.) If `git add` succeeds and `git commit` fails (kill,
    identity change, lock), the next run's change-check —
    `git diff --quiet -- $MIRROR` (worktree↔index) plus an untracked check —
@@ -50,6 +58,9 @@ this is the actionable list.
    is then never committed by the hook and rides silently into the user's next
    manual commit. Fix: also compare index↔HEAD
    (`git diff --cached --quiet -- "$MIRROR"`) in the change-check.
+   *Fixed exactly so. Verified: a pre-staged mirror edit now commits on the
+   next run, with an unrelated staged file left staged and untouched. The
+   false "leaves the index alone" header comment corrected at the same time.*
 
 ## From the codex review, real but not yet independently re-verified
 

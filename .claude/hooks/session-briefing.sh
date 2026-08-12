@@ -39,13 +39,27 @@ DIGEST=".claude/.recovery-digest"
 BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 HEAD_LINE=$(git log -1 --format='%h %s' 2>/dev/null || echo "unknown")
 
+# Consume the digest BEFORE emitting anything. PreCompact writes it; this hook
+# is its only reader, and it must be injected exactly once. Nothing else ever
+# deletes it, and asking the model to (the first design) fails open: a digest
+# that lingered would be re-injected on every later SessionStart AND would
+# suppress the settled-decisions section below, which used to gate on the
+# file's absence. Moved aside rather than deleted so it stays inspectable;
+# .claude/.recovery-digest* is gitignored. Consuming up front also keeps the
+# one-shot property even if this hook dies mid-emit.
+DIGEST_CONTENT=""
+if [ -f "$DIGEST" ]; then
+  DIGEST_CONTENT=$(cat "$DIGEST" 2>/dev/null) || DIGEST_CONTENT=""
+  mv -f "$DIGEST" "$DIGEST.read" 2>/dev/null || rm -f "$DIGEST" 2>/dev/null
+fi
+
 {
-  # The digest goes FIRST when it exists. It is only ever present on the far
-  # side of a compaction, and on that path it is the more urgent of the two:
-  # STATE.md is still true and still readable, but the half-finished edit the
-  # summarizer just dropped is not recoverable from anywhere else.
-  if [ -f "$DIGEST" ]; then
-    cat "$DIGEST"
+  # The digest goes FIRST when present. It only exists on the far side of a
+  # compaction, and on that path it is the more urgent of the two: STATE.md is
+  # still true and still readable, but the half-finished edit the summarizer
+  # just dropped is not recoverable from anywhere else.
+  if [ -n "$DIGEST_CONTENT" ]; then
+    printf '%s\n' "$DIGEST_CONTENT"
     echo
     echo "---"
     echo
@@ -60,11 +74,14 @@ HEAD_LINE=$(git log -1 --format='%h %s' 2>/dev/null || echo "unknown")
   sed -n '/<!-- BRIEFING:START -->/,/<!-- BRIEFING:END -->/p' "$STATE" |
     sed '/<!-- BRIEFING:\(START\|END\) -->/d'
 
-  # Settled decisions, when the digest has not already listed them. Read from
-  # the committed mirror in preference to ~/.gstack: on a cold container the
-  # async restore hook has not run yet, so ~/.gstack may not exist, while the
-  # mirror is in the repository and therefore always present.
-  if [ ! -f "$DIGEST" ]; then
+  # Settled decisions, when the digest has not already listed them. Gated on
+  # the CONTENT captured this run, not on the file: the file is already
+  # consumed by now, and gating on its absence was the bug that let one stale
+  # digest suppress decisions indefinitely. Read from the committed mirror in
+  # preference to ~/.gstack: on a cold container the async restore hook has
+  # not run yet, so ~/.gstack may not exist, while the mirror is in the
+  # repository and therefore always present.
+  if [ -z "$DIGEST_CONTENT" ]; then
     # Fall through on an empty source as well as a missing one: ~/.gstack is
     # restored asynchronously, so it can exist while still unpopulated.
     for src in ".planning/gstack-memory/decisions.active.json" \

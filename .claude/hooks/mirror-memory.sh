@@ -20,11 +20,13 @@
 #   SessionEnd  -- mirror, commit and push, on /clear and friends
 #
 # SAFETY: every git operation here is pathspec-limited to the mirror directory.
-# `git commit -- <paths>` takes those paths from the working tree and leaves the
-# index alone, so a turn's in-progress staged work is never swept into an
-# automatic commit. If anything is unusual -- detached HEAD, a merge or rebase
-# in progress, no identity configured -- this does nothing and exits 0. A memory
-# mirror must never be the reason a turn fails or a bisect gets confused.
+# The hook DOES touch the index -- `git add -- <mirror>` stages the mirror paths
+# -- but the pathspec-limited commit takes only those paths, so other staged
+# work is never swept into an automatic commit (verified: unrelated staged files
+# stay staged, untouched). If anything is unusual -- detached HEAD, a merge or
+# rebase in progress, no identity configured -- this does nothing and exits 0.
+# A memory mirror must never be the reason a turn fails or a bisect gets
+# confused.
 
 set -uo pipefail
 
@@ -68,15 +70,30 @@ copy_if_sane() {
   cp "$src" "$dst" 2>/dev/null || true
 }
 
-# decisions.archive.jsonl is where compaction moves superseded decisions. It
-# only comes into existence the first time --compact runs, and it is the ONLY
-# copy of that history once the active log is rewritten -- so it has to be
-# mirrored or compaction becomes a way to lose the record it exists to keep.
 for f in learnings.jsonl decisions.jsonl decisions.active.json \
-         decisions.archive.jsonl \
          question-log.jsonl timeline.jsonl tasks-eng-review.jsonl; do
   copy_if_sane "$GS/$f" "$MIRROR/$f"
 done
+
+# decisions.archive.jsonl is where compaction moves superseded decisions -- the
+# ONLY copy of that history once the active log is rewritten. It is append-only,
+# so it is MERGED rather than copied: if a compaction ran in this container
+# before the async restore delivered the old archive, the live file holds only
+# newly superseded entries, and a plain copy would shrink the mirror's history
+# to just those. Union with exact-line dedupe; mirrored (older) lines first.
+if [ -f "$GS/decisions.archive.jsonl" ]; then
+  if [ -s "$MIRROR/decisions.archive.jsonl" ]; then
+    _amerge="$MIRROR/.decisions.archive.merge.$$"
+    if awk '!seen[$0]++' "$MIRROR/decisions.archive.jsonl" \
+           "$GS/decisions.archive.jsonl" > "$_amerge" 2>/dev/null; then
+      mv -f "$_amerge" "$MIRROR/decisions.archive.jsonl" 2>/dev/null || rm -f "$_amerge"
+    else
+      rm -f "$_amerge" 2>/dev/null
+    fi
+  else
+    copy_if_sane "$GS/decisions.archive.jsonl" "$MIRROR/decisions.archive.jsonl"
+  fi
+fi
 
 # Review logs: gstack derives the filename from the branch and mangles a slash
 # inconsistently, so mirror whatever names exist rather than guessing one.
@@ -104,7 +121,13 @@ done
 git config user.email >/dev/null 2>&1 || exit 0
 
 # Nothing changed is the common case -- most turns produce no new learnings.
+# Three checks, and the --cached one is load-bearing: if a previous run staged
+# the mirror and was killed before committing, worktree==index, so the plain
+# diff alone would report "no change" on every subsequent turn and the staged
+# edit would never be committed -- wedged until it rode into someone's manual
+# commit. Verified, not hypothetical.
 if git diff --quiet -- "$MIRROR" && \
+   git diff --cached --quiet -- "$MIRROR" && \
    [ -z "$(git ls-files --others --exclude-standard -- "$MIRROR")" ]; then
   exit 0
 fi
