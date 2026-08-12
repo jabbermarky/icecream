@@ -68,3 +68,13 @@ test('Amount setter scales every ingredient proportionally, rounding per-ingredi
   assert.equal(r.Ingredients[0].Amount, 1000);
   assert.equal(r.Ingredients[1].Amount, 240);
 });
+
+test('Amount setter on a zero-total recipe produces NaN amounts (pinned boundary)', () => {
+  // factor = target / 0 → Infinity; 0 * Infinity → NaN. Pinned before Phase 0
+  // refactors touch this class, so the divide-by-zero boundary is a recorded
+  // fact rather than a surprise.
+  const r = new cRecipe('Empty');
+  r.addIngredient('Milk', 0);
+  r.Amount = 1000;
+  assert.ok(Number.isNaN(r.Ingredients[0].Amount));
+});

@@ -145,3 +145,19 @@ independently verified regardless.**
   mirror; archive must not shrink.
 - Then a codex re-review pass, because two fixes this session introduced the
   bug the next pass found.
+
+## Follow-up from the P0.1+P0.2 code review (2026-08-12, /review)
+
+16. **OPEN — app.js library-load path has zero test coverage.** One of P0.2's
+    four paths, and the one the refusal rule primarily protects (stale-tab
+    save-back). The shared module logic is tested; the thin onLoad wiring is
+    not — a regression that drops or reorders the containerProblem gate there
+    ships undetected. Fix: extract the onLoad callback into an exported,
+    injectable function and drive it with the tests/unit stub harness,
+    mirroring the .ier tests (refused-before-importIngredients, legacy loads,
+    damaged record message, .catch path). Deferred by maintainer decision
+    during the review; do alongside P0.5, which touches the same paths.
+17. **OPEN — stub FileReader is synchronous and cannot model onerror.**
+    Documented in dom-stub.js. Remodel with queueMicrotask + a flushReads
+    helper if the lane ever needs read-failure or async-ordering coverage.
+    Low priority; the Playwright suite owns those paths today.

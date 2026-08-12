@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node test-app.js",
-    "test:unit": "node --test tests/unit/*.test.js",
+    "test:unit": "node --test \"tests/unit/*.test.js\"",
     "start": "python3 -m http.server 8080"
   },
   "keywords": [

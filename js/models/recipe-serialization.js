@@ -50,7 +50,7 @@ export function buildRecipeContainer(recipe, ingredientLibrary, warn) {
         Ingredients: {}
     };
     for (const ingredient of recipe.Ingredients)
-        if (ingredientLibrary.hasOwnProperty(ingredient.Name)) {
+        if (Object.prototype.hasOwnProperty.call(ingredientLibrary, ingredient.Name)) {
             container.Ingredients[ingredient.Name] = ingredientLibrary[ingredient.Name].copy();
             for (const key in container.Ingredients[ingredient.Name])
                 if (container.Ingredients[ingredient.Name][key] == 0.0)
@@ -61,14 +61,32 @@ export function buildRecipeContainer(recipe, ingredientLibrary, warn) {
 }
 
 /**
- * The schema version a container claims. Absent means v1: every record written
- * before SchemaVersion existed has exactly the v1 shape.
+ * The schema version a container claims.
+ *
+ * FAIL CLOSED on garbage (review finding, confirmed by three independent
+ * passes): the first version of this function mapped every non-number to 1,
+ * so a record carrying SchemaVersion "2" (string) bypassed the refusal rule
+ * and was silently truncated — the exact loss this module exists to prevent.
+ * String versions are a realistic shape here: the .ier envelope check is
+ * loose-equality and its tests deliberately pin that "1" is accepted.
+ *
+ * The rules, in order:
+ *  - ABSENT (or null): v1. Every record written before SchemaVersion existed
+ *    has exactly the v1 shape — absence is what legacy looks like.
+ *  - A number or numeric string: its numeric value ("2" is a newer writer
+ *    that happened to stringify, and must refuse as 2, not hydrate as 1).
+ *  - Anything else (true, NaN, '', objects): Infinity — present-but-garbage
+ *    is corruption, not legacy, and corruption refuses.
  * @param {Object} container
  * @returns {number}
  */
 export function containerSchemaVersion(container) {
     const v = container ? container.SchemaVersion : undefined;
-    return typeof v === 'number' ? v : 1;
+    if (v === undefined || v === null) return 1;
+    if (typeof v !== 'number' && typeof v !== 'string') return Infinity;
+    if (typeof v === 'string' && v.trim() === '') return Infinity;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : Infinity;
 }
 
 /**
@@ -82,8 +100,7 @@ export function isNewerSchema(container) {
 }
 
 /**
- * The user-facing refusal message, shared by every caller so the load paths
- * cannot drift apart in what they tell the user.
+ * The user-facing refusal message for a genuinely newer schema.
  * @param {Object} container
  * @returns {string}
  */
@@ -95,6 +112,40 @@ export function newerSchemaMessage(container) {
 }
 
 /**
+ * The user-facing refusal message for a damaged or unrecognizable record.
+ * Distinct from newerSchemaMessage on purpose: telling a user with a
+ * corrupted file to "update the app" would be a lie (review finding — the
+ * null return was overloaded and every caller assumed newer-schema).
+ * @returns {string}
+ */
+export function invalidContainerMessage() {
+    return "This recipe record is damaged or has an unrecognized shape, so it " +
+        "was not loaded. The stored copy was left untouched.";
+}
+
+/**
+ * Why a container cannot be hydrated, as a user-facing message — or null when
+ * it can. THE one refusal gate, shared by every load path, so refusals are
+ * identical everywhere and each cause gets a truthful message:
+ *   - garbage SchemaVersion (true, NaN, "")  → damaged-record message
+ *   - genuinely newer schema                 → update-the-app message
+ *   - Recipe missing / null / not an object → damaged-record message
+ * Callers run this BEFORE any mutation (backup, importIngredients) and stop
+ * on non-null.
+ * @param {Object} container
+ * @returns {string|null}
+ */
+export function containerProblem(container) {
+    if (!container || typeof container !== 'object') return invalidContainerMessage();
+    const v = containerSchemaVersion(container);
+    if (!Number.isFinite(v)) return invalidContainerMessage();
+    if (v > RECIPE_SCHEMA_VERSION) return newerSchemaMessage(container);
+    const r = container.Recipe;
+    if (!r || typeof r !== 'object' || Array.isArray(r)) return invalidContainerMessage();
+    return null;
+}
+
+/**
  * Hydrate a fresh cRecipe from a container. Copies exactly the fields the
  * current cRecipe declares — the same declared-fields filter the two previous
  * inline loops applied, now in one place.
@@ -103,15 +154,25 @@ export function newerSchemaMessage(container) {
  * above). Callers must treat null as "do not touch the current recipe and do
  * not write anything": show newerSchemaMessage() and stop.
  *
+ * NOTE: Ingredients is copied by REFERENCE from the container. Every current
+ * caller hydrates from parsed JSON or an IndexedDB structured clone, so the
+ * container is already a private copy — but an in-memory build→hydrate
+ * round-trip (a future undo or duplicate feature) would share the live
+ * Ingredients array between container and recipe. Copy it if that ever
+ * becomes a call pattern.
+ *
  * @param {Object} container - A {SchemaVersion?, Recipe, Ingredients} container
- * @param {Object} defaults - Optional cRecipe constructor defaults
  * @returns {cRecipe|null}
  */
-export function hydrateRecipe(container, defaults = {}) {
-    if (isNewerSchema(container)) return null;
-    const recipe = new cRecipe("", "", defaults);
+export function hydrateRecipe(container) {
+    if (containerProblem(container)) return null;
+    const recipe = new cRecipe("");
+    // hasOwnProperty via the prototype, not the instance: JSON happily creates
+    // an own key literally named "hasOwnProperty", which would shadow the
+    // method and throw mid-hydration (red-team finding — survives any fix
+    // that merely type-checks Recipe as an object).
     for (const key in recipe)
-        if (container.Recipe.hasOwnProperty(key))
+        if (Object.prototype.hasOwnProperty.call(container.Recipe, key))
             recipe[key] = container.Recipe[key];
     return recipe;
 }

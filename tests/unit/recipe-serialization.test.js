@@ -16,6 +16,8 @@ const {
   containerSchemaVersion,
   isNewerSchema,
   newerSchemaMessage,
+  invalidContainerMessage,
+  containerProblem,
   hydrateRecipe,
 } = await import('../../js/models/recipe-serialization.js');
 
@@ -113,4 +115,71 @@ test('REFUSAL: a newer schema hydrates to null, never to a truncated recipe', ()
     Ingredients: {},
   };
   assert.equal(hydrateRecipe(c), null);
+});
+
+// --- FAIL CLOSED: the SchemaVersion type matrix (review finding, 3 passes) ---
+
+test('a numeric-string SchemaVersion "2" REFUSES as 2 — the bypass that shipped first', () => {
+  const c = { SchemaVersion: '2', Recipe: { Name: 'X', LineageId: 'abc' }, Ingredients: {} };
+  assert.equal(containerSchemaVersion(c), 2);
+  assert.equal(isNewerSchema(c), true);
+  assert.equal(hydrateRecipe(c), null);
+  assert.match(containerProblem(c), /newer version/); // truthful message, names schema 2
+  assert.match(containerProblem(c), /schema 2/);
+});
+
+test('a numeric-string SchemaVersion "1" hydrates as v1', () => {
+  const c = { SchemaVersion: '1', Recipe: { Name: 'Stringly' }, Ingredients: {} };
+  assert.equal(containerSchemaVersion(c), 1);
+  assert.equal(hydrateRecipe(c).Name, 'Stringly');
+});
+
+test('garbage SchemaVersion (true, NaN, "", {}) refuses as DAMAGED, not as "newer"', () => {
+  for (const garbage of [true, NaN, '', '  ', {}]) {
+    const c = { SchemaVersion: garbage, Recipe: { Name: 'X' }, Ingredients: {} };
+    assert.equal(hydrateRecipe(c), null, `SchemaVersion ${String(garbage)} must refuse`);
+    assert.equal(containerProblem(c), invalidContainerMessage(),
+      `SchemaVersion ${String(garbage)} must get the damaged-record message, not update-the-app`);
+  }
+});
+
+test('SchemaVersion null is treated as absent — legacy v1', () => {
+  const c = { SchemaVersion: null, Recipe: { Name: 'Nullv' }, Ingredients: {} };
+  assert.equal(containerSchemaVersion(c), 1);
+  assert.equal(hydrateRecipe(c).Name, 'Nullv');
+});
+
+// --- Shape validation (review finding, 4 passes incl. red team) ---
+
+test('malformed containers return null, never throw and never hydrate blank', () => {
+  // Each of these previously threw a TypeError mid-load or silently produced
+  // an empty cRecipe over the user's open recipe.
+  for (const bad of [
+    {},                                          // data:{} passes parseRecipeFile today
+    { Ingredients: {} },                         // Recipe missing
+    { Recipe: null, Ingredients: {} },
+    { Recipe: 'garbage', Ingredients: {} },      // primitive → hydrated BLANK before
+    { Recipe: [1, 2, 3], Ingredients: {} },      // array → hydrated BLANK before
+    null,
+    undefined,
+    'not even an object',
+  ]) {
+    assert.equal(hydrateRecipe(bad), null, `must refuse: ${JSON.stringify(bad)}`);
+    assert.equal(containerProblem(bad), invalidContainerMessage());
+  }
+});
+
+test('a Recipe carrying an own "hasOwnProperty" key hydrates cleanly (no shadowing crash)', () => {
+  const c = {
+    Recipe: JSON.parse('{"Name":"Shadowed","hasOwnProperty":1}'),
+    Ingredients: {},
+  };
+  const h = hydrateRecipe(c);
+  assert.equal(h.Name, 'Shadowed');
+  assert.equal(h.hasOwnProperty, Object.prototype.hasOwnProperty); // not copied — undeclared
+});
+
+test('the two refusal messages are distinct — corrupted records are not told to update the app', () => {
+  assert.notEqual(invalidContainerMessage(), newerSchemaMessage({ SchemaVersion: 2 }));
+  assert.doesNotMatch(invalidContainerMessage(), /newer version/);
 });

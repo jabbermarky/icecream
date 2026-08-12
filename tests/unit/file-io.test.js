@@ -1,5 +1,7 @@
-// Characterization tests for js/utils/file-io.js — pins CURRENT behaviour
-// of the .ier/.iei file envelope before the P0.2 versioned serializer lands.
+// Characterization tests for js/utils/file-io.js — pins the .ier/.iei file
+// ENVELOPE behaviour the P0.2 serializer relies on. The envelope ({id,
+// version, data}) is the file wrapper and is deliberately separate from the
+// container's SchemaVersion (js/models/recipe-serialization.js).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

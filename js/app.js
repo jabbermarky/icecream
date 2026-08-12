@@ -33,7 +33,7 @@
         import { showRecipeLibrary } from './ui/recipe-library.js';
         import { initTools, initPACPODCalculator, initGMolCalculator, initYolkCalculator, Sugars, eggTypes, cEgg } from './utils/tools.js';
         import { initModels, Targets, cRecipe } from './models/core.js';
-        import { hydrateRecipe, isNewerSchema, newerSchemaMessage } from './models/recipe-serialization.js';
+        import { hydrateRecipe, containerProblem, invalidContainerMessage } from './models/recipe-serialization.js';
         import {
             initRecipeManager,
             initRecipeButtons,
@@ -273,12 +273,14 @@
                 onLoad: (name) => {
                     recipeStorage.loadRecipe(name).then(data => {
                         if (data) {
-                            // Refuse a newer schema BEFORE any mutation — a
+                            // The one refusal gate, BEFORE any mutation — a
                             // stale tab hydrating a newer record and saving it
-                            // back is the silent-truncation path P0.2 closes.
+                            // back is the silent-truncation path P0.2 closes;
+                            // a damaged record would crash or hydrate blank.
                             // See js/models/recipe-serialization.js.
-                            if (isNewerSchema(data.data)) {
-                                ErrorMsg(newerSchemaMessage(data.data));
+                            const problem = containerProblem(data.data);
+                            if (problem) {
+                                ErrorMsg(problem);
                                 return;
                             }
                             // Import ingredients from stored recipe
@@ -289,12 +291,16 @@
                                 { current: "Library", imported: "Recipe" },
                                 { keep: "Keep Library", replace: "Use Recipe" }
                             );
-                            // Shared declared-fields hydrator — the same code
-                            // path as .ier import, so the two loops can never
-                            // drift apart again
+                            // Shared declared-fields hydrator — the FIELD
+                            // FILTER is now the same code as .ier import. The
+                            // paths still differ around it: .ier import backs
+                            // up the current recipe and clears RecipeBackup /
+                            // sortBy; this path replaces the recipe with no
+                            // backup. Pre-existing divergence, not created
+                            // here — align or keep deliberately in P0.5.
                             const newRecipe = hydrateRecipe(data.data);
                             if (!newRecipe) {
-                                ErrorMsg(newerSchemaMessage(data.data));
+                                ErrorMsg(containerProblem(data.data) || invalidContainerMessage());
                                 return;
                             }
                             Recipe = newRecipe;
@@ -304,6 +310,12 @@
                         } else {
                             Warning(`Recipe "${name}" not found`);
                         }
+                    }).catch(err => {
+                        // Without this, a throw anywhere above is an unhandled
+                        // rejection: the user clicks Load and nothing happens,
+                        // no message, console only (review finding).
+                        console.error('Failed to load recipe from library:', err);
+                        ErrorMsg('Failed to load recipe. The stored record may be damaged.');
                     });
                 },
                 onDelete: async (name) => {

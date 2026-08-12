@@ -623,3 +623,10 @@ acyclic, which was not true of either previous revision.
   without its Blob produces broken records on every other device. Either photos
   are declared local-only and never advertised as portable, or binary Drive
   storage is added. This gates P3.3 only, so it does not block Phase 0.
+- **When the first real schema bump ships (SchemaVersion 2), does the `.ier`
+  envelope version bump with it?** Deployed pre-P0.2 builds have no
+  SchemaVersion check at all — the envelope's strict `!= 1` refusal in
+  `parseRecipeFile` is the only lever that reaches them. Keeping the envelope
+  at v1 means every pre-P0.2 build silently truncates schema-2 records; the
+  current tests pin envelope-stays-1 for compatibility in the other direction.
+  Decide at bump time, deliberately. (Raised by adversarial review of P0.2.)

@@ -97,7 +97,8 @@ with an open PR.
 ## Testing
 Run tests before and after any code changes:
 ```bash
-npm test
+npm run test:unit   # node unit lane (tests/unit/) — fast, no browser
+npm test            # Playwright browser suite (test-app.js)
 ```
 
 In a cloud container the suite needs a virtual display, because `test-app.js`

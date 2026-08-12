@@ -10,7 +10,7 @@ import { GetIdealPAC, Fitness } from './calculations.js';
 import { DrawFreezingGraph } from '../ui/graph.js';
 import { getCSS } from '../ui/components.js';
 import { saveToFile, parseRecipeFile } from '../utils/file-io.js';
-import { buildRecipeContainer, hydrateRecipe, isNewerSchema, newerSchemaMessage } from '../models/recipe-serialization.js';
+import { buildRecipeContainer, hydrateRecipe, containerProblem, invalidContainerMessage } from '../models/recipe-serialization.js';
 
 // Module-level state
 let RecipeBackup = [];  // backups recipe states on optimization
@@ -1258,12 +1258,14 @@ function handleLoadRecipeFile(event) {
             return;
         }
 
-        // Refuse a newer schema BEFORE any mutation — before the recipe backup
-        // and before importIngredients touches the library. Hydrating it would
-        // strip the newer fields and the next save would write the truncated
-        // record back. See js/models/recipe-serialization.js.
-        if (isNewerSchema(dataObj.data)) {
-            ErrorMsg(newerSchemaMessage(dataObj.data));
+        // The one refusal gate, BEFORE any mutation — before the recipe backup
+        // and before importIngredients touches the library. Covers newer
+        // schema (would truncate on next save) and damaged shapes (would
+        // crash mid-load or hydrate a blank recipe), each with its own
+        // truthful message. See js/models/recipe-serialization.js.
+        const problem = containerProblem(dataObj.data);
+        if (problem) {
+            ErrorMsg(problem);
             return;
         }
 
@@ -1277,12 +1279,12 @@ function handleLoadRecipeFile(event) {
             );
 
             RecipeBackup = [];
-            // Shared declared-fields hydrator; schema already checked above,
-            // so null cannot happen here — guarded anyway so a future code
-            // motion cannot reintroduce silent truncation.
+            // Shared declared-fields hydrator; containerProblem already
+            // passed above, so null cannot happen here — guarded anyway so a
+            // future code motion cannot reintroduce silent truncation.
             const newRecipe = hydrateRecipe(dataObj.data);
             if (!newRecipe) {
-                ErrorMsg(newerSchemaMessage(dataObj.data));
+                ErrorMsg(containerProblem(dataObj.data) || invalidContainerMessage());
                 return;
             }
             setRecipe(newRecipe);

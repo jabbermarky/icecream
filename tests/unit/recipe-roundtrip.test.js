@@ -1,11 +1,14 @@
-// Characterization tests for the recipe save / export / import paths in
+// Tests for the recipe save / export / import paths in
 // js/features/recipe-manager.js — driving the REAL handlers through
 // initRecipeManager/initRecipeButtons with stub elements, exactly as the
-// app wires them. Pins CURRENT behaviour before P0.2's versioned serializer.
+// app wires them. Two layers: pre-P0.2 characterization pins where the
+// behaviour survives (declared-fields filtering, zero-strip, live-object
+// container), and the P0.2 serializer contract (SchemaVersion on the
+// record, refusal on newer schema).
 //
 // The central pin: the round-trip DROPS any field cRecipe does not declare
-// (save keeps it, load's key-filtered hydration discards it). This is the
-// verified reality behind Phase 0 — see .planning/batch-loop-design.md.
+// within the same schema version. A field added WITH a schema bump makes
+// old readers refuse instead — see js/models/recipe-serialization.js.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,8 +17,10 @@ import { installDom, resetDom, capturedBlobs, makeElement, makeFile } from './su
 installDom();
 
 const { cRecipe } = await import('../../js/models/core.js');
-const { cIngredient, initIngredients } = await import('../../js/features/ingredients.js');
-const { initRecipeManager, initRecipeButtons } = await import('../../js/features/recipe-manager.js');
+const { cIngredient, initIngredients, Ingredients: IngredientLibrary } =
+  await import('../../js/features/ingredients.js');
+const { initRecipeManager, initRecipeButtons, getRecipeStack } =
+  await import('../../js/features/recipe-manager.js');
 
 // --- Wiring, mirroring app.js ---
 
@@ -26,15 +31,22 @@ let storageCalls = [];
 let storageHasRecipe = false;
 let storageSaveResult = true;
 
-const IngredientsMap = {
-  Milk: Object.assign(new cIngredient(), { Water: 0.87, Fat: 0.04, MSNF: 0.09, Sugar: 0.0, PAC: 0.05 }),
-  Sugar: Object.assign(new cIngredient(), { Water: 0.0, Sugar: 1.0, PAC: 1.0, POD: 1.0, Solids: 1.0 }),
-};
+// The library is the REAL module-level map from ingredients.js — the one
+// importIngredients mutates. In the app, deps.getIngredients returns this
+// same object (app.js wires `() => Ingredients`); an earlier version of this
+// harness injected a private map here, which meant the load path's imports
+// mutated a different object than the assertions inspected. Found by review.
+function seedLibrary() {
+  for (const k of Object.keys(IngredientLibrary)) delete IngredientLibrary[k];
+  IngredientLibrary.Milk = Object.assign(new cIngredient(), { Water: 0.87, Fat: 0.04, MSNF: 0.09, Sugar: 0.0, PAC: 0.05 });
+  IngredientLibrary.Sugar = Object.assign(new cIngredient(), { Water: 0.0, Sugar: 1.0, PAC: 1.0, POD: 1.0, Solids: 1.0 });
+}
+seedLibrary();
 
 const deps = {
   getRecipe: () => currentRecipe,
   setRecipe: (r) => { currentRecipe = r; },
-  getIngredients: () => IngredientsMap,
+  getIngredients: () => IngredientLibrary,
   getRecipeDataColumns: () => ['Water', 'Sugar', 'Fat', 'MSNF', 'Solids', 'PAC', 'POD', 'Stabilizer'],
   getRecipeColumns: () => ['Name', 'Amount', 'Scale to', '', 'Water', 'Sugar', 'Fat', 'MSNF', 'Solids', 'PAC', 'POD', 'Stabilizer'],
   sliders: new Proxy({}, { get: () => makeElement('input') }),
@@ -63,6 +75,12 @@ initRecipeButtons(buttons);
 
 function freshState(recipe) {
   resetDom();
+  seedLibrary();
+  // Recipe-manager module state accumulates across tests otherwise —
+  // recipe names are unique per test, but a stale stack entry could still
+  // route a load through the "already loaded" modal path unexpectedly.
+  const stack = getRecipeStack();
+  for (const k of Object.keys(stack)) delete stack[k];
   messages.info.length = messages.warning.length = messages.error.length = 0;
   cloudPushes.length = 0;
   storageCalls = [];
@@ -102,8 +120,8 @@ test('save DELETES zero-valued keys from each ingredient copy (library stays int
   const savedMilk = storageCalls[0].data.Ingredients.Milk;
   assert.equal(savedMilk.Sugar, undefined);       // 0.0 → deleted
   assert.equal(savedMilk.Water, 0.87);            // non-zero → kept
-  assert.equal(IngredientsMap.Milk.Sugar, 0.0);   // the library copy is untouched
-  assert.notEqual(savedMilk, IngredientsMap.Milk);
+  assert.equal(IngredientLibrary.Milk.Sugar, 0.0);   // the library copy is untouched
+  assert.notEqual(savedMilk, IngredientLibrary.Milk);
 });
 
 test('save warns on an ingredient missing from the library and omits it from the container', async () => {
@@ -225,12 +243,16 @@ test('P0.2: a legacy .ier (no SchemaVersion) still loads', async () => {
 test('P0.2 REFUSAL: a newer-schema .ier is rejected before ANY mutation', async () => {
   freshState(makeRecipe('Untouched By The Future'));
   const before = currentRecipe;
+  // The fixture carries a NON-EMPTY ingredient map: if the refusal guard ever
+  // moved below importIngredients, 'Trojan' would land in the library and the
+  // assertion below would catch the ordering regression. An earlier version
+  // used an empty map, which made the ordering unobservable. Found by review.
   const newer = JSON.stringify({
     id: 'IER', version: 1,
     data: {
       SchemaVersion: 2,
       Recipe: { Name: 'From The Future', LineageId: 'abc', Ingredients: [] },
-      Ingredients: {},
+      Ingredients: { Trojan: { Water: 1.0 } },
     },
   });
   buttons.inputLoadRecipe.onchange({ target: { files: [makeFile(newer)] } });
@@ -238,8 +260,26 @@ test('P0.2 REFUSAL: a newer-schema .ier is rejected before ANY mutation', async 
   assert.equal(messages.error.length, 1);
   assert.match(messages.error[0], /newer version/);
   assert.match(messages.error[0], /schema 2/);
-  assert.equal(currentRecipe, before);          // current recipe untouched
-  assert.equal(messages.info.length, 0);        // no "loaded" message
+  assert.equal(currentRecipe, before);                       // current recipe untouched
+  assert.equal(messages.info.length, 0);                     // no "loaded" message
+  assert.equal('Trojan' in IngredientLibrary, false);        // library untouched
+});
+
+test('zero-strip uses LOOSE equality — "" and "0" values are also deleted (pinned)', async () => {
+  // The centralized filter in buildRecipeContainer keeps the original == 0.0
+  // comparison, so '' and '0' (and false) strip like numeric zero. Pinned so a
+  // future strict-equality cleanup is a decision, not an accident — the same
+  // reason file-io.test.js pins the envelope's loose version compare.
+  freshState(makeRecipe('Loose Zero'));
+  IngredientLibrary.Milk.Brand = '';
+  IngredientLibrary.Milk.Grade = '0';
+  IngredientLibrary.Milk.Origin = 'valley';
+  await buttons.btnSaveRecipe.onclick();
+
+  const savedMilk = storageCalls[0].data.Ingredients.Milk;
+  assert.equal('Brand' in savedMilk, false);   // '' == 0.0 → stripped
+  assert.equal('Grade' in savedMilk, false);   // '0' == 0.0 → stripped
+  assert.equal(savedMilk.Origin, 'valley');    // truthy string kept
 });
 
 test('round-trip preserves every constructor-declared field and the ingredient rows', async () => {
@@ -268,5 +308,19 @@ test('loading an invalid file reports an error and leaves the current recipe alo
     target: { files: [makeFile(JSON.stringify({ id: 'IER', version: 2, data: {} }))] },
   });
   assert.equal(messages.error.length, 1);
+  assert.equal(currentRecipe, before);
+});
+
+test('a damaged .ier (valid envelope, data:{}) is refused with the damaged-record message', () => {
+  // parseRecipeFile accepts {id:'IER',version:1,data:{}} — pre-fix this threw
+  // a TypeError inside reader.onload after mutations, with no error shown.
+  freshState(makeRecipe('Survives Damage'));
+  const before = currentRecipe;
+  buttons.inputLoadRecipe.onchange({
+    target: { files: [makeFile(JSON.stringify({ id: 'IER', version: 1, data: {} }))] },
+  });
+  assert.equal(messages.error.length, 1);
+  assert.match(messages.error[0], /damaged/);
+  assert.doesNotMatch(messages.error[0], /newer version/); // truthful cause
   assert.equal(currentRecipe, before);
 });

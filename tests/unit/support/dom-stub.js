@@ -61,7 +61,22 @@ export const capturedBlobs = [];
 
 const elementCache = new Map();
 
-/** Install document/window/etc. globals. Call once per test file, before importing app modules is fine too (modules only touch DOM lazily). */
+/**
+ * Install document/window/etc. globals. Call once per test file, before
+ * importing app modules is fine too (modules only touch DOM lazily).
+ *
+ * Two known limits, both fine under node --test's default process-per-file
+ * isolation but worth knowing before changing how the suite runs:
+ * - URL.createObjectURL patches a REAL builtin (unlike the other stubs, which
+ *   only add globals). uninstallDom() restores it; nothing calls that today
+ *   because each test file gets its own process.
+ * - The stub FileReader fires onload synchronously and never models onerror,
+ *   so tests assert immediately after onchange. Real browsers are async;
+ *   read-failure paths are untestable in this lane by design — they belong
+ *   to the Playwright suite.
+ */
+const _origCreateObjectURL = URL.createObjectURL;
+
 export function installDom() {
   globalThis.document = {
     getElementById(id) {
@@ -93,6 +108,11 @@ export function installDom() {
 export function resetDom() {
   capturedBlobs.length = 0;
   elementCache.clear();
+}
+
+/** Restore the patched URL.createObjectURL builtin (for in-process harnesses). */
+export function uninstallDom() {
+  URL.createObjectURL = _origCreateObjectURL;
 }
 
 /** A fake File for the load-recipe input: only what the stub FileReader reads. */
