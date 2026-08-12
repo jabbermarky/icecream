@@ -110,12 +110,41 @@ fi
 GS_SRC="$REPO/.planning/gstack-memory"
 GS_DST="$HOME/.gstack/projects/jabbermarky-icecream"   # gstack-slug for this repo
 if [ -d "$GS_SRC" ]; then
+(
+  # Serialized against the per-turn mirror, which takes the same lock: this
+  # restore writes ~/.gstack while mirror-memory.sh reads it, and unserialized
+  # the mirror can capture a half-restored store and commit it. flock releases
+  # on process death, so a killed restore cannot wedge future mirrors. A 30s
+  # wait is affordable -- this hook is already async.
+  if command -v flock >/dev/null 2>&1; then
+    mkdir -p "$REPO/.claude" 2>/dev/null
+    exec 9>"$REPO/.claude/.memory.lock" && flock -w 30 9 || exit 0
+  fi
   mkdir -p "$GS_DST" 2>/dev/null
   restored=0
+
+  # "Needs restoring" means missing OR effectively empty (<=2 bytes covers "",
+  # "[]" and "{}"). The old existence-only check skipped a present-but-empty
+  # destination forever -- and a file some tool created empty before this
+  # restore reached it is precisely the case that needs restoring.
+  needs_restore() {
+    [ ! -f "$1" ] || [ "$(wc -c < "$1" 2>/dev/null | tr -d ' ')" -le 2 ]
+  }
+  # Copy-to-temp + same-directory atomic rename: gstack tools read these files
+  # while this async restore runs, and must never observe a half-written one.
+  atomic_cp() {
+    local tmp="$2.tmp.$$"
+    if cp "$1" "$tmp" 2>/dev/null && mv -f "$tmp" "$2" 2>/dev/null; then
+      return 0
+    fi
+    rm -f "$tmp" 2>/dev/null
+    return 1
+  }
+
   for f in learnings.jsonl decisions.jsonl decisions.active.json \
            question-log.jsonl timeline.jsonl tasks-eng-review.jsonl; do
-    if [ -f "$GS_SRC/$f" ] && [ ! -f "$GS_DST/$f" ]; then
-      cp "$GS_SRC/$f" "$GS_DST/$f" 2>/dev/null && restored=$((restored + 1))
+    if [ -f "$GS_SRC/$f" ] && needs_restore "$GS_DST/$f"; then
+      atomic_cp "$GS_SRC/$f" "$GS_DST/$f" && restored=$((restored + 1))
     fi
   done
   # decisions.archive.jsonl is append-only and must MERGE, not copy-if-absent.
@@ -127,8 +156,8 @@ if [ -d "$GS_SRC" ]; then
   # because entries are self-contained JSON events; mirrored (older) lines
   # stay first.
   if [ -f "$GS_SRC/decisions.archive.jsonl" ]; then
-    if [ ! -f "$GS_DST/decisions.archive.jsonl" ]; then
-      cp "$GS_SRC/decisions.archive.jsonl" "$GS_DST/decisions.archive.jsonl" 2>/dev/null &&
+    if needs_restore "$GS_DST/decisions.archive.jsonl"; then
+      atomic_cp "$GS_SRC/decisions.archive.jsonl" "$GS_DST/decisions.archive.jsonl" &&
         restored=$((restored + 1))
     else
       _amerge="$GS_DST/.decisions.archive.merge.$$"
@@ -152,8 +181,8 @@ if [ -d "$GS_SRC" ]; then
        ls "$GS_DST"/*eng-review-test-plan*.md >/dev/null 2>&1; then
       continue
     fi
-    if [ ! -f "$GS_DST/$base" ]; then
-      cp "$f" "$GS_DST/$base" 2>/dev/null && restored=$((restored + 1))
+    if needs_restore "$GS_DST/$base"; then
+      atomic_cp "$f" "$GS_DST/$base" && restored=$((restored + 1))
     fi
   done
   # Review logs. These are what /ship's readiness dashboard reads, so losing
@@ -164,12 +193,13 @@ if [ -d "$GS_SRC" ]; then
   if [ -d "$GS_SRC/reviews" ]; then
     for f in "$GS_SRC"/reviews/*.jsonl; do
       [ -f "$f" ] || continue
-      if [ ! -f "$GS_DST/$(basename "$f")" ]; then
-        cp "$f" "$GS_DST/$(basename "$f")" 2>/dev/null && restored=$((restored + 1))
+      if needs_restore "$GS_DST/$(basename "$f")"; then
+        atomic_cp "$f" "$GS_DST/$(basename "$f")" && restored=$((restored + 1))
       fi
     done
   fi
   echo "[session-start] gstack memory: $restored file(s) restored"
+)
 fi
 
 # --- status ----------------------------------------------------------------

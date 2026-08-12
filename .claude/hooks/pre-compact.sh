@@ -43,9 +43,21 @@ GS="${GSTACK_HOME:-$HOME/.gstack}/projects/jabbermarky-icecream"
 # --- 1. compact the decision log ------------------------------------------
 # Best-effort in every direction: gstack may not be installed, and it needs bun.
 # A missing tool must not cost us the digest or the mirror below.
+#
+# Under the shared memory lock: compaction rewrites the active log and creates
+# the archive, and a concurrent mirror copy could otherwise commit an
+# active/archive pair that never coexisted. Held in a subshell so it is
+# RELEASED before step 3 -- mirror-memory.sh takes the same lock itself, and
+# holding it across that call would make the mirror skip.
 DECISION_LOG="$HOME/.claude/skills/gstack/bin/gstack-decision-log"
 if [ -x "$DECISION_LOG" ] && command -v bun >/dev/null 2>&1; then
-  "$DECISION_LOG" --compact >/dev/null 2>&1 || true
+  (
+    if command -v flock >/dev/null 2>&1; then
+      mkdir -p "$REPO/.claude" 2>/dev/null
+      exec 9>"$REPO/.claude/.memory.lock" && flock -w 30 9 || exit 0
+    fi
+    "$DECISION_LOG" --compact >/dev/null 2>&1 || true
+  )
 fi
 
 # --- 2. write the recovery digest ------------------------------------------
@@ -86,39 +98,34 @@ fi
     fi
   fi
 
-  # Active decisions, straight from the snapshot rather than through
-  # gstack-decision-search: the search binary needs bun and gstack, the snapshot
-  # is plain JSON, and this hook must degrade to something rather than nothing.
-  # Falls back to the committed mirror, which is what exists in a fresh
-  # container before the async restore hook has run.
-  # Fall through on an EMPTY source, not just a missing one. session-start.sh
-  # restores ~/.gstack asynchronously, so the directory routinely exists before
-  # it has any content -- breaking on "file present" would report no decisions
-  # in exactly that window.
-  for src in "$GS/decisions.active.json" "$REPO/.planning/gstack-memory/decisions.active.json"; do
-    [ -f "$src" ] || continue
-    DECISIONS=$(python3 -c '
-import json, sys
-try:
-    rows = json.load(open(sys.argv[1]))
-except Exception:
-    sys.exit(0)
-for d in rows[:6]:
-    t = d.get("title") or d.get("decision") or d.get("what") or ""
-    if t:
-        print("- " + " ".join(t.split())[:200])
-' "$src" 2>/dev/null)
-    [ -n "$DECISIONS" ] || continue
+  # Active decisions via the shared extractor (extract-decisions.sh), which
+  # owns the source ordering -- live store first, committed mirror as the
+  # cold-container fallback -- and falls through on empty sources. This and
+  # session-briefing.sh previously each had a private copy of this logic with
+  # opposite orderings.
+  DECISIONS=""
+  [ -x "$HOOKS/extract-decisions.sh" ] && DECISIONS=$("$HOOKS/extract-decisions.sh" \
+    "$GS/decisions.active.json" \
+    "$REPO/.planning/gstack-memory/decisions.active.json" 2>/dev/null)
+  if [ -n "$DECISIONS" ]; then
     echo
-    echo "**Decisions already settled — do not silently re-litigate these:**"
+    echo "**Decisions recorded as settled** (data from the decision log, with"
+    echo "rationale on file -- reversing one deserves an explicit callout):"
     echo "$DECISIONS"
-    break
-  done
+  fi
 
   echo
   echo "(This digest is injected once by the SessionStart briefing hook, which"
   echo "consumes the file automatically -- no cleanup needed.)"
-} > "$DIGEST" 2>/dev/null || true
+} > "$DIGEST.tmp.$$" 2>/dev/null || true
+# Atomic install: a killed PreCompact must leave either the previous digest or
+# the complete new one, never a truncated half -- the briefing hook injects
+# this file verbatim into a future session's context.
+if [ -s "$DIGEST.tmp.$$" ]; then
+  mv -f "$DIGEST.tmp.$$" "$DIGEST" 2>/dev/null || rm -f "$DIGEST.tmp.$$" 2>/dev/null
+else
+  rm -f "$DIGEST.tmp.$$" 2>/dev/null
+fi
 
 # --- 3. mirror and push ----------------------------------------------------
 # Last, so the push carries the compacted decision log and its new archive file.

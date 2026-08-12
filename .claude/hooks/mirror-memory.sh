@@ -42,6 +42,21 @@ GS="${GSTACK_HOME:-$HOME/.gstack}/projects/jabbermarky-icecream"
 [ -d "$GS" ] || exit 0
 [ -d .git ] || exit 0
 
+# --- lock ------------------------------------------------------------------
+# One writer at a time across the whole copy->add->commit sequence. Stop can
+# overlap PreCompact/SessionEnd (which run this same script), and the restore
+# in session-start.sh writes the other direction; unserialized, a pathspec
+# commit can capture a mix of two snapshots that never coexisted. flock, not a
+# mkdir lock: the kernel releases it when the holder dies, so a killed hook
+# can never wedge every future mirror. Short wait, then SKIP -- a missed turn
+# is caught by the next one, and a memory mirror must never stall a turn.
+# Degrades to unlocked (today's behaviour) if flock is absent.
+mkdir -p .claude 2>/dev/null
+if command -v flock >/dev/null 2>&1; then
+  exec 9>".claude/.memory.lock" || exit 0
+  flock -w 5 9 || exit 0
+fi
+
 # --- copy ------------------------------------------------------------------
 mkdir -p "$MIRROR/reviews" 2>/dev/null || exit 0
 
@@ -59,7 +74,7 @@ mkdir -p "$MIRROR/reviews" 2>/dev/null || exit 0
 # nothing, so that is the only case refused. A 2-byte floor catches "[]" and
 # "{}" as well as a zero-length file.
 copy_if_sane() {
-  local src="$1" dst="$2" size
+  local src="$1" dst="$2" size tmp
   [ -f "$src" ] || return 0
   size=$(wc -c < "$src" 2>/dev/null | tr -d ' ')
   case "$size" in ''|*[!0-9]*) return 0 ;; esac
@@ -67,7 +82,16 @@ copy_if_sane() {
     echo "[mirror-memory] refused to blank $(basename "$dst") from an empty source" >&2
     return 0
   fi
-  cp "$src" "$dst" 2>/dev/null || true
+  # Copy-to-temp then same-directory rename, so no reader of the mirror -- git
+  # committing it, pre-compact extracting decisions from it -- can ever observe
+  # a half-written file. rename(2) is atomic; plain cp is a window.
+  tmp="$dst.tmp.$$"
+  if cp "$src" "$tmp" 2>/dev/null; then
+    mv -f "$tmp" "$dst" 2>/dev/null || rm -f "$tmp" 2>/dev/null
+  else
+    rm -f "$tmp" 2>/dev/null
+  fi
+  return 0
 }
 
 for f in learnings.jsonl decisions.jsonl decisions.active.json \
@@ -115,7 +139,11 @@ git rev-parse --verify HEAD >/dev/null 2>&1 || exit 0
 BRANCH=$(git branch --show-current 2>/dev/null)
 [ -n "$BRANCH" ] || exit 0                       # detached HEAD
 GIT_DIR_PATH=$(git rev-parse --git-dir 2>/dev/null) || exit 0
-for marker in MERGE_HEAD REBASE_HEAD CHERRY_PICK_HEAD BISECT_LOG rebase-merge rebase-apply; do
+# REVERT_HEAD and sequencer (multi-commit cherry-pick/revert) were missing from
+# the first version of this list -- an automatic commit landing mid-revert would
+# be swept into the revert's conclusion.
+for marker in MERGE_HEAD REBASE_HEAD CHERRY_PICK_HEAD REVERT_HEAD BISECT_LOG \
+              rebase-merge rebase-apply sequencer; do
   [ -e "$GIT_DIR_PATH/$marker" ] && exit 0
 done
 git config user.email >/dev/null 2>&1 || exit 0

@@ -21,3 +21,6 @@ package-lock.json
 # Wildcard: the briefing hook consumes the digest by renaming it to
 # .recovery-digest.read, which must stay ignored too.
 .claude/.recovery-digest*
+
+# Cross-hook memory lock (flock target; per-checkout, never committed)
+.claude/.memory.lock
