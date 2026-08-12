@@ -30,18 +30,60 @@ import { cRecipe } from './core.js';
 export const RECIPE_SCHEMA_VERSION = 1;
 
 /**
+ * Freeze an object graph in place, cycle-safe.
+ *
+ * The isFrozen check is the cycle guard, not an optimization: structuredClone
+ * PRESERVES cycles, so a naive recursion over a self-referencing record would
+ * not terminate. A node is frozen before its children are visited, so a cycle
+ * back to it returns immediately.
+ * @param {*} value
+ * @returns {*} the same value
+ */
+function deepFreeze(value) {
+    if (value === null || typeof value !== 'object' || Object.isFrozen(value)) return value;
+    Object.freeze(value);
+    for (const key of Object.keys(value)) deepFreeze(value[key]);
+    return value;
+}
+
+/**
  * Build the persistable {SchemaVersion, Recipe, Ingredients} container used by
  * both library save and .ier export.
  *
- * NOTE: container.Recipe is the LIVE recipe object, not a clone — pinned by
- * the P0.1 characterization tests. P0.5 (one canonical save path on an
- * immutable structuredClone) changes that deliberately; this module must not
- * change it as a side effect.
+ * P0.5: the container is a DETACHED, DEEPLY FROZEN snapshot. It was previously
+ * a view onto the live recipe (container.Recipe === the live object), which the
+ * P0.1 characterization tests pinned as the then-current behaviour.
+ *
+ * WHY DETACHED. The cloud write is fire-and-forget and serializes LATE:
+ * google-drive-storage.saveRecipe awaits findFileByName — a network round trip
+ * — before updateFile stringifies the payload. While the container held the
+ * live object, any edit made inside that window entered the cloud copy while
+ * IndexedDB held the earlier state. The two backends then disagreed with no
+ * error, no attribution, and nothing in the UI to suggest a save had captured
+ * something other than what was on screen. Snapshotting also pins the record at
+ * the moment the user clicked Save, which is the state they were looking at.
+ *
+ * WHY FROZEN. Detaching alone is a convention any later caller can break by
+ * mutating the snapshot between build and write. Module code is strict, so a
+ * write to a frozen snapshot throws at the line that does it rather than
+ * producing a third version of the record.
+ *
+ * Cloning drops prototypes: container.Recipe is a plain object, not a cRecipe,
+ * and each container.Ingredients entry is a plain object, not a cIngredient.
+ * That is what every reader already saw (both backends round-trip through JSON
+ * or a structured clone), so this makes the in-memory shape match the persisted
+ * one instead of diverging from it. Nothing downstream reads a method off
+ * either — hydrateRecipe builds a fresh cRecipe and copies declared fields.
+ *
+ * THROWS DataCloneError if the recipe holds something unclonable (a function, a
+ * DOM node). JSON.stringify used to drop such values silently; this refuses
+ * instead. Callers must catch and report — an uncaught throw here reaches the
+ * user as Save doing nothing at all.
  *
  * @param {cRecipe} recipe - The recipe to serialize
  * @param {Object} ingredientLibrary - Name → cIngredient map
  * @param {Function} warn - Called with a message per ingredient missing from the library
- * @returns {Object} The container
+ * @returns {Object} The frozen, detached container
  */
 export function buildRecipeContainer(recipe, ingredientLibrary, warn) {
     const container = {
@@ -57,7 +99,9 @@ export function buildRecipeContainer(recipe, ingredientLibrary, warn) {
                     delete container.Ingredients[ingredient.Name][key];
         } else
             warn("Recipe is using undefined ingredient " + ingredient.Name);
-    return container;
+    // Clone LAST, so the zero-strip above still runs against the mutable
+    // cIngredient copies and the snapshot is taken of the finished shape.
+    return deepFreeze(structuredClone(container));
 }
 
 /**
@@ -154,12 +198,14 @@ export function containerProblem(container) {
  * above). Callers must treat null as "do not touch the current recipe and do
  * not write anything": show newerSchemaMessage() and stop.
  *
- * NOTE: Ingredients is copied by REFERENCE from the container. Every current
- * caller hydrates from parsed JSON or an IndexedDB structured clone, so the
- * container is already a private copy — but an in-memory build→hydrate
- * round-trip (a future undo or duplicate feature) would share the live
- * Ingredients array between container and recipe. Copy it if that ever
- * becomes a call pattern.
+ * NOTE: fields are copied by REFERENCE from the container, Ingredients
+ * included. Every current caller hydrates from parsed JSON or an IndexedDB
+ * record, so the container is already a private, mutable copy. An in-memory
+ * build→hydrate round-trip (a future undo or duplicate feature) is the case
+ * that breaks: since P0.5 buildRecipeContainer returns a DEEPLY FROZEN
+ * snapshot, the hydrated recipe would take that frozen Ingredients array as
+ * its own and the next addIngredient would throw. Clone the array here if that
+ * ever becomes a call pattern.
  *
  * @param {Object} container - A {SchemaVersion?, Recipe, Ingredients} container
  * @returns {cRecipe|null}

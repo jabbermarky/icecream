@@ -106,11 +106,73 @@ test('save builds a {Recipe, Ingredients} container and pushes the same containe
   assert.equal(storageCalls.length, 1);
   const { name, data } = storageCalls[0];
   assert.equal(name, 'Save Shape');
-  assert.equal(data.Recipe, currentRecipe); // the LIVE object, not a clone — P0.5 fixes this
+  assert.notEqual(data.Recipe, currentRecipe); // P0.5: a snapshot, not the live object
+  assert.equal(data.Recipe.Name, 'Save Shape');
   assert.deepEqual(Object.keys(data.Ingredients).sort(), ['Milk', 'Sugar']);
   assert.equal(cloudPushes.length, 1);
-  assert.equal(cloudPushes[0].data, data); // same container object, fire-and-forget
+  assert.equal(cloudPushes[0].data, data); // ONE snapshot reaches BOTH backends
   assert.equal(messages.info.length, 1);
+});
+
+test('P0.5 RACE: edits made after Save cannot reach the cloud payload', async () => {
+  // The bug, end to end. pushRecipeToCloud is fire-and-forget and Drive's
+  // saveRecipe stringifies only after a findFileByName round trip, so before
+  // P0.5 an edit landing in that window went to the cloud while IndexedDB kept
+  // the earlier state — two backends disagreeing, no error, no attribution.
+  freshState(makeRecipe('Race'));
+  await buttons.btnSaveRecipe.onclick();
+
+  // The window between clicking Save and the cloud write serializing.
+  currentRecipe.Name = 'Edited After Save';
+  currentRecipe.Overrun = 0.99;
+  currentRecipe.addIngredient('Cream', 200);
+
+  const local = storageCalls[0].data;
+  const cloud = cloudPushes[0].data;
+  for (const [label, payload] of [['local', local], ['cloud', cloud]]) {
+    assert.equal(payload.Recipe.Name, 'Race', `${label} payload took a later edit`);
+    assert.equal(payload.Recipe.Overrun, 0.3, `${label} payload took a later edit`);
+    assert.equal(payload.Recipe.Ingredients.length, 2, `${label} payload took a later edit`);
+  }
+  assert.deepEqual(cloud.Recipe, local.Recipe); // and the two agree, which was the point
+});
+
+test('P0.5: the saved snapshot is frozen, so nothing downstream can amend it in flight', async () => {
+  freshState(makeRecipe('Frozen Payload'));
+  await buttons.btnSaveRecipe.onclick();
+
+  const data = storageCalls[0].data;
+  assert.ok(Object.isFrozen(data));
+  assert.ok(Object.isFrozen(data.Recipe));
+  assert.ok(Object.isFrozen(data.Ingredients.Milk));
+  assert.throws(() => { data.Recipe.Name = 'amended'; }, TypeError);
+});
+
+test('P0.5: an unclonable recipe reports an error and writes NOTHING', async () => {
+  // structuredClone refuses what JSON.stringify used to drop silently. The
+  // handler must surface that: an uncaught throw here is an unhandled
+  // rejection, i.e. the user clicks Save and nothing happens at all.
+  const r = makeRecipe('Unclonable');
+  r.Callback = () => {};
+  freshState(r);
+  await buttons.btnSaveRecipe.onclick();
+
+  assert.equal(storageCalls.length, 0);
+  assert.equal(cloudPushes.length, 0);
+  assert.equal(messages.info.length, 0);
+  assert.equal(messages.error.length, 1);
+  assert.match(messages.error[0], /could not be prepared/);
+});
+
+test('P0.5: export refuses an unclonable recipe too, and writes no file', async () => {
+  const r = makeRecipe('Unclonable Export');
+  r.Callback = () => {};
+  freshState(r);
+  buttons.btnExportRecipe.onclick();
+
+  assert.equal(capturedBlobs.length, 0);
+  assert.equal(messages.error.length, 1);
+  assert.match(messages.error[0], /could not be prepared/);
 });
 
 test('save DELETES zero-valued keys from each ingredient copy (library stays intact)', async () => {

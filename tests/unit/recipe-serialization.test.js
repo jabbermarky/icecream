@@ -40,12 +40,84 @@ const library = {
 
 // --- buildRecipeContainer ---
 
-test('container carries SchemaVersion and the LIVE recipe object (P0.5 pin)', () => {
+test('P0.5: the container is DETACHED from the live recipe, not a view onto it', () => {
   const r = makeRecipe();
   const c = buildRecipeContainer(r, library, () => {});
   assert.equal(c.SchemaVersion, RECIPE_SCHEMA_VERSION);
-  assert.equal(c.Recipe, r); // live object until P0.5 — deliberate
   assert.deepEqual(Object.keys(c.Ingredients).sort(), ['Milk', 'Sugar']);
+
+  assert.notEqual(c.Recipe, r);                 // pre-P0.5 this WAS the live object
+  assert.notEqual(c.Recipe.Ingredients, r.Ingredients);
+  assert.equal(c.Recipe.Name, 'Test');          // ...but carries the same values
+  assert.equal(c.Recipe.Notes, 'notes');
+  assert.deepEqual(c.Recipe.Ingredients, [
+    { Name: 'Milk', Amount: 500 },
+    { Name: 'Sugar', Amount: 120 },
+  ]);
+});
+
+test('P0.5: editing the recipe AFTER the build cannot reach the snapshot', () => {
+  // The cloud-write race in one assertion. google-drive-storage.saveRecipe
+  // awaits findFileByName before updateFile stringifies the payload; every
+  // edit in that window used to land in the cloud copy.
+  const r = makeRecipe();
+  const c = buildRecipeContainer(r, library, () => {});
+
+  r.Name = 'Renamed After Save';
+  r.Overrun = 0.99;
+  r.addIngredient('Cream', 200);
+
+  assert.equal(c.Recipe.Name, 'Test');
+  assert.equal(c.Recipe.Overrun, 0.3);
+  assert.equal(c.Recipe.Ingredients.length, 2);
+});
+
+test('P0.5: the snapshot is DEEPLY frozen, so a late mutation throws instead of writing', () => {
+  const c = buildRecipeContainer(makeRecipe(), library, () => {});
+  assert.ok(Object.isFrozen(c));
+  assert.ok(Object.isFrozen(c.Recipe));
+  assert.ok(Object.isFrozen(c.Recipe.Ingredients));
+  assert.ok(Object.isFrozen(c.Recipe.Ingredients[0]));  // array ELEMENTS too
+  assert.ok(Object.isFrozen(c.Ingredients));
+  assert.ok(Object.isFrozen(c.Ingredients.Milk));
+
+  // Strict mode (every ES module): a write to a frozen object throws at the
+  // line that does it rather than being dropped on the floor.
+  assert.throws(() => { c.Recipe.Name = 'mutated'; }, TypeError);
+  assert.throws(() => { c.Recipe.Ingredients.push({ Name: 'X', Amount: 1 }); }, TypeError);
+  assert.throws(() => { c.Ingredients.Milk.Water = 0; }, TypeError);
+  assert.throws(() => { c.SchemaVersion = 99; }, TypeError);
+});
+
+test('P0.5: cloning drops prototypes — plain objects, matching what every reader sees', () => {
+  // Both backends round-trip through JSON or a structured clone, so a cRecipe
+  // instance never survived persistence anyway. Pinned because hydrateRecipe
+  // must keep working off a plain object.
+  const c = buildRecipeContainer(makeRecipe(), library, () => {});
+  assert.equal(c.Recipe instanceof cRecipe, false);
+  assert.equal(Object.getPrototypeOf(c.Recipe), Object.prototype);
+  assert.equal(Object.getPrototypeOf(c.Ingredients.Milk), Object.prototype);
+  assert.equal(hydrateRecipe(c).Name, 'Test'); // still hydrates
+});
+
+test('P0.5: a self-referencing recipe freezes without hanging (cycle guard)', () => {
+  // structuredClone PRESERVES cycles, so deepFreeze recursing naively would
+  // never terminate. Not a shape the app produces; pinned so the guard is not
+  // "simplified" away later.
+  const r = makeRecipe();
+  r.Self = r;
+  const c = buildRecipeContainer(r, library, () => {});
+  assert.ok(Object.isFrozen(c.Recipe));
+  assert.ok(Object.isFrozen(c.Recipe.Self));
+  assert.equal(c.Recipe.Self, c.Recipe); // cycle preserved by the clone
+});
+
+test('P0.5: an unclonable value THROWS rather than being dropped silently', () => {
+  // JSON.stringify omits functions without a word. structuredClone refuses.
+  // recipe-manager catches this and reports it; the module must not swallow it.
+  const r = makeRecipe();
+  r.Callback = () => {};
+  assert.throws(() => buildRecipeContainer(r, library, () => {}));
 });
 
 test('builder strips zero-valued keys from ingredient COPIES, library untouched', () => {
@@ -88,8 +160,9 @@ test('a higher SchemaVersion is newer, and the message names both versions', () 
 // --- hydrateRecipe ---
 
 test('hydration copies exactly the declared fields; undeclared fields drop', () => {
-  const c = buildRecipeContainer(makeRecipe(), library, () => {});
-  c.Recipe = { ...JSON.parse(JSON.stringify(c.Recipe)), FutureField: 'x' };
+  const built = buildRecipeContainer(makeRecipe(), library, () => {});
+  // A fresh container, not a mutation of `built` — the snapshot is frozen.
+  const c = { ...built, Recipe: { ...built.Recipe, FutureField: 'x' } };
   const h = hydrateRecipe(c);
   assert.ok(h instanceof cRecipe);
   assert.equal(h.Name, 'Test');

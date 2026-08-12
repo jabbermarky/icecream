@@ -1180,6 +1180,34 @@ function handleStoreAsIngredient() {
 }
 
 /**
+ * Take the one immutable snapshot every save path persists, or report why not.
+ *
+ * P0.5's canonical build: library save and .ier export both come through here,
+ * so a recipe becomes bytes in exactly one place and every destination writes
+ * the same detached, frozen object. See js/models/recipe-serialization.js for
+ * why the snapshot is detached (the fire-and-forget cloud write serializes
+ * after a network round trip) and why it is frozen.
+ *
+ * @param {cRecipe} recipe - The live recipe to snapshot
+ * @param {Object} ingredients - The ingredient library
+ * @returns {Object|null} The frozen container, or null after reporting the failure
+ */
+function snapshotForSave(recipe, ingredients) {
+    try {
+        return buildRecipeContainer(recipe, ingredients, Warning);
+    } catch (error) {
+        // structuredClone refuses values JSON.stringify used to drop silently
+        // (functions, DOM nodes). Reported rather than rethrown: handleSaveRecipe
+        // is async, so an uncaught throw is an unhandled rejection and the user
+        // sees Save do nothing at all — the same silent-no-op the library load
+        // path was fixed for.
+        console.error('Failed to snapshot recipe for saving:', error);
+        ErrorMsg('This recipe could not be prepared for saving because it holds a value that cannot be stored. Nothing was written.');
+        return null;
+    }
+}
+
+/**
  * Handle save recipe button click
  * Saves current recipe to library (IndexedDB)
  */
@@ -1193,9 +1221,11 @@ async function handleSaveRecipe() {
         return;
     }
 
-    // Build container with recipe and its ingredients (shared with export —
-    // js/models/recipe-serialization.js is the one place this shape lives)
-    var container = buildRecipeContainer(Recipe, Ingredients, Warning);
+    // Snapshot BEFORE the awaits below, deliberately: this pins the record to
+    // what was on screen when the user clicked Save, rather than to whatever it
+    // has become by the time hasRecipe resolves.
+    const container = snapshotForSave(Recipe, Ingredients);
+    if (!container) return;
 
     // Check if recipe already exists and prompt for overwrite
     if (recipeStorage) {
@@ -1206,7 +1236,9 @@ async function handleSaveRecipe() {
             }
         }
 
-        // Save to library
+        // Both backends write the SAME frozen snapshot. That is the whole point
+        // of P0.5: the cloud copy and the local copy can no longer diverge,
+        // because neither is reading a live object.
         const success = await recipeStorage.saveRecipe({ name: Recipe.Name, data: container });
         if (success) {
             // Push to cloud if signed in (fire-and-forget)
@@ -1239,7 +1271,8 @@ function handleExportRecipe() {
         return;
     }
 
-    var container = buildRecipeContainer(Recipe, Ingredients, Warning);
+    const container = snapshotForSave(Recipe, Ingredients);
+    if (!container) return;
 
     saveToFile(container, Recipe.Name + ".ier", "IER", 1);
 }
