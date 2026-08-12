@@ -33,12 +33,24 @@ REPO="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
 cd "$REPO" || exit 0
 
 STATE=".planning/STATE.md"
+DIGEST=".claude/.recovery-digest"
 [ -f "$STATE" ] || exit 0
 
 BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 HEAD_LINE=$(git log -1 --format='%h %s' 2>/dev/null || echo "unknown")
 
 {
+  # The digest goes FIRST when it exists. It is only ever present on the far
+  # side of a compaction, and on that path it is the more urgent of the two:
+  # STATE.md is still true and still readable, but the half-finished edit the
+  # summarizer just dropped is not recoverable from anywhere else.
+  if [ -f "$DIGEST" ]; then
+    cat "$DIGEST"
+    echo
+    echo "---"
+    echo
+  fi
+
   echo "## Project state (from $STATE, injected by the SessionStart hook)"
   echo
   echo "Branch \`$BRANCH\` at \`$HEAD_LINE\`."
@@ -47,6 +59,40 @@ HEAD_LINE=$(git log -1 --format='%h %s' 2>/dev/null || echo "unknown")
   # section is the part worth spending context on at turn zero.
   sed -n '/<!-- BRIEFING:START -->/,/<!-- BRIEFING:END -->/p' "$STATE" |
     sed '/<!-- BRIEFING:\(START\|END\) -->/d'
+
+  # Settled decisions, when the digest has not already listed them. Read from
+  # the committed mirror in preference to ~/.gstack: on a cold container the
+  # async restore hook has not run yet, so ~/.gstack may not exist, while the
+  # mirror is in the repository and therefore always present.
+  if [ ! -f "$DIGEST" ]; then
+    # Fall through on an empty source as well as a missing one: ~/.gstack is
+    # restored asynchronously, so it can exist while still unpopulated.
+    for src in ".planning/gstack-memory/decisions.active.json" \
+               "${GSTACK_HOME:-$HOME/.gstack}/projects/jabbermarky-icecream/decisions.active.json"; do
+      [ -f "$src" ] || continue
+      DECISIONS=$(python3 -c '
+import json, sys
+try:
+    rows = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(0)
+for d in rows[:6]:
+    t = d.get("title") or d.get("decision") or d.get("what") or ""
+    if t:
+        print("- " + " ".join(t.split())[:200])
+' "$src" 2>/dev/null)
+      [ -n "$DECISIONS" ] || continue
+      echo
+      echo "### Settled decisions"
+      echo
+      echo "Prior calls with recorded rationale. Do not silently re-litigate"
+      echo "them; if you are about to reverse one, say so explicitly."
+      echo
+      echo "$DECISIONS"
+      break
+    done
+  fi
+
   echo
   echo "Read \`$STATE\` for the full picture before acting on any of it."
 } | head -c 9500

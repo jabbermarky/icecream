@@ -133,13 +133,39 @@ recipe; identity in a separate object store.
 
 | Mechanism | What it covers |
 |---|---|
-| `.claude/hooks/mirror-memory.sh` on `Stop` | Copies `~/.gstack` into `.planning/gstack-memory/` and commits it, every turn. Pushes on `PreCompact` and `SessionEnd`. |
-| `.claude/hooks/session-briefing.sh` on `SessionStart` | Reads the briefing above into the new session's context. Synchronous, because an async hook's stdout is discarded. |
+| `.claude/hooks/mirror-memory.sh` on `Stop` | Copies `~/.gstack` into `.planning/gstack-memory/` and commits it, every turn. |
+| `.claude/hooks/pre-compact.sh` on `PreCompact` | Compacts the decision log, writes a recovery digest, then mirrors and pushes. |
+| `.claude/hooks/mirror-memory.sh --push` on `SessionEnd` | Mirror and push on `/clear` and friends. |
+| `.claude/hooks/session-briefing.sh` on `SessionStart` | Reads the briefing above, the recovery digest and the settled decisions into the new session's context. Synchronous, because an async hook's stdout is discarded. |
 | `.claude/hooks/session-start.sh` on `startup\|resume` | Restores the mirror into `~/.gstack`, installs the toolchain, authenticates codex. Async. |
 | GitHub issues and the PR checklist | Anything that must outlive the branch. |
 
 **The one thing none of that covers** is the PR activity subscription, which is
 why it is the first line of the briefing.
+
+### Surviving compaction, specifically
+
+Compaction destroys different things than a container does. STATE.md stays true
+and readable across it; what actually goes missing is which files were
+half-edited and which decisions were just taken. `pre-compact.sh` captures that
+into `.claude/.recovery-digest` — deliberately **not** committed, because it
+describes work in flight rather than project state — and the briefing hook reads
+it back on the far side, since `SessionStart` fires with matcher `compact`.
+
+It also runs `gstack-decision-log --compact`, which gstack ships but never calls
+from any skill: superseded decisions otherwise accumulate in the active log and
+are re-read at every session start.
+
+Two hazards found while building this, both of which bit before they were fixed:
+
+- **An empty source can blank the mirror.** `session-start.sh` restores
+  `~/.gstack` asynchronously while the `Stop` hook runs every turn, so a turn can
+  complete with the directory present and empty. `copy_if_sane` refuses any copy
+  that would take a mirrored file from content to nothing. Shrinking is still
+  allowed — compaction legitimately shrinks the active decision log.
+- **A present-but-empty source hid the decisions.** Both hooks read `~/.gstack`
+  with the committed mirror as fallback; they now fall through on an empty
+  source, not merely a missing one.
 
 ## Historical: accumulated decisions through v1.4
 

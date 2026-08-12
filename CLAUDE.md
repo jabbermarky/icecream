@@ -64,9 +64,25 @@ The machinery, all in `.claude/hooks/`:
 | Hook | Event | What it does |
 |---|---|---|
 | `mirror-memory.sh` | `Stop` | Copies `~/.gstack` into `.planning/gstack-memory/` and commits it, every turn. Pathspec-limited, so it can never sweep up work in progress. |
-| `mirror-memory.sh --push` | `PreCompact`, `SessionEnd` | Same, and pushes. |
-| `session-briefing.sh` | `SessionStart` (all matchers) | Reads the `BRIEFING` block into the new session's context. |
+| `pre-compact.sh` | `PreCompact` | Compacts the decision log, writes `.claude/.recovery-digest`, then mirrors and pushes. |
+| `mirror-memory.sh --push` | `SessionEnd` | Mirror and push on the way out. |
+| `session-briefing.sh` | `SessionStart` (all matchers) | Reads the `BRIEFING` block, the recovery digest and the settled decisions into the new session's context. |
 | `session-start.sh` | `SessionStart` (`startup\|resume`) | Restores the mirror, installs the toolchain. Async. |
+
+**Compaction is a different problem from reclamation.** A container takes
+everything; compaction takes only what was in the conversation — which files
+were half-edited, which decisions were just taken. That is what
+`.claude/.recovery-digest` holds, and it is deliberately not committed: it
+describes work in flight, not project state. The briefing hook reads it back
+because `SessionStart` fires with matcher `compact`.
+
+**Never let an empty source overwrite the mirror.** `session-start.sh` restores
+`~/.gstack` asynchronously and the `Stop` hook runs every turn, so a turn can
+complete while that directory exists and is empty. `copy_if_sane` refuses any
+copy that would take a mirrored file from content to nothing; shrinking stays
+allowed, since decision compaction legitimately shrinks the active log. Any code
+that reads `~/.gstack` should fall back to the committed mirror, and should fall
+through on an **empty** source rather than only a missing one.
 
 **Two hook facts worth not rediscovering.** `SessionStart` is one of only three
 events whose stdout becomes model-visible context — but an `async: true` hook's

@@ -16,3 +16,6 @@ package-lock.json
 
 # SessionStart hook state (per-checkout, not shared)
 .claude/.session-start-status
+
+# PreCompact recovery digest (container-local, describes work in flight)
+.claude/.recovery-digest

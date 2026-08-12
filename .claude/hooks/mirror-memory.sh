@@ -43,15 +43,45 @@ GS="${GSTACK_HOME:-$HOME/.gstack}/projects/jabbermarky-icecream"
 # --- copy ------------------------------------------------------------------
 mkdir -p "$MIRROR/reviews" 2>/dev/null || exit 0
 
+# Never let an empty source blank out a mirror that has content.
+#
+# session-start.sh restores ~/.gstack ASYNCHRONOUSLY, and this hook runs on
+# every turn -- so a turn can complete while ~/.gstack exists but holds nothing
+# yet. A plain `cp` in that window copies emptiness over committed history and
+# then commits it. Observed, not theorised: a run with a deliberately empty
+# store truncated decisions.jsonl and decisions.active.json in the mirror and
+# pushed the result.
+#
+# Shrinking is fine and expected -- compaction moves superseded decisions out of
+# the active log. What is never legitimate is a store going from content to
+# nothing, so that is the only case refused. A 2-byte floor catches "[]" and
+# "{}" as well as a zero-length file.
+copy_if_sane() {
+  local src="$1" dst="$2" size
+  [ -f "$src" ] || return 0
+  size=$(wc -c < "$src" 2>/dev/null | tr -d ' ')
+  case "$size" in ''|*[!0-9]*) return 0 ;; esac
+  if [ "$size" -le 2 ] && [ -s "$dst" ]; then
+    echo "[mirror-memory] refused to blank $(basename "$dst") from an empty source" >&2
+    return 0
+  fi
+  cp "$src" "$dst" 2>/dev/null || true
+}
+
+# decisions.archive.jsonl is where compaction moves superseded decisions. It
+# only comes into existence the first time --compact runs, and it is the ONLY
+# copy of that history once the active log is rewritten -- so it has to be
+# mirrored or compaction becomes a way to lose the record it exists to keep.
 for f in learnings.jsonl decisions.jsonl decisions.active.json \
+         decisions.archive.jsonl \
          question-log.jsonl timeline.jsonl tasks-eng-review.jsonl; do
-  [ -f "$GS/$f" ] && cp "$GS/$f" "$MIRROR/$f" 2>/dev/null
+  copy_if_sane "$GS/$f" "$MIRROR/$f"
 done
 
 # Review logs: gstack derives the filename from the branch and mangles a slash
 # inconsistently, so mirror whatever names exist rather than guessing one.
 for f in "$GS"/*reviews.jsonl; do
-  [ -f "$f" ] && cp "$f" "$MIRROR/reviews/$(basename "$f")" 2>/dev/null
+  [ -f "$f" ] && copy_if_sane "$f" "$MIRROR/reviews/$(basename "$f")"
 done
 
 # Test plans only. The other generated markdown in ~/.gstack is design-doc
@@ -59,7 +89,7 @@ done
 # already holds that revision history, and mirroring it would add a duplicate
 # copy of a 600-line document on every revision.
 for f in "$GS"/*test-plan*.md; do
-  [ -f "$f" ] && cp "$f" "$MIRROR/$(basename "$f")" 2>/dev/null
+  [ -f "$f" ] && copy_if_sane "$f" "$MIRROR/$(basename "$f")"
 done
 
 # --- commit ----------------------------------------------------------------
