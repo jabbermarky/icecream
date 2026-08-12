@@ -13,3 +13,4 @@
 {"skill":"review","event":"completed","branch":"claude/batch-loop-design","outcome":"success","duration_s":"1836","session":"7243-1786554837","ts":"2026-08-12T17:44:33.143Z"}
 {"skill":"context-save","event":"started","branch":"claude/batch-loop-design","session":"4162-1786558060","ts":"2026-08-12T18:07:40.208Z"}
 {"skill":"context-save","event":"completed","branch":"claude/batch-loop-design","outcome":"success","duration_s":"56","session":"4162-1786558060","ts":"2026-08-12T18:08:36.517Z"}
+{"skill":"context-restore","event":"completed","branch":"claude/batch-loop-design","outcome":"success","duration_s":"120","session":"14121-1786558702","ts":"2026-08-12T18:18:22.514Z"}
