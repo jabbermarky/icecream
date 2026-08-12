@@ -188,14 +188,52 @@ Rationale:
   hypothesis of each batch and it is currently lost.
 - **The churn sheet.** A print layout designed for annotation: formula, version,
   diff from parent, churn date field, and prompts derived from the binder read.
-- **Desk-side capture.** Photo attachment plus a small number of structured
-  fields, whose names come from the binder read, not from imagination.
+- **Machine-readable return path.** See below.
 
 **Out, deliberately:** in-kitchen digital capture (competes with paper);
 improvement suggestions (needs outcome data that does not exist yet); anything
 multi-user; anything for shops.
 
 **Non-goal:** replacing the binder. The binder works.
+
+### The return path — three tiers, not "OCR"
+
+The desk step (P3) is the weakest premise in this design. It gets much cheaper
+if photographing the page does the work instead of typing. The key asymmetry:
+**the app printed the sheet, so it knows the layout.** That splits the problem
+into three tiers with very different risk.
+
+| Tier | What | Technique | Reliability | Backend? |
+| --- | --- | --- | --- | --- |
+| 1 | **Identity** — which recipe and version this page is | QR / DataMatrix printed on the sheet; `BarcodeDetector` (native in Chrome) or jsQR | Essentially perfect | None |
+| 2 | **Marks** — checkboxes and 1-5 scales at known positions | Optical *mark* recognition: is this region darker than at print time. Canvas pixel sampling, no library | Very high | None |
+| 3 | **Prose** — handwritten observations | Handwriting recognition | Poor client-side | **Required** |
+
+**Tier 1 is worth building on its own merits.** Lineage in the binder today is
+physical adjacency — a page that falls out loses its place. A printed code makes
+every page self-identifying permanently, and makes "photograph this page" an
+unambiguous action.
+
+**Tier 2 is what makes outcomes queryable**, and it is not OCR. It is Scantron
+technology from the 1970s applied to a form the app designed. "Show me every
+batch I scored icy 4 or higher" becomes answerable from a photograph.
+
+**Tier 3 is deliberately not attempted.** Tesseract.js runs client-side but
+[handwriting is explicitly out of its scope](https://www.koncile.ai/en/ressources/is-tesseract-still-the-best-open-source-ocr);
+handwriting needs cloud services (Google Cloud Vision, AWS Textract), therefore
+an API key, therefore a backend — the same constraint that scoped out the G3 LLM
+fallback in the ingredient design. **Store the photograph and display it beside
+the version.** A human reads it perfectly, and it stays bound to the right
+formula forever. If the no-backend constraint is ever revisited, Tier 3 becomes
+available without redesigning anything, because the photo is already captured.
+
+**The tension this creates.** Checkboxes make data queryable but flatten nuance.
+"Icy, but only at the edges, and better after two days" is not a 1-5 scale. A
+sheet that pushes toward boxes may cause *less* to be recorded than today, and
+what is lost would be exactly the observation that leads somewhere. Whether the
+existing notes are checkbox-shaped or prose-shaped is an empirical question about
+the binder, not something to settle by argument. It is question 5 of The
+Assignment.
 
 ## Open Questions
 
@@ -265,11 +303,18 @@ For each, record:
    anything about the machine or the day.
 4. The exact words you used about the result. Not a paraphrase. The actual words.
 5. Whether you could reconstruct the formula from that page alone today.
+6. **For every observation you wrote: could it have been a checkbox or a 1-5
+   scale, or did it genuinely need prose?** Mark each one. This is the single
+   question that decides how much of your record can become queryable via Tier 2
+   marks, and how much has to stay a photograph. Be honest rather than
+   optimistic — if most of your value is in qualified, conditional sentences,
+   the sheet should not push you toward boxes.
 
-That produces four things this design cannot get any other way: the real schema
+That produces five things this design cannot get any other way: the real schema
 for the churn sheet, the process variables that matter to you (which no
-competitor models), your actual outcome vocabulary, and a test of whether the
-paper record is as complete as it feels.
+competitor models), your actual outcome vocabulary, a test of whether the paper
+record is as complete as it feels, and the prose-versus-marks ratio that
+determines how much of the return path is worth building.
 
 **Separately, smaller, and with a date on it:** post once in r/icecreamery or a
 gelato Discord asking whether people version their recipes and what they record
