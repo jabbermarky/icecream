@@ -384,6 +384,12 @@ test('P0.3: containerSavedAt returns a parseable clock or null — never a raw f
   const good = new Date(0).toISOString();
   assert.equal(containerSavedAt({ SavedAt: good }), good);
   assert.equal(containerSavedAt({ SavedAt: 'banana' }), null);
+  // Parseable-but-not-ISO refuses too (T2.5, outside-voice finding 10):
+  // Date.parse of non-ISO strings is implementation-DEPENDENT, so a
+  // hand-edited timestamp could order the same records differently on two
+  // runtimes — the divergence this clock exists to kill.
+  assert.equal(containerSavedAt({ SavedAt: 'Aug 13, 2026 10:00:00' }), null);
+  assert.equal(containerSavedAt({ SavedAt: '13/08/2026' }), null);
   assert.equal(containerSavedAt({ SavedAt: 42 }), null);
   assert.equal(containerSavedAt({ SavedAt: '' }), null);
   assert.equal(containerSavedAt({}), null);

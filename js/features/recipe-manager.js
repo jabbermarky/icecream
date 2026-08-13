@@ -60,12 +60,11 @@ let pushRecipeToCloud = null;
 // reach of the declared-fields hydrator and of copyFrom's Object.assign, so a
 // copy can never inherit an id by accident (design decision 10). Set by the
 // load paths (library load via the injected setter, .ier import directly),
-// cleared by New Recipe, advanced by a successful save.
-//
-// KNOWN LIMIT (recorded, not fixed): the backup/restore stack predates
-// identity. Restore swaps the recipe object but leaves this untouched, so a
-// New → Restore sequence re-saves the restored recipe as a fresh identity.
-// Lineage breaks; no record is ever clobbered (a fresh id cannot collide).
+// cleared by New Recipe, advanced by a successful save, and carried through
+// the backup stack (T2.5 — restore used to leave the CURRENT id in place,
+// which could silently assign an imported recipe's id to a restored backup;
+// outside-voice finding 7 showed the earlier "lineage breaks" note here
+// understated that).
 let currentRecipeId = null;
 
 /**
@@ -168,7 +167,13 @@ export function BackupRecipe(recipe) {
 
     RecipeStack[Recipe.Name] = {
         'Recipe': cRecipe.copyFrom(Recipe),
-        'Modified': IsRecipeModified()
+        'Modified': IsRecipeModified(),
+        // P0.3 (T2.5, outside-voice finding 7): identity travels WITH the
+        // backup. Without this, restore left whatever id the CURRENT recipe
+        // had — after an import, a restored backup could be silently
+        // ASSIGNED the imported recipe's id, and its next save would hijack
+        // that lineage.
+        'Identity': currentRecipeId
     };
     return true;
 }
@@ -213,6 +218,10 @@ export function RestoreBackup(recipeName) {
     sortBy = null;
 
     setRecipe(cRecipe.copyFrom(RecipeStack[recipeName].Recipe));
+    // Identity is restored WITH the recipe (T2.5). Entries written before the
+    // field existed restore as null — an unidentified recipe that mints at
+    // its next save, which is the safe direction.
+    currentRecipeId = RecipeStack[recipeName].Identity ?? null;
     DisplayRecipe();
     SetRecipeModified(RecipeStack[recipeName].Modified);
     delete RecipeStack[recipeName];
@@ -1352,11 +1361,15 @@ async function handleSaveRecipe() {
                 return;
             }
             const targetId = containerRecipeId(target.data);
-            if (targetId && idAtClick && targetId !== idAtClick) {
-                // Name collision with a DIFFERENT identified recipe. The old
-                // name-only prompt let this read as a routine overwrite while
-                // it silently destroyed another recipe's identity and history
-                // (review finding).
+            if (targetId && targetId !== idAtClick) {
+                // Name collision with a DIFFERENT identified recipe — and
+                // "different" includes an UNIDENTIFIED recipe replacing an
+                // identified one (outside-voice finding 1a: requiring both
+                // ids gave the weak prompt exactly when an identified
+                // recipe's history was about to be destroyed by a nameless
+                // one). The old name-only prompt let this read as a routine
+                // overwrite while it silently destroyed another recipe's
+                // identity and history (review finding).
                 if (!confirm(`Recipe "${savedName}" already exists and is a DIFFERENT recipe ` +
                     `with its own identity and history. Overwriting will permanently ` +
                     `replace that recipe. Overwrite anyway?`)) {
@@ -1418,9 +1431,15 @@ async function handleSaveRecipe() {
  *    record holding the id, so the new record needs its own — otherwise one
  *    id lands on two records and the lineage is corrupt before sync ever
  *    joins on it (review finding, the P0.6-guards-merge decision).
- *  - Nobody else carries it → KEEP. The identity arrived by .ier import or
- *    sync and this is its first local save; keeping it is what makes identity
- *    round-trip across devices.
+ *  - Nobody else carries it → KEEP, even when the save overwrote a target
+ *    carrying a different id (that record's identity died with it either
+ *    way). The identity arrived by .ier import or sync and this is its first
+ *    local save; keeping it is what makes identity round-trip across
+ *    devices, keeps future batch history attached, and lets the id-first
+ *    sync join converge instead of manufacturing duplicates. Decision 6 was
+ *    AMENDED to this wording (T2.5, cross-model KEEP verdict): a save mints
+ *    when keeping the id would put it on two local records; otherwise
+ *    identity follows the recipe.
  *
  * The scan is a record walk (the design dropped the index deliberately);
  * dozens of records, local reads only. Failures fail toward MINT — a fresh id
@@ -1445,20 +1464,42 @@ async function resolveIdentityForSave(idAtClick, target, savedName) {
     // The residual undetectable case (list [] AND target null while a carrier
     // exists) requires storage that fails reads but still accepts the write
     // that follows; a full outage fails the save itself, writing nothing.
+    const scan = await scanForIdentityCarrier(idAtClick, savedName);
+    if (scan.unverifiable) return mintRecipeId();
+    if (scan.carrier) return mintRecipeId();
+    if (target && scan.listWasEmpty) return mintRecipeId(); // list lied: it just returned a record
+    return idAtClick;
+}
+
+/**
+ * Find which record (if any) other than excludeName carries the given id.
+ * Shared by the save-time mint decision and the import-time same-recipe
+ * prompt (decision 11), so the two scans cannot drift apart.
+ *
+ * Returns { carrier: name|null, listWasEmpty, unverifiable }. "Unverifiable"
+ * means a record was LISTED but could not be read — the scan is blind to a
+ * possible carrier — or the scan itself threw. Callers decide the fail-safe
+ * direction (the mint decision mints; the import prompt skips the prompt and
+ * lets the save-side guards catch it).
+ * @param {string} id
+ * @param {?string} excludeName
+ * @returns {Promise<{carrier: ?string, listWasEmpty: boolean, unverifiable: boolean}>}
+ */
+async function scanForIdentityCarrier(id, excludeName) {
     try {
         const list = await recipeStorage.listRecipes();
-        if (list.length === 0 && target) return mintRecipeId();
         for (const entry of list) {
-            if (entry.name === savedName) continue;
+            if (entry.name === excludeName) continue;
             const rec = await recipeStorage.loadRecipe(entry.name);
-            if (!rec) return mintRecipeId();
-            if (containerRecipeId(rec.data) === idAtClick) return mintRecipeId();
+            if (!rec) return { carrier: null, listWasEmpty: false, unverifiable: true };
+            if (containerRecipeId(rec.data) === id)
+                return { carrier: entry.name, listWasEmpty: false, unverifiable: false };
         }
+        return { carrier: null, listWasEmpty: list.length === 0, unverifiable: false };
     } catch (error) {
-        console.error('Identity scan failed; minting a fresh id:', error);
-        return mintRecipeId();
+        console.error('Identity scan failed:', error);
+        return { carrier: null, listWasEmpty: false, unverifiable: true };
     }
-    return idAtClick;
 }
 
 /**
@@ -1532,7 +1573,29 @@ function handleLoadRecipeFile(event) {
             return;
         }
 
-        function loadRecipe() {
+        async function loadRecipe() {
+            // DECISION 11 (T2.5): if the file's identity already lives in the
+            // library under some name, this file IS that recipe — say so
+            // BEFORE any mutation, keyed by id, and let the user choose
+            // continuity or an independent copy. Placed before the first
+            // await-free mutation so an id-less file keeps the fully
+            // synchronous path (the scan is the function's only await, and it
+            // only runs when there is an id AND storage to scan).
+            let adoptedId = containerRecipeId(dataObj.data);
+            if (adoptedId && recipeStorage) {
+                const scan = await scanForIdentityCarrier(adoptedId, null);
+                if (scan.carrier) {
+                    if (!confirm(`This file is the same recipe as "${scan.carrier}" already in ` +
+                        `your library (same identity). OK: load it AS that recipe — saving ` +
+                        `under "${scan.carrier}" will update it. Cancel: load it as an ` +
+                        `independent copy with its own new identity.`)) {
+                        adoptedId = null;   // copy semantics: mint at the next save
+                    }
+                }
+                // Unverifiable scans skip the prompt: the save-side guards
+                // (mint-on-unverifiable) are the enforcement; this prompt is
+                // only advisory UX.
+            }
             // Empty-map fallback: absent Ingredients passes the gate (legal),
             // but importIngredients throws on undefined (Object.entries) —
             // and this path has no catch, so it would die as an unhandled
@@ -1557,11 +1620,12 @@ function handleLoadRecipeFile(event) {
             }
             setRecipe(newRecipe);
             // P0.3: the recipe on screen IS this record now — adopt its
-            // identity (null for legacy/no-id files; mint-on-save covers
-            // those at the next save). Adopted BEFORE the redraw so a
+            // identity (null for legacy/no-id files, or when the user chose
+            // copy semantics at the decision-11 prompt above; mint-on-save
+            // covers both at the next save). Adopted BEFORE the redraw so a
             // render throw in a stub DOM cannot leave recipe and identity
             // pointing at different records.
-            currentRecipeId = containerRecipeId(dataObj.data);
+            currentRecipeId = adoptedId;
             const idWarning = containerIdentityWarning(dataObj.data);
             if (idWarning) Warning(idWarning);
             sortBy = null;
@@ -1574,7 +1638,7 @@ function handleLoadRecipeFile(event) {
             if (!RecipeStack[dataObj.data.Recipe.Name].Modified) {
                 delete RecipeStack[dataObj.data.Recipe.Name];
                 DisplayBackupList();
-                loadRecipe();
+                loadRecipe().catch((err) => console.error('Failed to apply the imported recipe:', err));
             } else {
                 var div = document.createElement("div");
                 div.style = "display: table; table-layout: fixed;";
@@ -1593,7 +1657,7 @@ function handleLoadRecipeFile(event) {
                 buttons[1].onclick = function () {
                     delete RecipeStack[dataObj.data.Recipe.Name];
                     DisplayBackupList();
-                    loadRecipe();
+                    loadRecipe().catch((err) => console.error('Failed to apply the imported recipe:', err));
                     hideModal();
                 };
                 for (const button of buttons)
@@ -1601,7 +1665,7 @@ function handleLoadRecipeFile(event) {
                 showModal(div, buttonBar);
             }
         } else
-            loadRecipe();
+            loadRecipe().catch((err) => console.error('Failed to apply the imported recipe:', err));
 
     };
     reader.readAsText(event.target.files[0]);

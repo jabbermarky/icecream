@@ -64,9 +64,12 @@ const IDENTITY_SCHEMA_VERSION = 2;
  * (`map.set(...)`, `date.setTime(...)` both succeed on a "frozen" snapshot),
  * and objects reachable only through a Map/Set are never visited at all.
  * Typed arrays are no longer in this list: they are REFUSED outright (see the
- * reversal note in the function). Recipes hold none of these today; the
- * guarantee below is therefore accurate for the shapes actually built, and
- * narrower than "any object graph".
+ * reversal note in the function) — though a typed array nested INSIDE a
+ * Map/Set would evade the refusal for the same non-traversal reason
+ * (outside-voice finding; unreachable today, recorded so the two limits are
+ * read as one). Recipes hold none of these today; the guarantee below is
+ * therefore accurate for the shapes actually built, and narrower than "any
+ * object graph".
  * @param {*} value
  * @returns {*} the same value
  */
@@ -341,6 +344,13 @@ export function containerSavedAt(container) {
     if (!container || typeof container !== 'object') return null;
     const v = container.SavedAt;
     if (typeof v !== 'string') return null;
+    // ISO shape required BEFORE Date.parse (outside-voice finding 10):
+    // Date.parse of non-ISO strings is implementation-dependent, so two
+    // runtimes could order the same pair of records differently — the exact
+    // cross-device divergence this clock exists to prevent. The builder only
+    // ever writes toISOString(); anything else is a hand-edited file and
+    // falls back to updatedAt like all other garbage.
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) return null;
     return Number.isFinite(Date.parse(v)) ? v : null;
 }
 

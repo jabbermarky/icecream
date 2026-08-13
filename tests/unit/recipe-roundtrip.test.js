@@ -21,7 +21,7 @@ const { cRecipe } = await import('../../js/models/core.js');
 const { cIngredient, initIngredients, Ingredients: IngredientLibrary } =
   await import('../../js/features/ingredients.js');
 const { initRecipeManager, initRecipeButtons, getRecipeStack, SetRecipeModified, IsRecipeModified,
-  setCurrentRecipeIdentity, getCurrentRecipeIdentity } =
+  setCurrentRecipeIdentity, getCurrentRecipeIdentity, RestoreBackup } =
   await import('../../js/features/recipe-manager.js');
 const { containerRecipeId, isValidRecipeId } =
   await import('../../js/models/recipe-serialization.js');
@@ -594,6 +594,94 @@ test('P0.3 DECISION 6: overwriting a DIFFERENT identified recipe re-prompts with
   assert.notEqual(saved.RecipeId, 'id-victim', 'the victim\'s identity is not silently reused');
 });
 
+test('T2.5 DECISION 6 AMENDED: a confirmed different-id overwrite KEEPS my id when nothing else carries it', async () => {
+  // The import-collision case (cross-model KEEP verdict): my recipe IS id-a,
+  // arrived by .ier, nothing local carries it. The target's identity dies
+  // with its record either way; minting would only disconnect MY batch
+  // history and make the future sync join manufacture duplicates.
+  freshState(makeRecipe('Taken'));
+  storageRecords['Taken'] = { name: 'Taken', data: { SchemaVersion: 2, RecipeId: 'id-victim', Recipe: { Name: 'Taken' }, Ingredients: {} } };
+  setCurrentRecipeIdentity('id-a');
+  const prompts = [];
+  globalThis.confirm = (msg) => { prompts.push(msg); return true; };
+  await buttons.btnSaveRecipe.onclick();
+  assert.match(prompts[0], /DIFFERENT recipe/);
+  assert.equal(storageCalls[0].data.RecipeId, 'id-a', 'identity follows the recipe');
+});
+
+test('T2.5 1a: an UNIDENTIFIED recipe replacing an identified target gets the strong prompt', async () => {
+  // The guard used to require BOTH ids, which produced the weak prompt
+  // exactly when an identified recipe's history was about to be destroyed by
+  // a nameless one (codex finding 1a).
+  freshState(makeRecipe('Occupied'));
+  storageRecords['Occupied'] = { name: 'Occupied', data: { SchemaVersion: 2, RecipeId: 'id-holder', Recipe: { Name: 'Occupied' }, Ingredients: {} } };
+  const prompts = [];
+  globalThis.confirm = (msg) => { prompts.push(msg); return true; };
+  await buttons.btnSaveRecipe.onclick();
+  assert.equal(prompts.length, 1);
+  assert.match(prompts[0], /DIFFERENT recipe/);
+  const saved = storageCalls[0].data;
+  assert.ok(isValidRecipeId(saved.RecipeId));            // minted (no id at click)
+  assert.notEqual(saved.RecipeId, 'id-holder');
+});
+
+test('T2.5 DECISION 11: importing a file whose id lives in the library prompts, keyed by id', async () => {
+  // OK → load AS that recipe (adopt the id). Cancel → independent copy
+  // (identity null; mint at next save).
+  const fileFor = (name) => JSON.stringify({
+    id: 'IER', version: 1,
+    data: { SchemaVersion: 2, RecipeId: 'id-shared', Recipe: { Name: name, Ingredients: [] }, Ingredients: {} },
+  });
+  freshState(new cRecipe(''));
+  storageRecords['Home Name'] = { name: 'Home Name', data: { SchemaVersion: 2, RecipeId: 'id-shared', Recipe: { Name: 'Home Name' }, Ingredients: {} } };
+  const prompts = [];
+  globalThis.confirm = (msg) => { prompts.push(msg); return true; };
+  try {
+    buttons.inputLoadRecipe.onchange({ target: { files: [makeFile(fileFor('Traveler'))] } });
+  } catch { /* render-time throw in stub DOM */ }
+  await new Promise((r) => setTimeout(r, 0));   // the import scan is async
+  assert.equal(prompts.length, 1);
+  assert.match(prompts[0], /same recipe as "Home Name"/);
+  assert.equal(getCurrentRecipeIdentity(), 'id-shared', 'OK adopts the identity');
+
+  freshState(new cRecipe(''));
+  storageRecords['Home Name'] = { name: 'Home Name', data: { SchemaVersion: 2, RecipeId: 'id-shared', Recipe: { Name: 'Home Name' }, Ingredients: {} } };
+  globalThis.confirm = () => false;             // Cancel: independent copy
+  try {
+    buttons.inputLoadRecipe.onchange({ target: { files: [fileForCancel()] } });
+  } catch { /* render-time throw in stub DOM */ }
+  function fileForCancel() { return makeFile(fileFor('Traveler Copy')); }
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(getCurrentRecipeIdentity(), null, 'Cancel means copy semantics — mint at next save');
+});
+
+test('T2.5 FINDING 7: restore returns the BACKED-UP identity, not whatever is current', async () => {
+  // Save First (mints id-first), import Traveler (adopts id-traveled) — the
+  // import auto-backs-up First WITH its identity — then restore First: the
+  // identity must come back with it, not stay id-traveled (which would let
+  // First's next save hijack Traveler's lineage).
+  freshState(makeRecipe('First'));
+  await buttons.btnSaveRecipe.onclick();
+  const idFirst = storageCalls[0].data.RecipeId;
+
+  const traveler = JSON.stringify({
+    id: 'IER', version: 1,
+    data: { SchemaVersion: 2, RecipeId: 'id-traveled', Recipe: { Name: 'Traveler', Ingredients: [{ Name: 'Milk', Amount: 1 }] }, Ingredients: {} },
+  });
+  try {
+    buttons.inputLoadRecipe.onchange({ target: { files: [makeFile(traveler)] } });
+  } catch { /* render-time throw in stub DOM */ }
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(getCurrentRecipeIdentity(), 'id-traveled');
+
+  try {
+    RestoreBackup('First');
+  } catch { /* render-time throw in stub DOM; identity already restored */ }
+  assert.equal(currentRecipe.Name, 'First');
+  assert.equal(getCurrentRecipeIdentity(), idFirst,
+    'the restored recipe carries ITS identity, not the imported one');
+});
+
 test('P0.3: overwriting my OWN record under its name uses the ordinary prompt and keeps the id', async () => {
   freshState(makeRecipe('Same'));
   storageRecords['Same'] = { name: 'Same', data: { SchemaVersion: 2, RecipeId: 'id-same', Recipe: { Name: 'Same' }, Ingredients: {} } };
@@ -639,6 +727,7 @@ test('P0.3: .ier import ADOPTS the file\'s identity; a v2 file with no id warns 
   try {
     buttons.inputLoadRecipe.onchange({ target: { files: [makeFile(identified)] } });
   } catch { /* render-time throw in stub DOM; adoption already happened */ }
+  await new Promise((r) => setTimeout(r, 0));   // identified files scan async (T2.5)
   assert.equal(currentRecipe.Name, 'Arrived');
   assert.equal(getCurrentRecipeIdentity(), 'id-traveled');
 
