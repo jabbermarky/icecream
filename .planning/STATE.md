@@ -35,10 +35,13 @@ Suite green at 114 passed / 0 failed.
    in `.planning/todos/pending/2026-08-13-t2.6-round3-review-findings.md`
    for the merge-boundary review. The T1 review also REVERSED a P0.5 pin:
    typed arrays now refuse at snapshot (JSON backends corrupt them silently).
-   **Remaining: T3** (pure join/merge module — id-first join, name fallback,
-   `SavedAt` clock, never-overwrite-newer-schema guard; spec in the design
-   doc), **T4** (sync-manager swaps to it), **T5** (browser round-trip of a
-   built container, closes item 22), **T6** (lift DO-NOT-START in
+   **T3 is LANDED and twice-reviewed** (`js/storage/recipe-sync-join.js` —
+   id-first join, name fallback, `SavedAt` clock, schema guard, fixpoint
+   placement so plans are input-order independent; unit lane at 142, and
+   `decideRecipePush` is ready as pushRecipe's gate).
+   **Remaining: T4** (sync-manager swaps to the join module + body download
+   for unknown ids; review: full gstack /review), **T5** (browser round-trip
+   of a built container, closes item 22), **T6** (lift DO-NOT-START in
    batch-loop-design.md, rollout note: reload every device at deploy, verify
    cache-busting). P0.6 shrank to the copy button + rename-refusal UI. P0.4
    and P0.7 are unblocked by identity but still gated on the binder read.
