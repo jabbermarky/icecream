@@ -142,17 +142,25 @@ export function IsRecipeModified() {
  * Backup the current recipe to the stack
  */
 export function BackupCurrentRecipe() {
-    if (BackupRecipe(getRecipe()))
+    if (BackupRecipe(getRecipe(), currentRecipeId))
         DisplayBackupList();
 }
 
 /**
- * Backup a specific recipe to the stack
+ * Backup a specific recipe to the stack. The recipe AND its identity are
+ * taken as arguments (T2.5 review): the old body re-read getRecipe() and
+ * module identity state, so a caller passing any other recipe would have
+ * backed up the current one under the current id — the identity-hijack
+ * class finding 7 closed. The Modified flag still reflects the editor
+ * state, which is only meaningful for the recipe on screen.
  * @param {cRecipe} recipe - Recipe to backup
+ * @param {?string} identity - The RecipeId this recipe is known by, or null
+ *     (an identity-less entry restores as null and mints at its next save —
+ *     the safe direction)
  * @returns {boolean} True if backup was successful
  */
-export function BackupRecipe(recipe) {
-    const Recipe = getRecipe();
+export function BackupRecipe(recipe, identity = null) {
+    const Recipe = recipe;
     if (Recipe.Ingredients.length == 0)
         return false;
     if (Recipe.Name == "") {
@@ -173,7 +181,7 @@ export function BackupRecipe(recipe) {
         // had — after an import, a restored backup could be silently
         // ASSIGNED the imported recipe's id, and its next save would hijack
         // that lineage.
-        'Identity': currentRecipeId
+        'Identity': identity
     };
     return true;
 }
@@ -214,7 +222,7 @@ export function DisplayBackupList() {
  * @param {string} recipeName - Name of recipe to restore
  */
 export function RestoreBackup(recipeName) {
-    BackupRecipe(getRecipe());
+    BackupRecipe(getRecipe(), currentRecipeId);
     sortBy = null;
 
     setRecipe(cRecipe.copyFrom(RecipeStack[recipeName].Recipe));
@@ -1573,100 +1581,143 @@ function handleLoadRecipeFile(event) {
             return;
         }
 
-        async function loadRecipe() {
-            // DECISION 11 (T2.5): if the file's identity already lives in the
-            // library under some name, this file IS that recipe — say so
-            // BEFORE any mutation, keyed by id, and let the user choose
-            // continuity or an independent copy. Placed before the first
-            // await-free mutation so an id-less file keeps the fully
-            // synchronous path (the scan is the function's only await, and it
-            // only runs when there is an id AND storage to scan).
-            let adoptedId = containerRecipeId(dataObj.data);
-            if (adoptedId && recipeStorage) {
-                const scan = await scanForIdentityCarrier(adoptedId, null);
-                if (scan.carrier) {
-                    if (!confirm(`This file is the same recipe as "${scan.carrier}" already in ` +
-                        `your library (same identity). OK: load it AS that recipe — saving ` +
-                        `under "${scan.carrier}" will update it. Cancel: load it as an ` +
-                        `independent copy with its own new identity.`)) {
-                        adoptedId = null;   // copy semantics: mint at the next save
-                    }
+        // DECISION 11 (T2.5): if the file's identity already lives in the
+        // library under some name, this file IS that recipe — say so, keyed
+        // by id, and let the user choose continuity or an independent copy.
+        // Two T2.5-review rules govern this helper:
+        // - The scan is the import path's ONLY await, and it runs BEFORE the
+        //   backup and every other mutation below, so everything that
+        //   touches state executes synchronously after the last await. The
+        //   old shape backed up first and awaited later, which opened a
+        //   window where edits made during the scan were captured nowhere —
+        //   neither in the backup nor in the loaded recipe.
+        // - A carrier with the FILE'S OWN name is the trivially-same recipe
+        //   (re-importing your own export); prompting there was noise, and
+        //   its Cancel branch armed the destructive different-id overwrite
+        //   prompt against the user's own record. Adopt silently instead.
+        async function resolveImportIdentity(fileId) {
+            const scan = await scanForIdentityCarrier(fileId, null);
+            if (scan.carrier && scan.carrier !== dataObj.data.Recipe.Name) {
+                if (!confirm(`This file is the same recipe as "${scan.carrier}" already in ` +
+                    `your library (same identity). OK: load it AS that recipe — saving ` +
+                    `under "${scan.carrier}" will update it. Cancel: load it as an ` +
+                    `independent copy with its own new identity.`)) {
+                    return null;   // copy semantics: mint at the next save
                 }
-                // Unverifiable scans skip the prompt: the save-side guards
-                // (mint-on-unverifiable) are the enforcement; this prompt is
-                // only advisory UX.
             }
-            // Empty-map fallback: absent Ingredients passes the gate (legal),
-            // but importIngredients throws on undefined (Object.entries) —
-            // and this path has no catch, so it would die as an unhandled
-            // rejection after the backup stack already changed (review
-            // finding, same fix as recipe-library-load.js).
-            importIngredients(
-                dataObj.data.Ingredients || {},
-                false,
-                "This recipe was saved with different ingredient values than your current library. The library reflects your latest research.",
-                { current: "Library", imported: "Recipe" },
-                { keep: "Keep Library", replace: "Use Recipe" }
-            );
-
-            RecipeBackup = [];
-            // Shared declared-fields hydrator; containerProblem already
-            // passed above, so null cannot happen here — guarded anyway so a
-            // future code motion cannot reintroduce silent truncation.
-            const newRecipe = hydrateRecipe(dataObj.data);
-            if (!newRecipe) {
-                ErrorMsg(containerProblem(dataObj.data) || invalidContainerMessage());
-                return;
-            }
-            setRecipe(newRecipe);
-            // P0.3: the recipe on screen IS this record now — adopt its
-            // identity (null for legacy/no-id files, or when the user chose
-            // copy semantics at the decision-11 prompt above; mint-on-save
-            // covers both at the next save). Adopted BEFORE the redraw so a
-            // render throw in a stub DOM cannot leave recipe and identity
-            // pointing at different records.
-            currentRecipeId = adoptedId;
-            const idWarning = containerIdentityWarning(dataObj.data);
-            if (idWarning) Warning(idWarning);
-            sortBy = null;
-            DisplayRecipe();
-            SetRecipeModified(false);
+            // Unverifiable scans skip the prompt: the save-side guards
+            // (mint-on-unverifiable) are the enforcement; this prompt is
+            // only advisory UX.
+            return fileId;
         }
 
-        BackupCurrentRecipe();
-        if (RecipeStack.hasOwnProperty(dataObj.data.Recipe.Name)) {
-            if (!RecipeStack[dataObj.data.Recipe.Name].Modified) {
-                delete RecipeStack[dataObj.data.Recipe.Name];
-                DisplayBackupList();
-                loadRecipe().catch((err) => console.error('Failed to apply the imported recipe:', err));
-            } else {
-                var div = document.createElement("div");
-                div.style = "display: table; table-layout: fixed;";
-                div.innerHTML += "<h3>Confirm</h3><strong>" + dataObj.data.Recipe.Name + "</strong> is already loaded"
-                    + (RecipeStack[dataObj.data.Recipe.Name].Modified ? " and modified" : "")
-                    + ".<br>Do you want to replace it?";
+        function finishLoad(adoptedId) {
+            // State mutations first, and a failure here is REPORTED (T2.5
+            // review): the backup stack has already changed by this point,
+            // so a silent console line left the user watching the file
+            // picker close with nothing happening.
+            try {
+                // Empty-map fallback: absent Ingredients passes the gate
+                // (legal), but importIngredients throws on undefined
+                // (Object.entries) — review finding, same fix as
+                // recipe-library-load.js.
+                importIngredients(
+                    dataObj.data.Ingredients || {},
+                    false,
+                    "This recipe was saved with different ingredient values than your current library. The library reflects your latest research.",
+                    { current: "Library", imported: "Recipe" },
+                    { keep: "Keep Library", replace: "Use Recipe" }
+                );
 
-                var buttonBar = document.createElement("div");
-                var buttons = [...nGenerator(2, () => { return document.createElement('button'); })];
-                buttons[0].innerText = "Keep Current";
-                buttons[0].onclick = () => {
-                    RestoreBackup(dataObj.data.Recipe.Name);
-                    hideModal();
-                };
-                buttons[1].innerText = "Continue Loading";
-                buttons[1].onclick = function () {
+                RecipeBackup = [];
+                // Shared declared-fields hydrator; containerProblem already
+                // passed above, so null cannot happen here — guarded anyway
+                // so a future code motion cannot reintroduce silent
+                // truncation.
+                const newRecipe = hydrateRecipe(dataObj.data);
+                if (!newRecipe) {
+                    ErrorMsg(containerProblem(dataObj.data) || invalidContainerMessage());
+                    return;
+                }
+                setRecipe(newRecipe);
+                // P0.3: the recipe on screen IS this record now — adopt its
+                // identity (null for legacy/no-id files, or when the user
+                // chose copy semantics at the decision-11 prompt above;
+                // mint-on-save covers both at the next save). Adopted with
+                // the recipe so a later render throw cannot leave recipe and
+                // identity pointing at different records.
+                currentRecipeId = adoptedId;
+            } catch (err) {
+                console.error('Failed to apply the imported recipe:', err);
+                ErrorMsg('The recipe could not be imported: ' + (err && err.message ? err.message : err)
+                    + '. Your previous recipe is in Recent Recipes.');
+                return;
+            }
+            // Render refresh second, console-only on failure: the recipe DID
+            // load; a display hiccup in an exotic environment (or the node
+            // test lane's stub DOM) is not an import failure.
+            try {
+                const idWarning = containerIdentityWarning(dataObj.data);
+                if (idWarning) Warning(idWarning);
+                sortBy = null;
+                DisplayRecipe();
+                SetRecipeModified(false);
+            } catch (err) {
+                console.error('Imported, but the display failed to refresh:', err);
+            }
+        }
+
+        // Fully synchronous once the identity is resolved — the backup below
+        // is taken AFTER the scan's awaits, so it snapshots the recipe as it
+        // is at mutation time.
+        function applyImportedFile(adoptedId) {
+            BackupCurrentRecipe();
+            if (RecipeStack.hasOwnProperty(dataObj.data.Recipe.Name)) {
+                if (!RecipeStack[dataObj.data.Recipe.Name].Modified) {
                     delete RecipeStack[dataObj.data.Recipe.Name];
                     DisplayBackupList();
-                    loadRecipe().catch((err) => console.error('Failed to apply the imported recipe:', err));
-                    hideModal();
-                };
-                for (const button of buttons)
-                    buttonBar.appendChild(button);
-                showModal(div, buttonBar);
-            }
-        } else
-            loadRecipe().catch((err) => console.error('Failed to apply the imported recipe:', err));
+                    finishLoad(adoptedId);
+                } else {
+                    var div = document.createElement("div");
+                    div.style = "display: table; table-layout: fixed;";
+                    div.innerHTML += "<h3>Confirm</h3><strong>" + dataObj.data.Recipe.Name + "</strong> is already loaded"
+                        + (RecipeStack[dataObj.data.Recipe.Name].Modified ? " and modified" : "")
+                        + ".<br>Do you want to replace it?";
 
+                    var buttonBar = document.createElement("div");
+                    var buttons = [...nGenerator(2, () => { return document.createElement('button'); })];
+                    buttons[0].innerText = "Keep Current";
+                    buttons[0].onclick = () => {
+                        RestoreBackup(dataObj.data.Recipe.Name);
+                        hideModal();
+                    };
+                    buttons[1].innerText = "Continue Loading";
+                    buttons[1].onclick = function () {
+                        delete RecipeStack[dataObj.data.Recipe.Name];
+                        DisplayBackupList();
+                        finishLoad(adoptedId);
+                        hideModal();
+                    };
+                    for (const button of buttons)
+                        buttonBar.appendChild(button);
+                    showModal(div, buttonBar);
+                }
+            } else
+                finishLoad(adoptedId);
+        }
+
+        const fileId = containerRecipeId(dataObj.data);
+        if (fileId && recipeStorage) {
+            // Identified file with a library to scan: async, but read-only
+            // until applyImportedFile. The scan itself never rejects
+            // (storage failures come back as unverifiable), so this catch
+            // only guards the synchronous application.
+            resolveImportIdentity(fileId).then(applyImportedFile)
+                .catch((err) => console.error('Failed to apply the imported recipe:', err));
+        } else {
+            // Id-less (legacy) files keep the fully synchronous path.
+            applyImportedFile(fileId || null);
+        }
     };
     reader.readAsText(event.target.files[0]);
 }

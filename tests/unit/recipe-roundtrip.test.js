@@ -21,7 +21,7 @@ const { cRecipe } = await import('../../js/models/core.js');
 const { cIngredient, initIngredients, Ingredients: IngredientLibrary } =
   await import('../../js/features/ingredients.js');
 const { initRecipeManager, initRecipeButtons, getRecipeStack, SetRecipeModified, IsRecipeModified,
-  setCurrentRecipeIdentity, getCurrentRecipeIdentity, RestoreBackup } =
+  setCurrentRecipeIdentity, getCurrentRecipeIdentity, RestoreBackup, BackupRecipe } =
   await import('../../js/features/recipe-manager.js');
 const { containerRecipeId, isValidRecipeId } =
   await import('../../js/models/recipe-serialization.js');
@@ -653,6 +653,68 @@ test('T2.5 DECISION 11: importing a file whose id lives in the library prompts, 
   function fileForCancel() { return makeFile(fileFor('Traveler Copy')); }
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(getCurrentRecipeIdentity(), null, 'Cancel means copy semantics — mint at next save');
+});
+
+test('T2.6: re-importing your OWN export (carrier has the file\'s name) adopts silently — no prompt', async () => {
+  // T2.5-review finding: the decision-11 prompt fired for a file whose
+  // carrier IS the same-named library record — a confusing "same recipe as
+  // Mango" confirm on re-importing Mango — and its Cancel branch armed the
+  // destructive different-id overwrite prompt against the user's own
+  // record at the next save. Same name + same id is trivially the same
+  // recipe: adopt, no question.
+  freshState(new cRecipe(''));
+  storageRecords['Mango'] = { name: 'Mango', data: { SchemaVersion: 2, RecipeId: 'id-mango', Recipe: { Name: 'Mango' }, Ingredients: {} } };
+  const prompts = [];
+  globalThis.confirm = (msg) => { prompts.push(msg); return true; };
+  const file = JSON.stringify({
+    id: 'IER', version: 1,
+    data: { SchemaVersion: 2, RecipeId: 'id-mango', Recipe: { Name: 'Mango', Ingredients: [] }, Ingredients: {} },
+  });
+  try {
+    buttons.inputLoadRecipe.onchange({ target: { files: [makeFile(file)] } });
+  } catch { /* render-time throw in stub DOM */ }
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(prompts.length, 0, 'a same-named carrier must not prompt');
+  assert.equal(getCurrentRecipeIdentity(), 'id-mango', 'the identity is adopted, not lost to copy semantics');
+  assert.equal(currentRecipe.Name, 'Mango');
+});
+
+test('T2.6: edits made while the import identity scan is pending land in the BACKUP', async () => {
+  // T2.5-review finding: the old shape took the backup BEFORE the scan's
+  // awaits, so a keystroke landing during the scan mutated a recipe that
+  // was already snapshotted and was then discarded by setRecipe — lost from
+  // both sides. The backup now happens after the last await.
+  freshState(makeRecipe('Mid Edit'));
+  // A populated library forces the scan to actually await storage reads.
+  storageRecords['Elsewhere'] = { name: 'Elsewhere', data: { SchemaVersion: 2, RecipeId: 'id-other', Recipe: { Name: 'Elsewhere' }, Ingredients: {} } };
+  const identified = JSON.stringify({
+    id: 'IER', version: 1,
+    data: { SchemaVersion: 2, RecipeId: 'id-incoming', Recipe: { Name: 'Incoming', Ingredients: [] }, Ingredients: {} },
+  });
+  try {
+    buttons.inputLoadRecipe.onchange({ target: { files: [makeFile(identified)] } });
+  } catch { /* render-time throw in stub DOM */ }
+  // The scan is in flight; the user keeps typing.
+  currentRecipe.Notes = 'edited while the scan was pending';
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(currentRecipe.Name, 'Incoming', 'the import itself still lands');
+  assert.equal(getRecipeStack()['Mid Edit'].Recipe.Notes, 'edited while the scan was pending',
+    'the backup snapshots the recipe as it was at mutation time, not at file-pick time');
+});
+
+test('T2.6: BackupRecipe backs up the PASSED recipe under the PASSED identity', () => {
+  // T2.5-review finding: the body re-read getRecipe() and module identity
+  // state, so a caller passing any other recipe would silently have backed
+  // up the current recipe under the current id — the identity-hijack class
+  // finding 7 closed, waiting to recur through the exported signature.
+  freshState(makeRecipe('On Screen'));
+  setCurrentRecipeIdentity('id-current');
+  const other = makeRecipe('Someone Else');
+  BackupRecipe(other, 'id-other');
+  const stack = getRecipeStack();
+  assert.ok(stack['Someone Else'], 'the passed recipe is what lands on the stack');
+  assert.equal(stack['Someone Else'].Identity, 'id-other', 'with the passed identity, not module state');
+  assert.equal(stack['On Screen'], undefined, 'the current recipe was not backed up instead');
 });
 
 test('T2.5 FINDING 7: restore returns the BACKED-UP identity, not whatever is current', async () => {

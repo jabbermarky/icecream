@@ -344,13 +344,16 @@ export function containerSavedAt(container) {
     if (!container || typeof container !== 'object') return null;
     const v = container.SavedAt;
     if (typeof v !== 'string') return null;
-    // ISO shape required BEFORE Date.parse (outside-voice finding 10):
-    // Date.parse of non-ISO strings is implementation-dependent, so two
-    // runtimes could order the same pair of records differently — the exact
-    // cross-device divergence this clock exists to prevent. The builder only
-    // ever writes toISOString(); anything else is a hand-edited file and
-    // falls back to updatedAt like all other garbage.
-    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) return null;
+    // UTC-anchored ISO shape required BEFORE Date.parse (outside-voice
+    // finding 10, tightened by the T2.5 review): a bare prefix check still
+    // admitted timezone-less date-times, which Date.parse reads as LOCAL
+    // time — the same string is a different instant on two devices, the
+    // exact cross-device divergence this clock exists to prevent. Non-Z
+    // offsets parse consistently but break any lexicographic comparison of
+    // SavedAt strings. The builder only ever writes toISOString(), so the
+    // full Z-anchored form is the only legitimate shape; anything else is a
+    // hand-edited file and falls back to updatedAt like all other garbage.
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(v)) return null;
     return Number.isFinite(Date.parse(v)) ? v : null;
 }
 

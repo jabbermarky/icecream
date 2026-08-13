@@ -394,6 +394,18 @@ test('P0.3: containerSavedAt returns a parseable clock or null — never a raw f
   assert.equal(containerSavedAt({ SavedAt: '' }), null);
   assert.equal(containerSavedAt({}), null);
   assert.equal(containerSavedAt(null), null);
+  // T2.6 (review of T2.5): the guard anchors to the full UTC toISOString
+  // shape. A timezone-less date-time PASSES a prefix check but Date.parse
+  // reads it as LOCAL time — the same string is a different instant on two
+  // devices, so two runtimes would order the same pair of records
+  // differently. Non-Z offsets parse consistently but break lexicographic
+  // comparison of SavedAt strings. The builder only writes toISOString().
+  assert.equal(containerSavedAt({ SavedAt: '2026-08-13T10:00' }), null);
+  assert.equal(containerSavedAt({ SavedAt: '2026-08-13T10:00:00' }), null);
+  assert.equal(containerSavedAt({ SavedAt: '2026-08-13T10:00:00.000' }), null);
+  assert.equal(containerSavedAt({ SavedAt: '2026-08-13T10:00:00+05:00' }), null);
+  assert.equal(containerSavedAt({ SavedAt: '2026-08-13T10:00:00Z' }), '2026-08-13T10:00:00Z');
+  assert.equal(containerSavedAt({ SavedAt: '2026-08-13T10:00:00.5Z' }), '2026-08-13T10:00:00.5Z');
   // And the builder's own stamp round-trips through its own accessor.
   const c = buildRecipeContainer(makeRecipe(), library, () => {});
   assert.equal(containerSavedAt(c), c.SavedAt);
