@@ -110,15 +110,49 @@ test('T3: same id, different names — the winner\'s name propagates and the sta
   assert.equal(plan.stats.deleted, 1);
 });
 
-test('T3: a freed rename key can be claimed by a one-sided copy — deletes stay ordered before singles', () => {
+test('T3: a freed rename key claimed by another copy is overwritten, not deleted — no delete may follow a write', () => {
   // Cloud "Mango"(id-1) was renamed locally to "Mango V2"; local ALSO has an
-  // unrelated new "Mango"(id-2) that does not exist in the cloud. The stale
-  // delete must run before the single push so the new Mango survives.
+  // unrelated new "Mango"(id-2) that does not exist in the cloud. The push of
+  // the new Mango overwrites the stale record — emitting the stale delete too
+  // would destroy the freshly written record.
   const plan = planRecipeSync(
     [rec('Mango V2', v2('Mango V2', { id: 'id-1', savedAt: T2 })),
      rec('Mango', v2('Mango', { id: 'id-2', savedAt: T1 }))],
     [rec('Mango', v2('Mango', { id: 'id-1', savedAt: T1 }))]);
-  assert.deepEqual(ops(plan), ['push:Mango V2', 'delete:Mango@cloud', 'push:Mango']);
+  assert.deepEqual(ops(plan).sort(), ['push:Mango', 'push:Mango V2']);
+  assert.equal(plan.actions.some((a) => a.op === 'delete'), false);
+  assert.deepEqual(plan.warnings, []);
+});
+
+test('T3: a cross-device rename chain (A→B while B→C) plans identically from any input order', () => {
+  // Review repro (round-4 findings 2+3): with placement decided mid-pass, one
+  // input order emitted delete:B AFTER push:B wrote the fresh record, and the
+  // other order spuriously refused the A→B rename as a collision with a
+  // record that was about to vacate. Both orders must yield the same plan:
+  // write both, delete only the truly abandoned key A.
+  const cloudRecs = [rec('A', v2('A', { id: 'id-1', savedAt: T1 })),
+                     rec('B', v2('B', { id: 'id-2', savedAt: T1 }))];
+  const localBC = [rec('B', v2('B', { id: 'id-1', savedAt: T3 })),
+                   rec('C', v2('C', { id: 'id-2', savedAt: T3 }))];
+  const localCB = [localBC[1], localBC[0]];
+  for (const locals of [localBC, localCB]) {
+    const plan = planRecipeSync(locals, cloudRecs);
+    assert.deepEqual(ops(plan).sort(), ['delete:A@cloud', 'push:B', 'push:C']);
+    assert.deepEqual(plan.warnings, [], 'no spurious collision in either order');
+  }
+});
+
+test('T3: a true cross-device name swap is refused on both sides — unresolvable without a human', () => {
+  // Local renamed id-1 to "N" while the cloud renamed id-2 to "N" (and each
+  // still holds the other lineage's record). Either write would overwrite a
+  // record that is staying put, and the refusals cascade deterministically.
+  const plan = planRecipeSync(
+    [rec('N', v2('N', { id: 'id-1', savedAt: T3 })),
+     rec('M', v2('M', { id: 'id-2', savedAt: T1 }))],
+    [rec('M', v2('M', { id: 'id-1', savedAt: T1 })),
+     rec('N', v2('N', { id: 'id-2', savedAt: T3 }))]);
+  assert.deepEqual(plan.actions, []);
+  assert.equal(plan.warnings.filter((w) => w.code === SYNC_WARNINGS.NAME_COLLISION).length, 2);
 });
 
 test('T3: a rename landing on a name a DIFFERENT record holds is refused, both left untouched', () => {
@@ -235,6 +269,20 @@ test('T3: a malformed body at an understood schema is unreadable; the rest of th
   assert.deepEqual(codes(plan), [SYNC_WARNINGS.UNREADABLE]);
 });
 
+test('T3: a garbage SchemaVersion is corruption, not the future — unreadable, never a copyable blob', () => {
+  // Review repro (round-4 finding 1): containerSchemaVersion(true/NaN/"") is
+  // Infinity, which slipped past the `sv <= current` malformed check and let
+  // a corrupt body join as a "newer-schema" blob — win LWW on a fabricated
+  // SavedAt, and silently replace a good record with data the load gate
+  // refuses. It must classify as unreadable and block its name instead.
+  const corrupt = { SchemaVersion: true, RecipeId: 'id-1', SavedAt: T3, Recipe: 'not an object' };
+  const plan = planRecipeSync(
+    [rec('A', v2('A', { id: 'id-1', savedAt: T1 }))],
+    [rec('A', corrupt)]);
+  assert.deepEqual(plan.actions, [], 'the corrupt body must not win anything');
+  assert.deepEqual(codes(plan), [SYNC_WARNINGS.UNREADABLE]);
+});
+
 // --- Empty and trivial inputs ---
 
 test('T3: empty inputs plan nothing and warn nothing', () => {
@@ -274,6 +322,26 @@ test('T3 PUSH GATE: a different identity at the same cloud name refuses the push
 test('T3 PUSH GATE: an unreadable cloud body refuses — never overwrite what could not be seen', () => {
   const mine = { name: 'A', data: v2('A', { id: 'id-1' }) };
   const verdict = decideRecipePush(mine, { name: 'A', data: null });
+  assert.equal(verdict.allow, false);
+  assert.equal(verdict.warning.code, SYNC_WARNINGS.UNREADABLE);
+});
+
+test('T3 PUSH GATE: a malformed cloud body refuses like the full join would — the two paths agree', () => {
+  // Review repro (round-4 finding 4): the gate allowed overwriting exactly
+  // the records planRecipeSync classifies unreadable and blocks, so the two
+  // write paths this module exists to unify disagreed.
+  const mine = { name: 'A', data: v2('A', { id: 'id-1' }) };
+  const verdict = decideRecipePush(mine, rec('A', { SchemaVersion: 2, Recipe: 'not an object' }));
+  assert.equal(verdict.allow, false);
+  assert.equal(verdict.warning.code, SYNC_WARNINGS.UNREADABLE);
+});
+
+test('T3 PUSH GATE: a garbage SchemaVersion refuses as UNREADABLE, not as "newer" — no lying repair path', () => {
+  // Review repro (round-4 finding 5): calling corruption "saved by a newer
+  // version — update the app" sends the user on a repair path that cannot
+  // work; recipe-serialization.js records the identical prior finding.
+  const mine = { name: 'A', data: v2('A', { id: 'id-1' }) };
+  const verdict = decideRecipePush(mine, rec('A', { SchemaVersion: true, Recipe: { Name: 'A' } }));
   assert.equal(verdict.allow, false);
   assert.equal(verdict.warning.code, SYNC_WARNINGS.UNREADABLE);
 });

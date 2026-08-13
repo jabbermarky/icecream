@@ -20,21 +20,31 @@
 //     understand (decision 9, red team): sync writes records it never loads,
 //     so without this guard a stale device's LWW push strips v2+ fields
 //     wholesale on a path the load gate cannot see. Skip and warn instead.
+//     "Newer schema" means a FINITE version above ours — a garbage
+//     SchemaVersion is corruption, not the future, and is unreadable (the
+//     same distinction containerProblem draws, for the same review reason:
+//     telling a user with a corrupted record to update the app is a lie).
 //   - Same name + two different ids is TWO recipes, not a conflict to LWW
 //     away (the dead-id-vs-live-name case): overwriting either side would
 //     destroy a lineage. Skip and warn; resolution is a user decision.
-//   - No partial overwrites: a record whose body could not be read blocks
-//     its name on its own side — the other side's same-named record must
-//     not be treated as "only" and clobber what we could not see.
+//   - No partial overwrites: a record whose body is missing or malformed
+//     blocks its name on its own side — the other side's same-named record
+//     must not be treated as "only" and clobber what we could not see.
+//   - A name is only written when its current holder is this write's own
+//     join partner, is being renamed away by another surviving write, or
+//     does not exist. Placement is resolved AFTER all pairs are known, so
+//     the plan does not depend on record listing order — a rename chain
+//     (A→B while B→C) resolves the same way from any input order.
 //
 // The caller contract (T4):
 //   - Every record passed in is { name, updatedAt, data } with `data` the
 //     already-downloaded container body, or `data: null` when the body could
 //     not be read (decision 3: ids are invisible in listRecipes output, so
 //     the join NEEDS bodies; the download is the caller's job).
-//   - Execute the returned actions IN ORDER. Renames emit a write under the
-//     new name followed by a delete of the stale old key, and a later action
-//     may legitimately reuse a deleted name — reordering breaks that.
+//   - Execute the returned actions IN ORDER: writes first, then deletes.
+//     A delete never names a key any planned write targets — when a rename
+//     frees a key another record claims, the overwrite IS the cleanup and
+//     no delete is emitted.
 
 import {
     RECIPE_SCHEMA_VERSION,
@@ -52,6 +62,18 @@ export const SYNC_WARNINGS = Object.freeze({
     DUPLICATE_ID: 'duplicate-id',
     NAME_COLLISION: 'name-collision',
 });
+
+/**
+ * True for a body written by a genuinely newer schema: a FINITE version
+ * above ours. Such a body is a faithful blob this build may copy but never
+ * overwrite. A non-finite version (true/NaN/"" → Infinity) is corruption
+ * and must NOT reach here — classify it unreadable first.
+ * @param {number} sv - a containerSchemaVersion() result
+ * @returns {boolean}
+ */
+function isCopyableNewerSchema(sv) {
+    return Number.isFinite(sv) && sv > RECIPE_SCHEMA_VERSION;
+}
 
 /**
  * A record's updatedAt as epoch milliseconds, 0 for anything unparseable —
@@ -83,10 +105,11 @@ function compareClocks(a, b) {
  * Classify one side's raw records into joinable entries and blocked names.
  *
  * A record is UNREADABLE when its body is missing (null data — a failed
- * download) or malformed at a schema this build understands (containerProblem
- * at sv <= RECIPE_SCHEMA_VERSION). A NEWER-schema record is NOT unreadable:
- * its body is a faithful blob this build may copy but never overwrite.
- * Unreadable records join nothing and BLOCK their name as a write target.
+ * download), its SchemaVersion is garbage (non-finite — corruption, not the
+ * future), or it is malformed at a schema this build understands. A record
+ * with a FINITE newer schema is NOT unreadable: it is a faithful blob this
+ * build may copy but never overwrite. Unreadable records join nothing and
+ * BLOCK their name as a write target.
  */
 function classifySide(records, side, warnings) {
     const entries = [];          // joinable, in input order
@@ -101,8 +124,9 @@ function classifySide(records, side, warnings) {
             continue;
         }
         const data = record.data;
+        const sv = data == null ? NaN : containerSchemaVersion(data);
         const malformed = data == null ||
-            (containerSchemaVersion(data) <= RECIPE_SCHEMA_VERSION && containerProblem(data));
+            (!isCopyableNewerSchema(sv) && containerProblem(data));
         if (malformed) {
             blocked.add(name);
             warnings.push({
@@ -116,7 +140,7 @@ function classifySide(records, side, warnings) {
             updatedAt: record.updatedAt,
             id: containerRecipeId(data),
             savedAt: containerSavedAt(data),
-            schemaVersion: containerSchemaVersion(data),
+            schemaVersion: sv,
         });
     }
     return { entries, blocked };
@@ -128,17 +152,19 @@ function classifySide(records, side, warnings) {
  * record represents the id in the join — picked deterministically as the
  * newest clock, name ascending on a tie — and the others are excluded AND
  * block their names, so nothing overwrites them until a human untangles it.
+ * @returns {Map<string, Object>} id → representative entry
  */
 function resolveDuplicateIds(entries, blocked, side, warnings) {
-    const byId = new Map();
+    const groups = new Map();
     for (const e of entries) {
         if (!e.id) continue;
-        if (!byId.has(e.id)) byId.set(e.id, []);
-        byId.get(e.id).push(e);
+        if (!groups.has(e.id)) groups.set(e.id, []);
+        groups.get(e.id).push(e);
     }
-    for (const [id, group] of byId) {
-        if (group.length < 2) continue;
+    const representatives = new Map();
+    for (const [id, group] of groups) {
         group.sort((a, b) => compareClocks(b, a) || (a.name < b.name ? -1 : 1));
+        representatives.set(id, group[0]);
         for (const loser of group.slice(1)) {
             loser.excluded = true;
             blocked.add(loser.name);
@@ -148,30 +174,29 @@ function resolveDuplicateIds(entries, blocked, side, warnings) {
                     `"${group[0].name}" is newer and syncs, "${loser.name}" was left untouched.`,
             });
         }
-        byId.set(id, [group[0]]);
     }
-    const representatives = new Map();
-    for (const [id, group] of byId) representatives.set(id, group[0]);
     return representatives;
 }
 
 /**
- * LWW a joined pair into an action, or null when no write should happen.
- * The schema guard lives HERE, at the one point every overwrite passes
- * through: the record being REPLACED must be of a schema this build
- * understands, whichever direction the clock points.
+ * LWW a joined pair into a write candidate, or null when no write should
+ * happen. The schema guard lives HERE, at the one point every pair overwrite
+ * passes through: the record being REPLACED must be of a schema this build
+ * understands, whichever direction the clock points. (Garbage versions never
+ * reach this — classifySide already refused them as unreadable.)
  */
-function resolvePair(local, cloud, warnings) {
+function resolvePair(local, cloud, warnings, stats) {
     const cmp = compareClocks(local, cloud);
-    if (cmp === 0) return null;
+    if (cmp === 0) { stats.unchanged++; return null; }
     const winner = cmp > 0 ? local : cloud;
     const loser = cmp > 0 ? cloud : local;
-    if (loser.schemaVersion > RECIPE_SCHEMA_VERSION) {
+    if (isCopyableNewerSchema(loser.schemaVersion)) {
         warnings.push({
             code: SYNC_WARNINGS.NEWER_SCHEMA, side: loser.side, name: loser.name,
             message: `"${loser.name}" (${loser.side}) was saved by a newer version of Ice Ed ` +
                 `and cannot be safely replaced by this one. Update the app, then sync again.`,
         });
+        stats.skipped++;
         return null;
     }
     return {
@@ -179,8 +204,8 @@ function resolvePair(local, cloud, warnings) {
         name: winner.name,
         data: winner.data,
         reason: winner.side === 'local' ? 'local-newer' : 'cloud-newer',
-        staleName: loser.name !== winner.name ? loser.name : undefined,
-        staleTarget: loser.name !== winner.name ? loser.side : undefined,
+        winner, loser,
+        refused: false,
     };
 }
 
@@ -195,9 +220,8 @@ function resolvePair(local, cloud, warnings) {
  *   warnings: Array<{code: string, side: string, name: string, message: string}>,
  *   stats: {pairsById: number, pairsByName: number, pushed: number,
  *           pulled: number, deleted: number, unchanged: number, skipped: number},
- * }} actions are ORDERED: paired writes first, then stale-rename deletes,
- *    then one-sided copies — a later copy may legitimately claim a name a
- *    delete just freed, so executing out of order loses records.
+ * }} actions are ORDERED: writes first, then stale-rename deletes. No delete
+ *    ever names a key a planned write targets.
  */
 export function planRecipeSync(localRecords, cloudRecords) {
     const warnings = [];
@@ -208,12 +232,7 @@ export function planRecipeSync(localRecords, cloudRecords) {
     const localById = resolveDuplicateIds(local.entries, local.blocked, 'local', warnings);
     const cloudById = resolveDuplicateIds(cloud.entries, cloud.blocked, 'cloud', warnings);
 
-    const pairWrites = [];
-    const staleDeletes = [];
-    const singles = [];
-
-    const blockedOn = (side) => (side === 'local' ? local.blocked : cloud.blocked);
-    const entriesOf = (side) => (side === 'local' ? local.entries : cloud.entries);
+    const candidates = [];
 
     // --- Pass 1: id join ---
     for (const [id, l] of localById) {
@@ -221,31 +240,8 @@ export function planRecipeSync(localRecords, cloudRecords) {
         if (!c) continue;
         stats.pairsById++;
         l.consumed = c.consumed = true;
-        // A rename writes the winner under ITS name on the other side. If a
-        // DIFFERENT record (or an unreadable one) already sits at that name
-        // there, writing would destroy a third lineage — skip and warn.
-        const action = resolvePair(l, c, warnings);
-        if (!action) {
-            if (compareClocks(l, c) === 0) stats.unchanged++; else stats.skipped++;
-            continue;
-        }
-        if (action.staleName) {
-            const destSide = action.op === 'push' ? 'cloud' : 'local';
-            const occupant = entriesOf(destSide).find((e) => e.name === action.name && !e.consumed && !e.excluded);
-            if (occupant || blockedOn(destSide).has(action.name)) {
-                warnings.push({
-                    code: SYNC_WARNINGS.NAME_COLLISION, side: destSide, name: action.name,
-                    message: `Syncing the rename of "${action.staleName}" to "${action.name}" would ` +
-                        `overwrite a different "${action.name}" (${destSide}); both were left untouched.`,
-                });
-                stats.skipped++;
-                continue;
-            }
-            staleDeletes.push({ op: 'delete', target: action.staleTarget, name: action.staleName, reason: 'renamed' });
-        }
-        delete action.staleName;
-        delete action.staleTarget;
-        pairWrites.push(action);
+        const candidate = resolvePair(l, c, warnings, stats);
+        if (candidate) candidates.push(candidate);
     }
 
     // --- Pass 2: name fallback ---
@@ -269,43 +265,96 @@ export function planRecipeSync(localRecords, cloudRecords) {
             continue;
         }
         stats.pairsByName++;
-        const action = resolvePair(l, c, warnings);
-        if (!action) {
-            if (compareClocks(l, c) === 0) stats.unchanged++; else stats.skipped++;
-            continue;
-        }
-        pairWrites.push(action);
+        const candidate = resolvePair(l, c, warnings, stats);
+        if (candidate) candidates.push(candidate);
     }
 
     // --- Pass 3: one-sided copies ---
-    // "One-sided" means the DESTINATION side has no record under that name at
-    // all — not merely no unconsumed one. A record that sits at the name but
-    // was consumed by a refused pairing (a rename collision, a divergent
-    // identity) is still a record; writing over it as if the name were free
-    // is the partial-overwrite this module exists to prevent. The one
-    // exception is a name a scheduled rename-delete is about to vacate.
-    const namesOn = {
-        local: new Set([...local.entries.map((e) => e.name), ...local.blocked]),
-        cloud: new Set([...cloud.entries.map((e) => e.name), ...cloud.blocked]),
-    };
-    const freedOn = { local: new Set(), cloud: new Set() };
-    for (const d of staleDeletes) freedOn[d.target].add(d.name);
+    // Candidates only; whether the destination name is truly free is decided
+    // by the placement pass below, like every other write. Names blocked by
+    // unreadable/duplicate records skip silently — their warning already
+    // fired when the block was recorded.
     for (const e of [...local.entries, ...cloud.entries]) {
         if (e.consumed || e.excluded) continue;
         const destSide = e.side === 'local' ? 'cloud' : 'local';
-        if (namesOn[destSide].has(e.name) && !freedOn[destSide].has(e.name)) {
-            stats.skipped++;
-            continue;
-        }
-        singles.push({
+        const destBlocked = destSide === 'local' ? local.blocked : cloud.blocked;
+        if (destBlocked.has(e.name)) { stats.skipped++; continue; }
+        candidates.push({
             op: e.side === 'local' ? 'push' : 'pull',
             name: e.name,
             data: e.data,
             reason: e.side === 'local' ? 'local-only' : 'cloud-only',
+            winner: e, loser: null,
+            refused: false,
         });
     }
 
-    const actions = [...pairWrites, ...staleDeletes, ...singles];
+    // --- Placement: refuse writes whose destination name is not actually free ---
+    // Evaluated over the COMPLETE candidate set so the outcome cannot depend
+    // on input order, and iterated to a fixpoint because one refusal can
+    // cascade: a refused rename's loser stops vacating its key, which can
+    // strand another candidate that was counting on that key.
+    //
+    // A write to (side, name) is legal when the record currently at that key
+    //   - does not exist,
+    //   - is this write's own join partner (the pair overwrite), or
+    //   - is vacating: it is the loser of another SURVIVING candidate whose
+    //     winner carries a different name (a rename moved its lineage away).
+    // Two surviving writes to one key refuse each other — deterministically,
+    // both ways — because either order would silently destroy the other.
+    const entryAt = (side, name) =>
+        (side === 'local' ? local.entries : cloud.entries).find((e) => e.name === name);
+    const destSideOf = (c) => (c.op === 'push' ? 'cloud' : 'local');
+    const refuse = (c, message) => {
+        c.refused = true;
+        stats.skipped++;
+        warnings.push({ code: SYNC_WARNINGS.NAME_COLLISION, side: destSideOf(c), name: c.name, message });
+    };
+    for (let changed = true; changed;) {
+        changed = false;
+        const surviving = candidates.filter((c) => !c.refused);
+        const vacating = new Set(surviving
+            .filter((c) => c.loser && c.loser.name !== c.winner.name)
+            .map((c) => `${c.loser.side}:${c.loser.name}`));
+        const writesByKey = new Map();
+        for (const c of surviving) {
+            const key = `${destSideOf(c)}:${c.name}`;
+            if (!writesByKey.has(key)) writesByKey.set(key, []);
+            writesByKey.get(key).push(c);
+        }
+        for (const [key, writers] of writesByKey) {
+            if (writers.length > 1) {
+                for (const c of writers) refuse(c,
+                    `Two records both syncing to "${c.name}" (${destSideOf(c)}) would overwrite ` +
+                    `each other; both were left untouched. Rename one to resolve it.`);
+                changed = true;
+                continue;
+            }
+            const c = writers[0];
+            const holder = entryAt(destSideOf(c), c.name);
+            if (!holder || holder === c.loser || vacating.has(key)) continue;
+            refuse(c,
+                `Syncing "${c.name}" (${destSideOf(c)}) would overwrite a record that is ` +
+                `staying put there; both were left untouched.`);
+            changed = true;
+        }
+    }
+
+    // --- Emit: writes, then the stale-rename deletes no write superseded ---
+    const writes = candidates.filter((c) => !c.refused)
+        .map(({ op, name, data, reason }) => ({ op, name, data, reason }));
+    const writtenKeys = new Set(candidates.filter((c) => !c.refused)
+        .map((c) => `${destSideOf(c)}:${c.name}`));
+    const deletes = [];
+    for (const c of candidates) {
+        if (c.refused || !c.loser || c.loser.name === c.winner.name) continue;
+        // The loser's old key: delete it — unless a surviving write claims
+        // that key, in which case the overwrite IS the cleanup.
+        if (writtenKeys.has(`${c.loser.side}:${c.loser.name}`)) continue;
+        deletes.push({ op: 'delete', target: c.loser.side, name: c.loser.name, reason: 'renamed' });
+    }
+
+    const actions = [...writes, ...deletes];
     for (const a of actions) {
         if (a.op === 'push') stats.pushed++;
         else if (a.op === 'pull') stats.pulled++;
@@ -317,7 +366,8 @@ export function planRecipeSync(localRecords, cloudRecords) {
 /**
  * Gate for the fire-and-forget pushRecipe path (codex finding 3): it is a
  * second write path that would otherwise bypass the join entirely. Same
- * guards, single-record shape.
+ * guards, single-record shape — and the same verdicts planRecipeSync would
+ * reach for the identical state, so the two write paths cannot disagree.
  *
  * Caller contract: `cloudRecord` is the CURRENT cloud record at this name —
  * null when the name is known absent, `{ name, data: null }` when a record
@@ -333,7 +383,14 @@ export function planRecipeSync(localRecords, cloudRecords) {
 export function decideRecipePush(record, cloudRecord) {
     if (!cloudRecord) return { allow: true, warning: null };
     const data = cloudRecord.data;
-    if (data == null) {
+    // Missing, garbage-versioned, or malformed-at-understood-schema bodies
+    // all refuse identically — the same unreadable classification the full
+    // join applies, so a record the sync plan blocks cannot be clobbered
+    // through this path. (A genuinely newer FINITE schema falls through to
+    // the specific message below; calling corruption "newer" would send the
+    // user to a repair path that cannot work.)
+    const sv = data == null ? NaN : containerSchemaVersion(data);
+    if (data == null || (!isCopyableNewerSchema(sv) && containerProblem(data))) {
         return {
             allow: false,
             warning: {
@@ -343,7 +400,7 @@ export function decideRecipePush(record, cloudRecord) {
             },
         };
     }
-    if (containerSchemaVersion(data) > RECIPE_SCHEMA_VERSION) {
+    if (isCopyableNewerSchema(sv)) {
         return {
             allow: false,
             warning: {
