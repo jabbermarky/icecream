@@ -300,10 +300,18 @@ export function planRecipeSync(localRecords, cloudRecords) {
     //   - is this write's own join partner (the pair overwrite), or
     //   - is vacating: it is the loser of another SURVIVING candidate whose
     //     winner carries a different name (a rename moved its lineage away).
+    // A name in a side's BLOCKED set is never legal: an unreadable or
+    // duplicate-id record holds it, and those have no entries — a holder
+    // check alone would see the key as free and clobber exactly what the
+    // block exists to protect (review repro: a rename landing on an
+    // unreadable destination name).
     // Two surviving writes to one key refuse each other — deterministically,
     // both ways — because either order would silently destroy the other.
-    const entryAt = (side, name) =>
-        (side === 'local' ? local.entries : cloud.entries).find((e) => e.name === name);
+    const entriesByName = {
+        local: new Map(local.entries.map((e) => [e.name, e])),
+        cloud: new Map(cloud.entries.map((e) => [e.name, e])),
+    };
+    const blockedNames = { local: local.blocked, cloud: cloud.blocked };
     const destSideOf = (c) => (c.op === 'push' ? 'cloud' : 'local');
     const refuse = (c, message) => {
         c.refused = true;
@@ -331,10 +339,18 @@ export function planRecipeSync(localRecords, cloudRecords) {
                 continue;
             }
             const c = writers[0];
-            const holder = entryAt(destSideOf(c), c.name);
+            const side = destSideOf(c);
+            if (blockedNames[side].has(c.name)) {
+                refuse(c,
+                    `Syncing "${c.name}" (${side}) would overwrite a record that could not ` +
+                    `be verified; both were left untouched.`);
+                changed = true;
+                continue;
+            }
+            const holder = entriesByName[side].get(c.name);
             if (!holder || holder === c.loser || vacating.has(key)) continue;
             refuse(c,
-                `Syncing "${c.name}" (${destSideOf(c)}) would overwrite a record that is ` +
+                `Syncing "${c.name}" (${side}) would overwrite a record that is ` +
                 `staying put there; both were left untouched.`);
             changed = true;
         }

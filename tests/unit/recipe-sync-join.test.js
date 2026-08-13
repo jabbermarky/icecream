@@ -269,6 +269,21 @@ test('T3: a malformed body at an understood schema is unreadable; the rest of th
   assert.deepEqual(codes(plan), [SYNC_WARNINGS.UNREADABLE]);
 });
 
+test('T3: a rename landing on an UNREADABLE destination name is refused — blocked names bind pair writes too', () => {
+  // Review repro (round-5): unreadable records have no entries, only blocked
+  // names, so a holder-only legality check saw the key as free — the rename
+  // pushed over the record whose body could not be read AND deleted the
+  // lineage's old key. Both the write and its stale delete must be refused.
+  const plan = planRecipeSync(
+    [rec('B', v2('B', { id: 'id-1', savedAt: T3 }))],
+    [rec('A', v2('A', { id: 'id-1', savedAt: T1 })),
+     rec('B', null)]);   // download failed — contents unknown
+  assert.deepEqual(plan.actions, [],
+    'neither the push over the unreadable record nor the stale delete may run');
+  assert.deepEqual(codes(plan).sort(),
+    [SYNC_WARNINGS.NAME_COLLISION, SYNC_WARNINGS.UNREADABLE]);
+});
+
 test('T3: a garbage SchemaVersion is corruption, not the future — unreadable, never a copyable blob', () => {
   // Review repro (round-4 finding 1): containerSchemaVersion(true/NaN/"") is
   // Infinity, which slipped past the `sv <= current` malformed check and let
