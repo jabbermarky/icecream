@@ -23,3 +23,5 @@
 {"skill":"plan-eng-review","event":"started","branch":"claude/batch-loop-design","session":"4062-1786569179","ts":"2026-08-12T21:13:00.149Z"}
 {"skill":"plan-eng-review","event":"completed","branch":"claude/batch-loop-design","outcome":"success","duration_s":"3295","session":"4062-1786569179","ts":"2026-08-12T22:07:54.722Z"}
 {"skill":"review","event":"started","branch":"claude/batch-loop-design","session":"6924-1786573158","ts":"2026-08-12T22:19:18.430Z"}
+{"skill":"context-save","event":"started","branch":"claude/batch-loop-design","session":"8706-1786649819","ts":"2026-08-13T19:36:59.229Z"}
+{"skill":"context-save","event":"completed","branch":"claude/batch-loop-design","outcome":"success","duration_s":"43","session":"8706-1786649819","ts":"2026-08-13T19:37:42.080Z"}
