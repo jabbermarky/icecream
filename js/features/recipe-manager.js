@@ -147,35 +147,38 @@ export function BackupCurrentRecipe() {
 }
 
 /**
- * Backup a specific recipe to the stack. The recipe AND its identity are
- * taken as arguments (T2.5 review): the old body re-read getRecipe() and
- * module identity state, so a caller passing any other recipe would have
- * backed up the current one under the current id — the identity-hijack
- * class finding 7 closed. The Modified flag still reflects the editor
- * state, which is only meaningful for the recipe on screen.
- * @param {cRecipe} recipe - Recipe to backup
+ * Backup a specific recipe to the stack. Everything the entry records is
+ * taken as an argument (T2.5/T2.6 reviews): the old body re-read
+ * getRecipe() and module identity state, so a caller passing any other
+ * recipe would have backed up the current one under the current id — the
+ * identity-hijack class finding 7 closed. The passed object is never
+ * mutated: an empty-named recipe gets its generated name on the stacked
+ * COPY only.
+ * @param {cRecipe} recipe - Recipe to backup (left untouched)
  * @param {?string} identity - The RecipeId this recipe is known by, or null
  *     (an identity-less entry restores as null and mints at its next save —
  *     the safe direction)
+ * @param {boolean} modified - Whether this recipe carries unsaved edits;
+ *     defaults to the editor's flag, which is right for the on-screen recipe
  * @returns {boolean} True if backup was successful
  */
-export function BackupRecipe(recipe, identity = null) {
-    const Recipe = recipe;
-    if (Recipe.Ingredients.length == 0)
+export function BackupRecipe(recipe, identity = null, modified = IsRecipeModified()) {
+    if (recipe.Ingredients.length == 0)
         return false;
-    if (Recipe.Name == "") {
+    const copy = cRecipe.copyFrom(recipe);
+    if (copy.Name == "") {
         const sample = array => {
             return array[Math.floor(Math.random() * array.length)];
         };
         do {
-            Recipe.Name = sample(["The ", ""]) + sample(["Incredible", "Great", "Tasty", "Wonderful", "Fantastic", "Outstanding", "Delicious", "Yummy", "Extraordinary", "Palatable", "Savory", "Flavorful", "Flavorsome", "Toothsome", "Relishable", "Sapid", "Pleasant-Tasting"])
-                + " " + (["Gelato", "Sorbet", "Sherbet"].includes(Recipe.Type) ? Recipe.Type : "Ice Cream");
-        } while (RecipeStack.hasOwnProperty(Recipe.Name))
+            copy.Name = sample(["The ", ""]) + sample(["Incredible", "Great", "Tasty", "Wonderful", "Fantastic", "Outstanding", "Delicious", "Yummy", "Extraordinary", "Palatable", "Savory", "Flavorful", "Flavorsome", "Toothsome", "Relishable", "Sapid", "Pleasant-Tasting"])
+                + " " + (["Gelato", "Sorbet", "Sherbet"].includes(copy.Type) ? copy.Type : "Ice Cream");
+        } while (RecipeStack.hasOwnProperty(copy.Name))
     }
 
-    RecipeStack[Recipe.Name] = {
-        'Recipe': cRecipe.copyFrom(Recipe),
-        'Modified': IsRecipeModified(),
+    RecipeStack[copy.Name] = {
+        'Recipe': copy,
+        'Modified': modified,
         // P0.3 (T2.5, outside-voice finding 7): identity travels WITH the
         // backup. Without this, restore left whatever id the CURRENT recipe
         // had — after an import, a restored backup could be silently
@@ -1617,6 +1620,18 @@ function handleLoadRecipeFile(event) {
             // so a silent console line left the user watching the file
             // picker close with nothing happening.
             try {
+                // Hydrate FIRST, before anything is mutated (T2.6 review):
+                // the sibling loader recipe-library-load.js deliberately
+                // builds the recipe before touching the library, so a
+                // hydrate failure leaves no half-imported state. Shared
+                // declared-fields hydrator; containerProblem already passed
+                // above, so null cannot happen here — guarded anyway so a
+                // future code motion cannot reintroduce silent truncation.
+                const newRecipe = hydrateRecipe(dataObj.data);
+                if (!newRecipe) {
+                    ErrorMsg(containerProblem(dataObj.data) || invalidContainerMessage());
+                    return;
+                }
                 // Empty-map fallback: absent Ingredients passes the gate
                 // (legal), but importIngredients throws on undefined
                 // (Object.entries) — review finding, same fix as
@@ -1630,15 +1645,6 @@ function handleLoadRecipeFile(event) {
                 );
 
                 RecipeBackup = [];
-                // Shared declared-fields hydrator; containerProblem already
-                // passed above, so null cannot happen here — guarded anyway
-                // so a future code motion cannot reintroduce silent
-                // truncation.
-                const newRecipe = hydrateRecipe(dataObj.data);
-                if (!newRecipe) {
-                    ErrorMsg(containerProblem(dataObj.data) || invalidContainerMessage());
-                    return;
-                }
                 setRecipe(newRecipe);
                 // P0.3: the recipe on screen IS this record now — adopt its
                 // identity (null for legacy/no-id files, or when the user
@@ -1661,9 +1667,19 @@ function handleLoadRecipeFile(event) {
                 if (idWarning) Warning(idWarning);
                 sortBy = null;
                 DisplayRecipe();
-                SetRecipeModified(false);
             } catch (err) {
                 console.error('Imported, but the display failed to refresh:', err);
+            } finally {
+                // Cleared AFTER the render, unconditionally: DisplayRecipe
+                // drives the sliders' oninput handlers, which mark the
+                // recipe modified, so the codebase-wide clear-after-display
+                // ordering is load-bearing (a clear placed BEFORE the render
+                // leaves the flag true — found by the browser suite). The
+                // finally keeps the T2.6-review guarantee too: a render
+                // throw cannot leave the imported recipe wearing a stale
+                // flag, which would spuriously route the next same-name
+                // import through the destructive replace modal.
+                SetRecipeModified(false);
             }
         }
 
@@ -1706,17 +1722,31 @@ function handleLoadRecipeFile(event) {
                 finishLoad(adoptedId);
         }
 
+        // One reporter for BOTH paths (T2.6 review): a throw in
+        // applyImportedFile outside finishLoad's own try (the backup, the
+        // stack dance, the replace modal) must not reproduce the silent
+        // pick-a-file-and-nothing-happens failure, and the async and sync
+        // paths must not disagree about it. No backup claim in the message —
+        // the throw may have been the backup itself.
+        const reportApplyFailure = (err) => {
+            console.error('Failed to apply the imported recipe:', err);
+            ErrorMsg('The recipe could not be imported: ' + (err && err.message ? err.message : err));
+        };
+
         const fileId = containerRecipeId(dataObj.data);
         if (fileId && recipeStorage) {
             // Identified file with a library to scan: async, but read-only
             // until applyImportedFile. The scan itself never rejects
             // (storage failures come back as unverifiable), so this catch
             // only guards the synchronous application.
-            resolveImportIdentity(fileId).then(applyImportedFile)
-                .catch((err) => console.error('Failed to apply the imported recipe:', err));
+            resolveImportIdentity(fileId).then(applyImportedFile).catch(reportApplyFailure);
         } else {
             // Id-less (legacy) files keep the fully synchronous path.
-            applyImportedFile(fileId || null);
+            try {
+                applyImportedFile(fileId || null);
+            } catch (err) {
+                reportApplyFailure(err);
+            }
         }
     };
     reader.readAsText(event.target.files[0]);

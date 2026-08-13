@@ -715,6 +715,53 @@ test('T2.6: BackupRecipe backs up the PASSED recipe under the PASSED identity', 
   assert.ok(stack['Someone Else'], 'the passed recipe is what lands on the stack');
   assert.equal(stack['Someone Else'].Identity, 'id-other', 'with the passed identity, not module state');
   assert.equal(stack['On Screen'], undefined, 'the current recipe was not backed up instead');
+
+  // T2.6 follow-up review: backing up never mutates the caller's object —
+  // an empty-named recipe gets its generated name on the stacked COPY only.
+  const unnamed = makeRecipe('');
+  BackupRecipe(unnamed, null);
+  assert.equal(unnamed.Name, '', 'the passed object is never renamed in place');
+  const generated = Object.keys(stack).find((k) => k !== 'Someone Else');
+  assert.ok(generated && generated !== '', 'the stacked copy carries the generated name');
+  assert.equal(stack[generated].Recipe.Name, generated);
+});
+
+test('T2.6: the Modified flag clears with the recipe swap, even when the render refresh throws', async () => {
+  // Follow-up review: SetRecipeModified is state, not display. In the old
+  // order a render throw skipped it, so the pristine imported recipe wore
+  // the previous recipe's Modified=true — and the next same-name import
+  // would spuriously route through the destructive replace modal. The stub
+  // DOM's render throw is exactly the case this pin needs.
+  freshState(makeRecipe('Before'));
+  SetRecipeModified(true);
+  const file = JSON.stringify({
+    id: 'IER', version: 1,
+    data: { SchemaVersion: 2, RecipeId: 'id-swap', Recipe: { Name: 'After', Ingredients: [] }, Ingredients: {} },
+  });
+  try {
+    buttons.inputLoadRecipe.onchange({ target: { files: [makeFile(file)] } });
+  } catch { /* render-time throw in stub DOM */ }
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(currentRecipe.Name, 'After');
+  assert.equal(IsRecipeModified(), false,
+    'the flag belongs to the state block — a display failure must not preserve it');
+});
+
+test('T2.6: a throw while APPLYING the import is reported, not swallowed', () => {
+  // Follow-up review: finishLoad reports its own failures, but a throw in
+  // the backup/stack phase before it used to escape with only a console
+  // line — the user picks a file, the picker closes, nothing happens.
+  freshState(new cRecipe(''));
+  currentRecipe = {};   // no Ingredients array: the backup phase throws
+  const legacy = JSON.stringify({
+    id: 'IER', version: 1,
+    data: { Recipe: { Name: 'Legacy', Ingredients: [] }, Ingredients: {} },
+  });
+  try {
+    buttons.inputLoadRecipe.onchange({ target: { files: [makeFile(legacy)] } });
+  } catch { /* must NOT reach here — the path reports instead */ }
+  assert.ok(messages.error.some((m) => /could not be imported/.test(m)),
+    'the apply failure reaches ErrorMsg');
 });
 
 test('T2.5 FINDING 7: restore returns the BACKED-UP identity, not whatever is current', async () => {
