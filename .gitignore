@@ -33,3 +33,4 @@ package-lock.json
 .planning/gstack-memory/*.tmp.*
 .planning/gstack-memory/.*.merge.*
 .planning/gstack-memory/reviews/*.tmp.*
+.planning/gstack-memory/**/*.tmp.*

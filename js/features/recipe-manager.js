@@ -1397,7 +1397,7 @@ async function handleSaveRecipe() {
         // applies here too; with no library to scan, keeping an existing id
         // is always safe (no local record can collide) and minting covers the
         // rest.
-        const finalId = idAtClick || crypto.randomUUID();
+        const finalId = idAtClick || mintRecipeId();
         const record = Object.freeze({ ...container, RecipeId: finalId });
         saveToFile(record, savedName + ".ier", "IER", 1);
         if (getRecipe() === Recipe) currentRecipeId = finalId;
@@ -1432,20 +1432,51 @@ async function handleSaveRecipe() {
  * @returns {Promise<string>}
  */
 async function resolveIdentityForSave(idAtClick, target, savedName) {
-    if (!idAtClick) return crypto.randomUUID();
+    if (!idAtClick) return mintRecipeId();
     if (target && containerRecipeId(target.data) === idAtClick) return idAtClick;
+    // SCAN INTEGRITY (review finding): the catch below is nearly unreachable
+    // with the real backends — both catch internally and return []/null
+    // instead of throwing — so "failures fail toward MINT" needed detectable
+    // inconsistency checks, not just a try/catch:
+    //   - a listed record that loadRecipe cannot read → the scan is blind to
+    //     a possible carrier → MINT;
+    //   - an empty list while the target lookup just RETURNED a record → the
+    //     list is lying → MINT.
+    // The residual undetectable case (list [] AND target null while a carrier
+    // exists) requires storage that fails reads but still accepts the write
+    // that follows; a full outage fails the save itself, writing nothing.
     try {
         const list = await recipeStorage.listRecipes();
+        if (list.length === 0 && target) return mintRecipeId();
         for (const entry of list) {
             if (entry.name === savedName) continue;
             const rec = await recipeStorage.loadRecipe(entry.name);
-            if (rec && containerRecipeId(rec.data) === idAtClick) return crypto.randomUUID();
+            if (!rec) return mintRecipeId();
+            if (containerRecipeId(rec.data) === idAtClick) return mintRecipeId();
         }
     } catch (error) {
         console.error('Identity scan failed; minting a fresh id:', error);
-        return crypto.randomUUID();
+        return mintRecipeId();
     }
     return idAtClick;
+}
+
+/**
+ * Mint a fresh RecipeId. crypto.randomUUID exists only in SECURE contexts
+ * (https / localhost); served over plain http on a LAN it is undefined, and
+ * the resulting TypeError inside the async save handler would die as an
+ * unhandled rejection — Save silently doing nothing, the exact failure class
+ * this branch keeps closing (review finding). getRandomValues exists in every
+ * context; the fallback emits the same UUIDv4 shape so ids mix freely.
+ * @returns {string}
+ */
+function mintRecipeId() {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    const b = crypto.getRandomValues(new Uint8Array(16));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
 /**

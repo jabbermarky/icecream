@@ -33,7 +33,7 @@ except Exception:
     sys.exit(0)
 if not isinstance(rows, list):
     sys.exit(0)
-for d in rows[:6]:
+for d in rows[-6:]:  # NEWEST six -- the file is append-ordered oldest-first (review finding: [:6] dropped the decisions a fresh session most needs)
     t = d.get("title") or d.get("decision") or d.get("what") or ""
     if t:
         print("- " + " ".join(str(t).split())[:200])

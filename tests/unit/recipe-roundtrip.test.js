@@ -521,6 +521,48 @@ test('P0.3 DECISION 6: save-as-new-name is a COPY and mints — the old record k
   assert.equal(getCurrentRecipeIdentity(), idV22, 'the open recipe is now the V2.2 record');
 });
 
+test('P0.3 SCAN INTEGRITY: a listed record the scan cannot READ forces a mint', async () => {
+  // Review finding: the real backends never throw — they catch internally and
+  // return []/null — so the fail-toward-mint catch was unreachable. A record
+  // that is IN the list but unreadable means the scan is blind to a possible
+  // carrier of my id; keeping would risk one id on two records.
+  freshState(makeRecipe('Mango V2.2'));
+  storageRecords['Mango V2.1'] = { name: 'Mango V2.1', data: { SchemaVersion: 2, RecipeId: 'id-a', Recipe: { Name: 'Mango V2.1' }, Ingredients: {} } };
+  setCurrentRecipeIdentity('id-a');
+  const origLoadRecipe = buttons.storage.loadRecipe;
+  try {
+    // Target lookup (V2.2) truthfully null; the V2.1 read is broken.
+    buttons.storage.loadRecipe = async () => null;
+    await buttons.btnSaveRecipe.onclick();
+  } finally {
+    buttons.storage.loadRecipe = origLoadRecipe;
+  }
+  const saved = storageCalls[0].data;
+  assert.ok(isValidRecipeId(saved.RecipeId));
+  assert.notEqual(saved.RecipeId, 'id-a', 'an unverifiable scan must mint, never keep');
+});
+
+test('P0.3 MINT FALLBACK: minting works without crypto.randomUUID (insecure contexts)', async () => {
+  // crypto.randomUUID exists only in secure contexts; over plain http on a
+  // LAN it is undefined and the throw would kill Save as a silent unhandled
+  // rejection (review finding). The fallback mints the same UUIDv4 shape via
+  // getRandomValues, which exists everywhere.
+  const orig = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(globalThis.crypto), 'randomUUID')
+    || Object.getOwnPropertyDescriptor(globalThis.crypto, 'randomUUID');
+  const target = Object.getOwnPropertyDescriptor(globalThis.crypto, 'randomUUID') ? globalThis.crypto : Object.getPrototypeOf(globalThis.crypto);
+  try {
+    Object.defineProperty(target, 'randomUUID', { value: undefined, configurable: true });
+    freshState(makeRecipe('Insecure Context'));
+    await buttons.btnSaveRecipe.onclick();
+    const saved = storageCalls[0].data;
+    assert.ok(isValidRecipeId(saved.RecipeId), 'a save must still mint');
+    assert.match(saved.RecipeId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      'the fallback keeps the UUIDv4 shape so ids mix freely');
+  } finally {
+    Object.defineProperty(target, 'randomUUID', orig);
+  }
+});
+
 test('P0.3: an identity that arrived by import round-trips through its first local save', async () => {
   // The KEEP half of the mint rule: no other local record carries this id, so
   // this save is the first local materialization of an existing identity —

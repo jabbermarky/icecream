@@ -34,7 +34,6 @@ cd "$REPO" || exit 0
 
 STATE=".planning/STATE.md"
 DIGEST=".claude/.recovery-digest"
-[ -f "$STATE" ] || exit 0
 
 BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 HEAD_LINE=$(git log -1 --format='%h %s' 2>/dev/null || echo "unknown")
@@ -52,6 +51,13 @@ if [ -f "$DIGEST" ]; then
   DIGEST_CONTENT=$(cat "$DIGEST" 2>/dev/null) || DIGEST_CONTENT=""
   mv -f "$DIGEST" "$DIGEST.read" 2>/dev/null || rm -f "$DIGEST" 2>/dev/null
 fi
+
+# The STATE gate runs AFTER digest consumption, deliberately (review finding:
+# it used to exit before it, so on a checkout without STATE.md a post-
+# compaction digest was never injected and lingered on disk, waiting to be
+# replayed verbatim into some later unrelated session). No state AND no
+# digest means nothing to say.
+if [ ! -f "$STATE" ] && [ -z "$DIGEST_CONTENT" ]; then exit 0; fi
 
 {
   # Envelope first. Everything below mixes maintainer-curated text (STATE.md)
@@ -74,6 +80,9 @@ fi
     echo
   fi
 
+  # The STATE section only when the file exists — the digest above can now be
+  # the whole briefing on a checkout that lacks STATE.md.
+  if [ -f "$STATE" ]; then
   echo "## Project state (from $STATE, injected by the SessionStart hook)"
   echo
   echo "Branch \`$BRANCH\` at \`$HEAD_LINE\`."
@@ -82,6 +91,7 @@ fi
   # section is the part worth spending context on at turn zero.
   sed -n '/<!-- BRIEFING:START -->/,/<!-- BRIEFING:END -->/p' "$STATE" |
     sed '/<!-- BRIEFING:\(START\|END\) -->/d'
+  fi
 
   # Settled decisions, when the digest has not already listed them. Gated on
   # the CONTENT captured this run, not on the file: the file is already

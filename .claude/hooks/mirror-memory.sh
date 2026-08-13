@@ -40,7 +40,10 @@ MIRROR=".planning/gstack-memory"
 GS="${GSTACK_HOME:-$HOME/.gstack}/projects/jabbermarky-icecream"
 
 [ -d "$GS" ] || exit 0
-[ -d .git ] || exit 0
+# Worktree-safe (review finding): in a linked worktree .git is a FILE, so
+# [ -d .git ] silently disabled the mirror there — every Stop/PreCompact ran
+# as a no-op and reclamation would have lost the whole ~/.gstack state.
+git rev-parse --git-dir >/dev/null 2>&1 || exit 0
 
 # --- lock ------------------------------------------------------------------
 # One writer at a time across the whole copy->add->commit sequence. Stop can
