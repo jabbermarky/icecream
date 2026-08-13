@@ -26,8 +26,14 @@ Suite green at 114 passed / 0 failed.
    at save, validated OUTSIDE the fail-closed gate so a stripped record warns
    instead of locking the user out. **T1 (v2 container) and T2 (minting,
    P0.6's merged guards, adoption on load/import, id-aware overwrite prompts)
-   are landed and five-pass reviewed** — unit lane `npm run test:unit` at
-   102 cases, browser suite green. The T1 review also REVERSED a P0.5 pin:
+   are landed and five-pass reviewed, and T2.5 (codex outside-voice round,
+   decision 6 amended) plus T2.6 (two applied review rounds: SavedAt guard
+   UTC-anchored, import backup taken after the identity scan, same-name
+   re-import adopts silently, import failures reach ErrorMsg, BackupRecipe
+   honors its arguments) landed on top** — unit lane `npm run test:unit` at
+   113 cases, browser suite green. Round three's five unapplied findings live
+   in `.planning/todos/pending/2026-08-13-t2.6-round3-review-findings.md`
+   for the merge-boundary review. The T1 review also REVERSED a P0.5 pin:
    typed arrays now refuse at snapshot (JSON backends corrupt them silently).
    **Remaining: T3** (pure join/merge module — id-first join, name fallback,
    `SavedAt` clock, never-overwrite-newer-schema guard; spec in the design
