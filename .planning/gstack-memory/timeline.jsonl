@@ -40,3 +40,4 @@
 {"skill":"context-restore","event":"started","branch":"claude/batch-loop-design","session":"4334-1786712155","ts":"2026-08-14T12:55:55.781Z"}
 {"skill":"context-restore","event":"completed","branch":"claude/batch-loop-design","outcome":"success","duration_s":"300","session":"4334-1786712155","ts":"2026-08-14T13:00:28.649Z"}
 {"skill":"review","event":"started","branch":"claude/batch-loop-design","session":"10592-1786713601","ts":"2026-08-14T13:20:01.551Z"}
+{"skill":"review","event":"completed","branch":"claude/batch-loop-design","outcome":"success","duration_s":"2600","session":"10592-1786713601","ts":"2026-08-14T13:35:32.782Z"}
