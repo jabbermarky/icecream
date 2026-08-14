@@ -1288,6 +1288,182 @@ const tests = {
            notFoundAfterDelete && !hasRecipeAfterDelete;
   },
 
+  // Container Round-Trip Tests (P0.3 T5, durability item 22 half (a))
+  //
+  // The unit lane saves through a stub record store, so nothing there proves a
+  // container built by the canonical path survives a REAL store. IndexedDB
+  // persists via the structured-clone algorithm natively, and what goes in is
+  // a deeply frozen snapshot — a browser-only path.
+  //
+  // Deliberately selector-free: every assertion goes through the module API,
+  // so the UI replacement cannot invalidate this test. Driving the same
+  // round-trip through the Save and Load buttons is item 22's half (b) and is
+  // deferred to the redesign's library surface.
+  async testContainerRoundTrip() {
+    logSection('Container Round-Trip Tests');
+
+    const r = await page.evaluate(async () => {
+      const {
+        buildRecipeContainer, containerSchemaVersion, containerRecipeId,
+        containerSavedAt, containerProblem, containerIdentityWarning,
+        hydrateRecipe, isValidRecipeId, RECIPE_SCHEMA_VERSION
+      } = await import('./js/models/recipe-serialization.js');
+      const { cRecipe } = await import('./js/models/core.js');
+      const { Ingredients } = await import('./js/features/ingredients.js');
+
+      const IDENTIFIED = 'T5 Container Round Trip';
+      const ANONYMOUS = 'T5 Container No Identity';
+      const TEST_ID = 'a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+
+      const out = { warnings: [], errors: [] };
+      const storage = window.getRecipeStorage();
+
+      try {
+        const ingredientName = Object.keys(Ingredients)[0];
+        out.libraryKeyCount = Object.keys(Ingredients).length;
+        out.sourceIngredientName = ingredientName;
+
+        const source = new cRecipe(IDENTIFIED, 'T5 notes');
+        source.addIngredient(ingredientName, 100);
+
+        const container = buildRecipeContainer(
+          source, Ingredients, m => out.warnings.push(m), { RecipeId: TEST_ID });
+
+        // Detachment: mutate the SOURCE after the build. Nothing read back
+        // from the store may carry these values.
+        source.Name = 'MUTATED AFTER BUILD';
+        source.Notes = 'MUTATED AFTER BUILD';
+        source.addIngredient(ingredientName, 999);
+
+        out.saveOk = await storage.saveRecipe({ name: IDENTIFIED, data: container });
+        const record = await storage.loadRecipe(IDENTIFIED);
+        const back = record && record.data;
+        out.recordRead = !!back;
+
+        out.schemaVersion = containerSchemaVersion(back);
+        out.schemaExpected = RECIPE_SCHEMA_VERSION;
+        out.recipeId = containerRecipeId(back);
+        out.recipeIdExpected = TEST_ID;
+        out.recipeIdValid = isValidRecipeId(out.recipeId);
+        out.savedAt = containerSavedAt(back);
+        out.problem = containerProblem(back);
+        out.identityWarning = containerIdentityWarning(back);
+        out.libraryCarried = !!(back && back.Ingredients &&
+          back.Ingredients[ingredientName]);
+
+        const hydrated = hydrateRecipe(back);
+        out.hydrated = !!hydrated;
+        out.hydratedName = hydrated ? hydrated.Name : null;
+        out.hydratedNotes = hydrated ? hydrated.Notes : null;
+        out.hydratedIngredientCount = hydrated ? hydrated.Ingredients.length : -1;
+        out.hydratedIngredientName = hydrated && hydrated.Ingredients[0]
+          ? hydrated.Ingredients[0].Name : null;
+
+        // Decision 7: a container built with no identity carries no RecipeId,
+        // warns advisorily, and still loads — warn, do not lock out.
+        const anon = new cRecipe(ANONYMOUS, 'no identity');
+        anon.addIngredient(ingredientName, 100);
+        const anonContainer = buildRecipeContainer(
+          anon, Ingredients, m => out.warnings.push(m));
+        out.anonHasIdKey =
+          Object.prototype.hasOwnProperty.call(anonContainer, 'RecipeId');
+
+        out.anonSaveOk = await storage.saveRecipe(
+          { name: ANONYMOUS, data: anonContainer });
+        const anonRecord = await storage.loadRecipe(ANONYMOUS);
+        const anonBack = anonRecord && anonRecord.data;
+        out.anonProblem = containerProblem(anonBack);
+        out.anonWarning = containerIdentityWarning(anonBack);
+        out.anonHydrated = !!hydrateRecipe(anonBack);
+        out.anonSchemaVersion = containerSchemaVersion(anonBack);
+      } catch (e) {
+        out.errors.push(e && e.message ? e.message : String(e));
+      } finally {
+        try { await storage.deleteRecipe(IDENTIFIED); } catch { /* cleanup */ }
+        try { await storage.deleteRecipe(ANONYMOUS); } catch { /* cleanup */ }
+      }
+      return out;
+    });
+
+    if (r.errors.length > 0) {
+      logTest('Container round-trip ran without throwing', false, r.errors.join('; '));
+      return false;
+    }
+
+    const checks = {};
+
+    // Preconditions — a silently failed save reads as "not found" downstream.
+    checks.libraryPopulated = r.libraryKeyCount > 0;
+    logTest('Ingredient library populated', checks.libraryPopulated,
+      `${r.libraryKeyCount} ingredients, using "${r.sourceIngredientName}"`);
+
+    checks.saved = r.saveOk === true;
+    logTest('Built container saved to storage', checks.saved);
+
+    checks.read = r.recordRead === true;
+    logTest('Record read back from storage', checks.read);
+
+    // 1. Schema version survives the round-trip.
+    checks.schema = r.schemaVersion === r.schemaExpected;
+    logTest('SchemaVersion survives the store round-trip', checks.schema,
+      `Got ${r.schemaVersion}, expected ${r.schemaExpected}`);
+
+    // 2. Identity survives, unchanged and valid.
+    checks.idIntact = r.recipeId === r.recipeIdExpected && r.recipeIdValid === true;
+    logTest('RecipeId survives intact and valid', checks.idIntact,
+      `Got "${r.recipeId}"`);
+
+    // 3. SavedAt survives in a shape containerSavedAt() accepts.
+    checks.savedAt = r.savedAt !== null && r.savedAt !== undefined;
+    logTest('SavedAt survives and parses', checks.savedAt, `Got ${r.savedAt}`);
+
+    // 4. The refusal gate ACCEPTS what the canonical builder produced. Nothing
+    //    in either lane pinned this before — the seam where a container-shape
+    //    regression ships green in both.
+    checks.gateAccepts = r.problem === null;
+    logTest('Refusal gate accepts the canonical container', checks.gateAccepts,
+      r.problem ? `containerProblem: ${r.problem}` : '');
+
+    checks.noIdentityWarning = r.identityWarning === null;
+    logTest('Identified container raises no identity warning', checks.noIdentityWarning);
+
+    // 5. The loop closes: the record hydrates back to the source recipe.
+    checks.hydrates = r.hydrated === true &&
+      r.hydratedIngredientName === r.sourceIngredientName;
+    logTest('Record hydrates to the source recipe', checks.hydrates,
+      `Name "${r.hydratedName}", ingredient "${r.hydratedIngredientName}"`);
+
+    checks.libraryCarried = r.libraryCarried === true;
+    logTest('Ingredient library entry carried in the container', checks.libraryCarried);
+
+    // 6. Detachment: post-build mutation of the source never reached the store.
+    checks.detached = r.hydratedName === 'T5 Container Round Trip' &&
+      r.hydratedNotes === 'T5 notes' &&
+      r.hydratedIngredientCount === 1;
+    logTest('Stored container detached from post-build mutation', checks.detached,
+      `Name "${r.hydratedName}", ${r.hydratedIngredientCount} ingredient(s)`);
+
+    // 7. Decision 7 in a real browser: no identity warns, does not lock out.
+    checks.anonNoId = r.anonHasIdKey === false;
+    logTest('Container built without identity carries no RecipeId', checks.anonNoId);
+
+    checks.anonLoads = r.anonSaveOk === true && r.anonProblem === null &&
+      r.anonHydrated === true && r.anonSchemaVersion === r.schemaExpected;
+    logTest('Identity-less container still round-trips and hydrates', checks.anonLoads,
+      r.anonProblem ? `containerProblem: ${r.anonProblem}` : '');
+
+    checks.anonWarns = typeof r.anonWarning === 'string' && r.anonWarning.length > 0;
+    logTest('Identity-less container warns advisorily', checks.anonWarns);
+
+    // The builder must not have warned about the ingredient it was handed.
+    checks.noBuildWarnings = r.warnings.length === 0;
+    logTest('Container build produced no warnings', checks.noBuildWarnings,
+      r.warnings.join('; '));
+
+    const failed = Object.entries(checks).filter(([, ok]) => !ok).map(([k]) => k);
+    return failed.length === 0;
+  },
+
   // Recipe Library Modal Tests (open, load, delete workflows)
   async testRecipeLibrary() {
     logSection('Recipe Library Tests');

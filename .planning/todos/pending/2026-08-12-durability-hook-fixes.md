@@ -204,7 +204,8 @@ independently verified regardless.**
     throws uncaught inside `saveToFile` and does nothing at all — the silent
     no-op `snapshotForSave` exists to prevent. Fix: validate serializability
     once inside `snapshotForSave`, or wrap the `saveToFile` call.
-22. **OPEN — the Playwright suite never round-trips a built container.**
+22. **HALF (a) LANDED 2026-08-14, half (b) deferred — the Playwright suite
+    never round-trips a built container.**
     `testSaveWorkflow` saves via the button but only checks the name appears in
     the library list; `testRecipeLibrary` loads hand-authored fixtures with no
     SchemaVersion. So the browser lane exercises neither the clone/freeze shape

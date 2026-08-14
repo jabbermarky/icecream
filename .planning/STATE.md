@@ -64,13 +64,34 @@ Suite green at 114 passed / 0 failed.
    Nine design-level findings banked as items 9–18 of the round-3 todo
    file — the sharpest is item 9: sync's own rename residue (skipped/failed
    delete) re-joins as DUPLICATE_ID and stalls until hand-fixed.
-   **Remaining: T5** (browser round-trip
-   of a built container, closes item 22), **T6** (lift DO-NOT-START in
+   **T5 is LANDED (2026-08-14), RESCOPED for the UI/UX replacement:**
+   `testContainerRoundTrip` in test-app.js round-trips a
+   `buildRecipeContainer` container through real IndexedDB with 15
+   assertions and ZERO selectors — schema version, RecipeId intact,
+   SavedAt, `containerProblem === null` (the refusal gate accepting what
+   the canonical builder produced, unpinned in both lanes until now),
+   hydration, detachment from post-build mutation, and decision 7's
+   warn-don't-lock-out with no identity supplied. The original T5 drove
+   the round-trip through the Save/Load buttons; with the UI being
+   replaced and test-app.js carrying ~114 selector-bound sites, that form
+   writes the test twice. Durability item 22 split the same way: its
+   assertion half landed, its Load-button half re-banks as a requirement
+   on the redesign's library surface.
+   **Remaining: T6** (lift DO-NOT-START in
    batch-loop-design.md, rollout note: reload every device at deploy, verify
    cache-busting, run migrate-legacy-recipes.js, deleted-record resurrection
    sentence — banked item 14). P0.6 shrank to the copy button +
    rename-refusal UI. P0.4
    and P0.7 are unblocked by identity but still gated on the binder read.
+
+   **The 18 banked items are now redesign-triaged** (see the tag rubric in
+   `.planning/todos/pending/2026-08-13-t2.6-round3-review-findings.md`):
+   ten `[REDESIGN-INDEPENDENT]` (carrying every `[DATA-LOSS]` tag — file
+   these as issues before the redesign takes over as the focus), three
+   `[REDESIGN-ENABLER]` (items 3, 8, 18 — the `BackupRecipe` design call
+   and a pure `syncOutcome()`; do before the new UI is wired), five
+   `[REDESIGN-DEFER]`. No `[LEGACY]` item remains — decision 14 closed
+   that class.
 2. **Ingredient onboarding** — nine tasks remain after v0.5.0. The durable ones
    are issues #6–#10. **#7 shrinks to "add ingredient cases"** now that the
    node lane exists: `firstNutritionValue()` still has zero tests and was
