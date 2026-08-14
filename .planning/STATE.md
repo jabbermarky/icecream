@@ -47,12 +47,29 @@ Suite green at 114 passed / 0 failed.
    (throwaway, console-pasteable) drains the legacy population. The round's
    two executor rules moved into T4's entry in the design doc; its P2s are
    banked as items 6–8 of the round-3 todo file.**
-   **Remaining: T4** (sync-manager swaps to the join module + body download
-   for unknown ids + the two executor rules; review: full gstack /review),
-   **T5** (browser round-trip
+   **T4 is LANDED and full-round reviewed (2026-08-14):**
+   `js/storage/recipe-sync-executor.js` (collect strict listings + bodies →
+   plan → execute; listing failure aborts with no writes; any write failure
+   skips all deletes; `executeGatedPush` is the tested fetch→decide→write
+   path pushRecipe uses) and sync-manager is now a thin wiring layer over
+   it. The review round (testing/maintainability/security specialists +
+   Claude adversarial + codex — the ONE full fan-out for this PR) applied:
+   Drive listing pagination (silent >100-file truncation was the
+   silent-clobber class T4 exists to kill), Drive query-value escaping
+   (apostrophe names created duplicate files every save), anchored filename
+   decode (closes banked item 23 for listings), listRecipes→Strict DRY
+   inversion in both backends, IndexedDB strict listing off the lossy
+   updatedAt index, delete failures fold into sync status + warn, warning
+   batching for the one-slot status bar. Unit lane at 170, browser green.
+   Nine design-level findings banked as items 9–18 of the round-3 todo
+   file — the sharpest is item 9: sync's own rename residue (skipped/failed
+   delete) re-joins as DUPLICATE_ID and stalls until hand-fixed.
+   **Remaining: T5** (browser round-trip
    of a built container, closes item 22), **T6** (lift DO-NOT-START in
    batch-loop-design.md, rollout note: reload every device at deploy, verify
-   cache-busting). P0.6 shrank to the copy button + rename-refusal UI. P0.4
+   cache-busting, run migrate-legacy-recipes.js, deleted-record resurrection
+   sentence — banked item 14). P0.6 shrank to the copy button +
+   rename-refusal UI. P0.4
    and P0.7 are unblocked by identity but still gated on the binder read.
 2. **Ingredient onboarding** — nine tasks remain after v0.5.0. The durable ones
    are issues #6–#10. **#7 shrinks to "add ingredient cases"** now that the

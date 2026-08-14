@@ -113,7 +113,22 @@
 
         // Initialize sync manager with local storage (listens for auth changes)
         initSyncManager(recipeStorage, {
-            onSyncStatusChange: setSyncStatus
+            onSyncStatusChange: setSyncStatus,
+            // Sync skip/refusal warnings (SYNC_WARNINGS vocabulary) are
+            // user-actionable — each message says what was left untouched
+            // and how to resolve it by hand. The status bar is a single
+            // slot (each Warning replaces the previous), so batch multiple
+            // warnings into one message and put the full list on the
+            // console where nothing overwrites it.
+            onSyncWarnings: (warnings) => {
+                warnings.forEach(w => console.warn(`Sync warning [${w.code}] ${w.name}: ${w.message}`));
+                if (warnings.length === 1) {
+                    Warning(warnings[0].message);
+                } else {
+                    Warning(`${warnings.length} recipes need attention after sync — ` +
+                        `first: ${warnings[0].message} (all ${warnings.length} in the browser console)`);
+                }
+            }
         });
 
         // --- Recipe -----------------------------------------------------------

@@ -26,7 +26,7 @@ export const StorageInterface = {
 /**
  * Required methods for a valid storage implementation
  */
-const REQUIRED_METHODS = ['saveRecipe', 'loadRecipe', 'listRecipes', 'deleteRecipe', 'hasRecipe'];
+const REQUIRED_METHODS = ['saveRecipe', 'loadRecipe', 'listRecipes', 'listRecipesStrict', 'deleteRecipe', 'hasRecipe'];
 
 /**
  * Factory function to create and validate a storage instance
