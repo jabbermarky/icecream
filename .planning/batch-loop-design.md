@@ -496,38 +496,40 @@ batch entity are prerequisites, not features, so they moved into Phase 0.
       backup and before `importIngredients` touches the library. The P0.1
       known gap is closed by construction: library load and `.ier` import now
       run the same hydrator. 35 unit cases green, browser suite 114/0.
-- [ ] **P0.3** — stable recipe id in a **separate object store**, keyed by
-      recipe name, holding id, parent id, parent-name snapshot and batch
-      references. Plus `loadRecipeById` on the storage interface. Identity
-      allocation and storage migration land here, before any writer depends on
-      them.
-      **Why a separate store:** sync runs automatically on sign-in
-      (`sync-manager.js:36`), and a stale cached tab or an older device hydrates
-      only known `cRecipe` fields (`app.js:284`) then writes the truncated object
-      back (`recipe-manager.js:1195`). A legacy client would silently strip
-      identity from a record the new client created. It cannot strip a store it
-      does not know exists.
+- [x] **P0.3 — DONE (2026-08-14). The DO-NOT-START is LIFTED, and the separate
+      store was REVERSED.** Full contract and its 14 decisions:
+      `.planning/p0.3-identity-design.md`.
 
-      **⚠️ P0.3 IS NOT YET FULLY DESIGNED. Do not start it.** The separate store
-      solves the legacy-client problem and creates two others, both found on the
-      fourth cross-model pass:
+      **What this entry used to say** — identity in a *separate object store*
+      keyed by recipe name, because a legacy client cannot strip a store it does
+      not know exists — was reversed by the design pass. Two objections killed
+      it, and they were the two this entry already listed as unsettled:
+      a separate store **does not sync** (sync transfers only `recipe.data`), and
+      **keying by name bites on deletion and name reuse**. The decisive argument
+      was narrower than either: one Drive file is the only atomic unit available,
+      so a separate store forks identity on any partial sync. Identity therefore
+      lives **in the container**, behind `SchemaVersion: 2` — `RecipeId` +
+      `SavedAt` — minted only at save and validated OUTSIDE the fail-closed gate,
+      so a stripped record warns and re-mints instead of locking the user out
+      (decision 7).
 
-      1. **It does not sync.** Sync transfers only `recipe.data`
-         (`sync-manager.js:122`) and Drive stores `{name, data}` with no identity
-         sidecar (`google-drive-storage.js:53`). A second device would find no
-         identity and allocate its own. **"No sync changes" is untenable for
-         identity specifically** — cloud identity metadata has to travel, even if
-         nothing else about sync changes. This is the third time the outside
-         voice has raised sync and the first time with a mechanism that has no
-         workaround.
-      2. **Keying it by name bites on deletion and name reuse.** Delete the
-         mapping and a resurrected recipe gets a fresh id; keep it and a
-         genuinely new recipe reusing that name inherits the old id. Either
-         tombstones plus permanent name non-reuse, or key identities by id with a
-         name index and a generation counter. `.ier` import must also reject a
-         same-name / different-id collision.
+      **The legacy-strip window is real and was accepted deliberately**, not
+      overlooked. In-container identity is exactly what a v1 client can truncate
+      on write-back. It is bounded operationally rather than in code — every
+      device is reloaded at deploy (see the Rollout section of the identity
+      design doc) — and its consequence is recoverable by decision 7 rather than
+      silent. The maintainer made that call explicitly.
 
-      P0.1 and P0.2 are unaffected and can start. P0.3 needs this settled first.
+      Landed as T1–T5: v2 container (`js/models/recipe-serialization.js`);
+      mint-on-save, adoption on load and `.ier` import, id-aware overwrite
+      prompts (`js/features/recipe-manager.js`); a pure join module
+      (`js/storage/recipe-sync-join.js`) joining id-first with name fallback on a
+      `SavedAt` clock; an executor (`js/storage/recipe-sync-executor.js`) that
+      aborts on listing failure and skips all deletes if any write fails, with
+      sync-manager reduced to wiring; and a selector-free browser round-trip of a
+      built container through real IndexedDB. `loadRecipeById` was dropped with
+      the store that motivated it — the join reads ids out of bodies it already
+      downloads. Unit lane 170, browser suite green.
 - [ ] **P0.4** — batch record entity and its storage: object store, indexes,
       deletion behaviour, and what happens to batches when a recipe is deleted
       (`app.js:299` currently defines nothing).
@@ -545,9 +547,23 @@ batch entity are prerequisites, not features, so they moved into Phase 0.
       library-load coverage gap (review item 16): the handler moved to
       `js/features/recipe-library-load.js` and is driven by the unit lane.
       Unit lane 65/65, browser suite green.
-- [ ] **P0.6** — copy primitive that mints a new identity. **Rename is refused on
-      any recipe that has been saved**, full stop — NOT merely on recipes that
-      currently have descendants.
+- [ ] **P0.6 — SHRUNK by decision 6 (T2.5). The mechanism already landed in
+      P0.3; what remains is UI.** Decision 6 as amended reads: *a save mints when
+      keeping the id would put it on two local records; otherwise identity
+      follows the recipe.* That makes minting a property of the save path
+      (`resolveIdentityForSave`), not of a copy command — a "copy" is just a save
+      under a second name, and it mints because keeping the id would put it on
+      two records. P0.6's guards (overwrite rejection when the target carries a
+      different id, the re-prompt on identity change) were merged into P0.3's cut
+      and are landed and tested. So P0.6 no longer owns a primitive: it owns the
+      **copy button and the rename-refusal surface** only.
+      **Sequencing note (2026-08-14):** both remainders are pure UI, and the
+      UI is being replaced — so P0.6 should land *with* the redesign rather than
+      before it, or it gets built twice. The rules below are what the new surface
+      must honor; they are not new code to write underneath it.
+
+      **Rename is refused on any recipe that has been saved**, full stop — NOT
+      merely on recipes that currently have descendants.
       **Why unconditional:** a state-dependent guard is evaluated at the wrong
       moment. Rename an unreferenced `A` to `B`; an offline device still holds
       `A`; `B` later gains a child; that device reconnects and republishes `A`.

@@ -77,12 +77,28 @@ Suite green at 114 passed / 0 failed.
    writes the test twice. Durability item 22 split the same way: its
    assertion half landed, its Load-button half re-banks as a requirement
    on the redesign's library surface.
-   **Remaining: T6** (lift DO-NOT-START in
-   batch-loop-design.md, rollout note: reload every device at deploy, verify
-   cache-busting, run migrate-legacy-recipes.js, deleted-record resurrection
-   sentence — banked item 14). P0.6 shrank to the copy button +
-   rename-refusal UI. P0.4
+   **T6 is LANDED (2026-08-14), which closes P0.3 — all of T1–T6 are done.**
+   P0.3's DO-NOT-START is lifted and its entry in batch-loop-design.md now
+   records the separate-store REVERSAL and the deliberately-accepted
+   legacy-strip window. The **Rollout section** of the identity design doc is
+   the deploy contract: verify cache-busting BEFORE announcing, reload every
+   device/tab before anyone saves (the operational closure chosen over code —
+   a v1 client predates the refusal gate and cannot refuse what it does not
+   know), then run `scripts/migrate-legacy-recipes.js` once per device, since
+   decision 14 makes legacy records warn on EVERY sync until drained. Known
+   limit written down: deletes still do not propagate (no tombstones, banked
+   item 14) — identity only changes how resurrection looks, since the record
+   returns carrying its original RecipeId.
+   **P0.6 shrank to the copy button + rename-refusal surface** — decision 6
+   made minting a property of the save path, and P0.6's guards already landed
+   in P0.3's cut. Both remainders are pure UI, so P0.6 should land WITH the
+   redesign rather than before it. P0.4
    and P0.7 are unblocked by identity but still gated on the binder read.
+
+   **Next at the merge boundary:** file the ten `[REDESIGN-INDEPENDENT]` items
+   as issues, run `/code-review` at medium over the whole diff (the ONE full
+   fan-out was already spent on T4 — do not re-run it), merge #11, then open
+   the redesign branch with enablers 3+8+18 as its first commits.
 
    **The 18 banked items are now redesign-triaged** (see the tag rubric in
    `.planning/todos/pending/2026-08-13-t2.6-round3-review-findings.md`):
