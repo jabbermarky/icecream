@@ -27,6 +27,15 @@
 //   - Same name + two different ids is TWO recipes, not a conflict to LWW
 //     away (the dead-id-vs-live-name case): overwriting either side would
 //     destroy a lineage. Skip and warn; resolution is a user decision.
+//   - An id-less body NEVER replaces an identified record, even when it wins
+//     the clock: the write would erase the identity and sync would then
+//     propagate the erasure. Skip and warn; resolution is a user decision —
+//     keep one copy, delete or rename the other. (Re-saving the old copy
+//     does NOT converge: a save mints a FRESH id, which turns this into the
+//     divergent-identities stall.) The other direction stays open — an
+//     identified winner replacing a legacy record is how old records get
+//     carried forward — and scripts/migrate-legacy-recipes.js drains legacy
+//     records that have no identified counterpart.
 //   - No partial overwrites: a record whose body is missing or malformed
 //     blocks its name on its own side — the other side's same-named record
 //     must not be treated as "only" and clobber what we could not see.
@@ -61,6 +70,7 @@ export const SYNC_WARNINGS = Object.freeze({
     DIVERGENT_IDENTITIES: 'divergent-identities',
     DUPLICATE_ID: 'duplicate-id',
     NAME_COLLISION: 'name-collision',
+    LEGACY_CONFLICT: 'legacy-conflict',
 });
 
 /**
@@ -264,6 +274,27 @@ export function planRecipeSync(localRecords, cloudRecords) {
             stats.skipped++;
             continue;
         }
+        // Mixed pair — exactly one side carries an identity. When the id-less
+        // side wins the clock, refuse outright: writing it would erase the
+        // identity fleet-wide, and the one flow that produces this pair (an
+        // old-format copy edited on a stale device) is rare enough to handle
+        // by hand. The identified-winner direction falls through to plain LWW
+        // below — that overwrite is how legacy records get carried forward.
+        if (!l.id !== !c.id) {
+            const cmp = compareClocks(l, c);
+            const winner = cmp > 0 ? l : cmp < 0 ? c : null;
+            if (winner && !winner.id) {
+                warnings.push({
+                    code: SYNC_WARNINGS.LEGACY_CONFLICT, side: winner.side, name: l.name,
+                    message: `The ${winner.side} copy of "${l.name}" is newer but was saved in the ` +
+                        `old format; sync never replaces an identified recipe with an old-format ` +
+                        `one, so neither side was changed. Resolve it by hand: keep the copy you ` +
+                        `want and delete or rename the other.`,
+                });
+                stats.skipped++;
+                continue;
+            }
+        }
         stats.pairsByName++;
         const candidate = resolvePair(l, c, warnings, stats);
         if (candidate) candidates.push(candidate);
@@ -428,6 +459,21 @@ export function decideRecipePush(record, cloudRecord) {
     }
     const pushedId = containerRecipeId(record.data);
     const cloudId = containerRecipeId(data);
+    // The same legacy rule the full join applies: an id-less body never
+    // replaces an identified record. The mainline save path always mints
+    // before pushing, so an id-less push reaching an identified cloud record
+    // is an anomaly — refuse it rather than erase the identity.
+    if (cloudId && !pushedId) {
+        return {
+            allow: false,
+            warning: {
+                code: SYNC_WARNINGS.LEGACY_CONFLICT, side: 'cloud', name: record.name,
+                message: `The cloud copy of "${record.name}" carries an identity this record does ` +
+                    `not, so it was not overwritten. Save your copy under a different name to ` +
+                    `keep both, or delete the cloud copy first if it is stale.`,
+            },
+        };
+    }
     if (pushedId && cloudId && pushedId !== cloudId) {
         return {
             allow: false,

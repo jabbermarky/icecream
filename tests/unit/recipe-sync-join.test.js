@@ -178,6 +178,45 @@ test('T3: legacy no-id records on both sides join by name — plain LWW', () => 
   assert.equal(plan.stats.pairsByName, 1);
 });
 
+// --- The legacy-conflict rejection (N=1 call, 2026-08-14): an id-less body
+// --- never replaces an identified record, whichever way the clock leans ---
+
+test('T3: a legacy record that wins the clock is REFUSED, not merged — both directions', () => {
+  // Local legacy newer than identified cloud: without the rule, LWW would
+  // push the id-less body and erase the identity fleet-wide.
+  const localLegacy = planRecipeSync(
+    [rec('A', v1('A'), T3)],
+    [rec('A', v2('A', { id: 'id-1', savedAt: T1 }), T1)]);
+  assert.deepEqual(localLegacy.actions, []);
+  assert.deepEqual(codes(localLegacy), [SYNC_WARNINGS.LEGACY_CONFLICT]);
+  assert.equal(localLegacy.warnings[0].side, 'local', 'the warning names the old-format side');
+  assert.equal(localLegacy.stats.skipped, 1);
+
+  const cloudLegacy = planRecipeSync(
+    [rec('A', v2('A', { id: 'id-1', savedAt: T1 }), T1)],
+    [rec('A', v1('A'), T3)]);
+  assert.deepEqual(cloudLegacy.actions, []);
+  assert.deepEqual(codes(cloudLegacy), [SYNC_WARNINGS.LEGACY_CONFLICT]);
+  assert.equal(cloudLegacy.warnings[0].side, 'cloud');
+});
+
+test('T3: a stripped v2 record (no id) gets the same refusal as v1 — the format is not the point, the identity is', () => {
+  const plan = planRecipeSync(
+    [rec('A', v2('A', { id: null, savedAt: T3 }), T3)],
+    [rec('A', v2('A', { id: 'id-1', savedAt: T1 }), T1)]);
+  assert.deepEqual(plan.actions, []);
+  assert.deepEqual(codes(plan), [SYNC_WARNINGS.LEGACY_CONFLICT]);
+});
+
+test('T3: an identified record that wins the clock DOES replace a legacy one — the migration direction stays open', () => {
+  const plan = planRecipeSync(
+    [rec('A', v2('A', { id: 'id-1', savedAt: T2 }), T2)],
+    [rec('A', v1('A'), T1)]);
+  assert.deepEqual(ops(plan), ['push:A']);
+  assert.equal(plan.actions[0].data.RecipeId, 'id-1', 'the identified body is what gets written');
+  assert.deepEqual(plan.warnings, []);
+});
+
 test('T3: dead id vs live name — same name, two different ids, NEVER merged', () => {
   const plan = planRecipeSync(
     [rec('A', v2('A', { id: 'id-old', savedAt: T3 }))],
@@ -314,8 +353,17 @@ test('T3 PUSH GATE: absent cloud record allows; same or missing identity allows'
   assert.equal(decideRecipePush(mine, rec('A', v2('A', { id: 'id-1' }))).allow, true);
   assert.equal(decideRecipePush(mine, rec('A', v1('A'))).allow, true, 'a legacy cloud copy is mine to update');
   const unidentified = { name: 'A', data: v2('A') };
-  assert.equal(decideRecipePush(unidentified, rec('A', v2('A', { id: 'id-1' }))).allow, true,
-    'an id-less push is the save path\'s business — the join cannot rule on it');
+  assert.equal(decideRecipePush(unidentified, rec('A', v1('A'))).allow, true,
+    'id-less over id-less is plain legacy LWW — nothing to erase');
+});
+
+test('T3 PUSH GATE: an id-less push never replaces an identified cloud record', () => {
+  // The mainline save mints before pushing, so this shape is an anomaly —
+  // and exactly the one that would erase an identity fleet-wide. Refuse.
+  const unidentified = { name: 'A', data: v2('A') };
+  const verdict = decideRecipePush(unidentified, rec('A', v2('A', { id: 'id-1' })));
+  assert.equal(verdict.allow, false);
+  assert.equal(verdict.warning.code, SYNC_WARNINGS.LEGACY_CONFLICT);
 });
 
 test('T3 PUSH GATE: a newer-schema cloud record refuses the push, with a warning', () => {

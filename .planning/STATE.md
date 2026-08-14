@@ -38,9 +38,18 @@ Suite green at 114 passed / 0 failed.
    **T3 is LANDED and twice-reviewed** (`js/storage/recipe-sync-join.js` —
    id-first join, name fallback, `SavedAt` clock, schema guard, fixpoint
    placement so plans are input-order independent; unit lane at 142, and
-   `decideRecipePush` is ready as pushRecipe's gate).
+   `decideRecipePush` is ready as pushRecipe's gate). **The codex cross-model
+   round on T3 is CLOSED by decision 14 (maintainer, 2026-08-14): legacy
+   conflicts REJECT — an id-less body never replaces an identified record
+   (`SYNC_WARNINGS.LEGACY_CONFLICT`, both write paths; unit lane at 146);
+   graft-with-warning was withdrawn as over-design for N=1. The
+   identified-winner direction stays open; `scripts/migrate-legacy-recipes.js`
+   (throwaway, console-pasteable) drains the legacy population. The round's
+   two executor rules moved into T4's entry in the design doc; its P2s are
+   banked as items 6–8 of the round-3 todo file.**
    **Remaining: T4** (sync-manager swaps to the join module + body download
-   for unknown ids; review: full gstack /review), **T5** (browser round-trip
+   for unknown ids + the two executor rules; review: full gstack /review),
+   **T5** (browser round-trip
    of a built container, closes item 22), **T6** (lift DO-NOT-START in
    batch-loop-design.md, rollout note: reload every device at deploy, verify
    cache-busting). P0.6 shrank to the copy button + rename-refusal UI. P0.4
