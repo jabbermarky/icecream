@@ -112,6 +112,35 @@ Wait for it before running anything that needs them:
 ./.claude/hooks/wait-for-setup.sh && xvfb-run -a npm test
 ```
 
+## Token discipline
+
+Measured 2026-08-14: one three-day session spent 5M+ output tokens on ~190
+user inputs, ~60% of it on review machinery, against a maintainer expectation
+in the hundreds of thousands. These rules exist so that never repeats.
+
+1. **One review round per build step, then STOP.** Apply that round's fixes;
+   any further findings get BANKED (a todo file or the PR body), not fixed,
+   unless the maintainer says otherwise. The full multi-agent fan-out
+   (specialists + adversarial + red team + outside voice) runs at most ONCE
+   per PR, at the merge boundary. Contained steps get the built-in
+   `/code-review` at low/medium — no subagents.
+2. **N=1 triage gate, at design time.** Before designing a fix or guard, ask
+   "who actually hits this?" This app has one user; a threat that needs a
+   second concurrent writer, a hostile file author, or a fleet is usually a
+   documented limit or a throwaway script, not code. (Decision 14 is the
+   precedent.)
+3. **No polling automations.** No hourly PR check-ins, no scheduled
+   self-wakes to watch quiet state. Event subscriptions
+   (`subscribe_pr_activity`) plus the maintainer saying so are the only PR
+   signals — the maintainer does nothing to a PR without saying it here.
+4. **Fresh session per work block.** The durability hooks make sessions
+   disposable — checkpoint, clear, restore is cheaper than a resident
+   mega-session re-reading its context on thousands of calls.
+5. **Batch the small stuff.** Group edits before running tests; run the unit
+   lane once per logical unit, the browser suite once per landed change.
+   Prefer one consolidated PR-body/STATE update per push over per-event
+   rewrites.
+
 ## Tech Stack
 - Vanilla JavaScript (ES6 modules)
 - HTML/CSS
