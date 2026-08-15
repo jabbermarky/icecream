@@ -42,6 +42,7 @@
             DisplayRecipe,
             DisplayBackupList,
             getRecipeBackup,
+            setRecipeBackup,
             getRecipeStack,
             UpdateRecipeSums,
             UpdateRecipeInfo
@@ -293,6 +294,11 @@
                     storage: recipeStorage,
                     setRecipe: (r) => { Recipe = r; },
                     setRecipeIdentity: setCurrentRecipeIdentity,
+                    clearRecipeBackup: () => {
+                        setRecipeBackup([]);
+                        const btn = document.getElementById("btnRestoreRecipe");
+                        if (btn) btn.disabled = true;
+                    },
                     importIngredients,
                     DisplayRecipe,
                     SetRecipeModified,

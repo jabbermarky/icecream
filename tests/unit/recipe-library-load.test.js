@@ -33,6 +33,7 @@ function harness({ record, loadThrows = false } = {}) {
     recipe: new cRecipe('Currently Open'),
     identity: 'UNSET',          // sentinel: distinguishes "never called" from null
     imports: [],
+    backupCleared: 0,
     displayed: 0,
     modifiedCalls: [],
     info: [],
@@ -54,6 +55,7 @@ function harness({ record, loadThrows = false } = {}) {
     },
     setRecipe: (r) => { state.recipe = r; },
     setRecipeIdentity: (id) => { state.identity = id; },
+    clearRecipeBackup: () => { state.backupCleared++; },
     importIngredients: (ingredients, ...rest) => state.imports.push({ ingredients, rest }),
     DisplayRecipe: () => { state.displayed++; },
     SetRecipeModified: (v) => state.modifiedCalls.push(v),
@@ -354,4 +356,39 @@ test('library load does NOT back up the current recipe (deliberate, unlike .ier 
   // absence IS the behaviour. If a backup is ever added, this test names the
   // moment it changed.
   assert.equal(state.imports.length, 1);
+});
+
+test('library load CLEARS the optimization backup stack (merge-boundary review)', async () => {
+  // Distinct from the divergence above, which is about not TAKING a backup.
+  // Leaving the PREVIOUS recipe's backups behind became a data bug when P0.3
+  // added identity: RecipeBackup holds plain cRecipe copies with no identity,
+  // and RestoreRecipe does not touch currentRecipeId — so optimize A, load B,
+  // Restore puts A's body on screen under B's identity, and the next save
+  // writes A's ingredients into B's lineage.
+  const { state, load } = harness({
+    record: libraryRecord({
+      SchemaVersion: 2,
+      RecipeId: 'b-id',
+      Recipe: { Name: 'B', Ingredients: [] },
+      Ingredients: {},
+    }),
+  });
+  await load('B');
+  state.restoreConsole();
+
+  assert.equal(state.identity, 'b-id', 'adopts the loaded record\'s identity');
+  assert.equal(state.backupCleared, 1, 'and clears the stale optimization stack in the same window');
+});
+
+test('a REFUSED load leaves the optimization backup stack alone', async () => {
+  // The mirror of the above: nothing was replaced, so the open recipe's own
+  // backups are still its own and must survive.
+  const { state, load } = harness({
+    record: libraryRecord({ SchemaVersion: 99, Recipe: { Name: 'X' }, Ingredients: {} }),
+  });
+  await load('X');
+  state.restoreConsole();
+
+  assert.equal(state.identity, 'UNSET', 'identity untouched on a refusal');
+  assert.equal(state.backupCleared, 0, 'and the backup stack untouched too');
 });

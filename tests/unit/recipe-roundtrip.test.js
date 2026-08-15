@@ -76,6 +76,10 @@ for (const name of ['btnNewRecipe', 'btnStoreAsIngredient', 'btnSaveRecipe', 'bt
 buttons.storage = {
   loadRecipe: async (name) => storageRecords[name] ?? null,
   listRecipes: async () => Object.keys(storageRecords).map((name) => ({ name })),
+  // The identity scan uses the STRICT listing on purpose (a swallowed
+  // failure would read as "library empty" and keep an id that another
+  // record already carries). Tests that need the failure path override this.
+  listRecipesStrict: async () => Object.keys(storageRecords).map((name) => ({ name })),
   saveRecipe: async (rec) => {
     storageCalls.push(rec);
     if (storageSaveResult) storageRecords[rec.name] = rec;
@@ -929,4 +933,64 @@ test('a damaged .ier (valid envelope, data:{}) is refused with the damaged-recor
   assert.match(messages.error[0], /damaged/);
   assert.doesNotMatch(messages.error[0], /newer version/); // truthful cause
   assert.equal(currentRecipe, before);
+});
+
+// --- Merge-boundary review fixes (P0.3, 2026-08-14) ---
+
+test('MERGE-BOUNDARY: a FAILED identity listing mints rather than keeping the id', async () => {
+  // scanForIdentityCarrier used the lenient listRecipes, which swallows a
+  // backend failure to []. That reads as "the library is empty, nobody else
+  // carries this id" and KEEPS the id — landing one id on two local records,
+  // which the sync planner then blocks forever. The strict listing throws, the
+  // scan reports unverifiable, and the mint decision fails toward MINT.
+  freshState(makeRecipe('Scan Fails'));
+  storageRecords['Other'] = {
+    name: 'Other',
+    data: { SchemaVersion: 2, RecipeId: 'id-shared', Recipe: { Name: 'Other' }, Ingredients: {} },
+  };
+  setCurrentRecipeIdentity('id-shared');
+  const origStrict = buttons.storage.listRecipesStrict;
+  buttons.storage.listRecipesStrict = async () => { throw new Error('IndexedDB exploded'); };
+  try {
+    await buttons.btnSaveRecipe.onclick();
+  } finally {
+    buttons.storage.listRecipesStrict = origStrict;
+  }
+
+  const saved = storageCalls[0].data;
+  assert.ok(isValidRecipeId(saved.RecipeId), 'still writes a valid identity');
+  assert.notEqual(saved.RecipeId, 'id-shared',
+    'an unverifiable scan must MINT — keeping would put one id on two records');
+});
+
+test('MERGE-BOUNDARY: a DAMAGED overwrite target does not get the "update the app" message', async () => {
+  // containerSchemaVersion maps a garbage version to Infinity (fail closed),
+  // so isNewerSchema alone was true for corruption too — telling a user with a
+  // damaged record to update the app is the lie invalidContainerMessage was
+  // created to stop. Both cases still refuse; only the message differs.
+  freshState(makeRecipe('Damaged Target'));
+  storageRecords['Damaged Target'] = {
+    name: 'Damaged Target',
+    data: { SchemaVersion: true, Recipe: { Name: 'Damaged Target' }, Ingredients: {} },
+  };
+  await buttons.btnSaveRecipe.onclick();
+
+  assert.equal(storageCalls.length, 0, 'still refuses — we cannot read it, so we do not overwrite it');
+  const msg = messages.error.at(-1);
+  assert.match(msg, /damaged|unrecognized/i);
+  assert.doesNotMatch(msg, /newer version/, 'must not blame a version it cannot have');
+});
+
+test('MERGE-BOUNDARY: a genuinely NEWER overwrite target still gets the update-the-app message', async () => {
+  // The other half of the same branch: a finite newer schema is a real future
+  // record, and "update the app" is the truthful remedy there.
+  freshState(makeRecipe('Future Target'));
+  storageRecords['Future Target'] = {
+    name: 'Future Target',
+    data: { SchemaVersion: 99, Recipe: { Name: 'Future Target' }, Ingredients: {} },
+  };
+  await buttons.btnSaveRecipe.onclick();
+
+  assert.equal(storageCalls.length, 0);
+  assert.match(messages.error.at(-1), /newer version/);
 });

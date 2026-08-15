@@ -12,7 +12,7 @@ import { getCSS } from '../ui/components.js';
 import { saveToFile, parseRecipeFile } from '../utils/file-io.js';
 import {
     buildRecipeContainer, hydrateRecipe, containerProblem, invalidContainerMessage,
-    containerRecipeId, containerIdentityWarning, isNewerSchema
+    containerRecipeId, containerIdentityWarning, isNewerSchema, containerSchemaVersion
 } from '../models/recipe-serialization.js';
 
 // Module-level state
@@ -1365,10 +1365,21 @@ async function handleSaveRecipe() {
             // A record this build cannot read must not be overwritten by it —
             // the same never-truncate rule the load gate enforces, applied to
             // the one local path that writes without loading.
-            if (isNewerSchema(target.data)) {
-                ErrorMsg(`Recipe "${savedName}" was saved by a newer version of Ice Ed. ` +
-                    `Overwriting it here would destroy fields this version cannot read, ` +
-                    `so nothing was saved. Rename your recipe, or update the app.`);
+            //
+            // Newer-schema and DAMAGED must not share a message. containerSchemaVersion
+            // maps a garbage version to Infinity (fail closed, deliberately), so
+            // isNewerSchema alone is true for corruption too — and telling a user
+            // with a corrupted record to "update the app" is the same lie
+            // invalidContainerMessage was created to stop. Both still refuse: we
+            // cannot read either one, so we overwrite neither.
+            if (containerProblem(target.data)) {
+                ErrorMsg(isNewerSchema(target.data) && Number.isFinite(containerSchemaVersion(target.data))
+                    ? `Recipe "${savedName}" was saved by a newer version of Ice Ed. ` +
+                      `Overwriting it here would destroy fields this version cannot read, ` +
+                      `so nothing was saved. Rename your recipe, or update the app.`
+                    : `Recipe "${savedName}" is damaged or has an unrecognized shape, so ` +
+                      `nothing was saved — overwriting it could destroy data this version ` +
+                      `cannot read. Save under a different name to keep your work.`);
                 return;
             }
             const targetId = containerRecipeId(target.data);
@@ -1498,7 +1509,14 @@ async function resolveIdentityForSave(idAtClick, target, savedName) {
  */
 async function scanForIdentityCarrier(id, excludeName) {
     try {
-        const list = await recipeStorage.listRecipes();
+        // STRICT, not the lenient listRecipes: that one swallows a backend
+        // failure to [], which this scan would read as "the library is empty,
+        // nobody carries this id" and KEEP the id — landing one id on two
+        // local records, which the planner then blocks forever. The strict
+        // listing throws instead, the catch below reports unverifiable, and
+        // the mint decision fails toward MINT. Same falsely-empty-listing
+        // class T4 closed on the sync side.
+        const list = await recipeStorage.listRecipesStrict();
         for (const entry of list) {
             if (entry.name === excludeName) continue;
             const rec = await recipeStorage.loadRecipe(entry.name);

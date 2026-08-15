@@ -10,10 +10,21 @@
 // drive it, mirroring the .ier import tests.
 //
 // DELIBERATE DIVERGENCE from .ier import (reviewed under P0.5, kept): .ier
-// import backs up the current recipe and clears RecipeBackup/sortBy; this path
-// replaces the recipe with no backup. Aligning them would be a user-visible
-// behaviour change, and Phase 0 is structural only. Whether library load should
-// also be undoable is a product question, not a refactor.
+// import backs up the current recipe; this path replaces the recipe with no
+// backup. Aligning them would be a user-visible behaviour change, and Phase 0
+// is structural only. Whether library load should also be undoable is a product
+// question, not a refactor.
+//
+// NOT part of that divergence, and fixed at the P0.3 merge boundary: this path
+// must still CLEAR the optimization backup stack. Not taking a backup and
+// leaving a PREVIOUS recipe's backup behind are different things, and the
+// second one became a data bug when P0.3 added identity. `RecipeBackup` holds
+// plain cRecipe copies with no identity of their own, and `RestoreRecipe`
+// does not touch `currentRecipeId` — so optimize A, load B, Restore puts A's
+// body on screen under B's identity, and the next save writes A's ingredients
+// into B's lineage. The two sibling paths that replace the on-screen recipe
+// both clear it (recipe-manager.js `handleNewRecipe` and the .ier import);
+// this one did not.
 
 import {
     hydrateRecipe, containerProblem, invalidContainerMessage,
@@ -34,6 +45,7 @@ const INGREDIENT_CONFLICT_MESSAGE =
  * @param {Object} deps.storage - Recipe storage backend (needs loadRecipe)
  * @param {Function} deps.setRecipe - Replaces the current recipe
  * @param {Function} deps.setRecipeIdentity - Adopts the record's RecipeId (or null) as the open recipe's identity
+ * @param {Function} deps.clearRecipeBackup - Empties the optimization backup stack, so Restore cannot resurrect the PREVIOUS recipe's body under this record's identity
  * @param {Function} deps.importIngredients - Merges the record's ingredients into the library
  * @param {Function} deps.DisplayRecipe - Re-renders after the swap
  * @param {Function} deps.SetRecipeModified - Clears the modified flag
@@ -121,6 +133,10 @@ export function createLibraryRecipeLoader(deps) {
             // render throw cannot leave recipe and identity pointing at
             // different records.
             setRecipeIdentity(containerRecipeId(data.data));
+            // The previous recipe's optimization backups are not this
+            // recipe's, and Restore does not carry identity — see the module
+            // header. Cleared in the same window as the identity swap.
+            if (deps.clearRecipeBackup) deps.clearRecipeBackup();
             DisplayRecipe();
             SetRecipeModified(false);
             Info(`Loaded "${name}" from library`);
