@@ -591,7 +591,15 @@ batch entity are prerequisites, not features, so they moved into Phase 0.
       restores whatever survives on one side.
 - [ ] **P0.7** — print persists an identified snapshot before emitting the sheet
 - [ ] **P1.1** — advisory lineage: parent id + parent name snapshot
-- [ ] **P1.2** — mechanical diff over ordered ingredient occurrences, plus optional intent
+- [ ] **P1.2** — mechanical diff, plus optional intent. **AMENDED by decision 18
+      (2026-08-14): ingredient order is NOT meaningful.** This line used to read
+      "over ordered ingredient occurrences"; the maintainer settled that a
+      reordering is not a change, so the diff is a keyed comparison over
+      ingredient names with no move operations. What it contains is specified in
+      full in `.planning/p0.4-batch-schema.md` ("What a diff contains") —
+      including the two things that were not obvious: quantity changes are
+      expressed in concentration rather than grams, and ingredient-definition
+      drift between snapshots is reported separately and first.
 - [ ] **P2.1** — dedicated fixed-geometry print surface (`@page`, physical units, registration marks)
 - [ ] **P2.2** — the churn sheet itself, with prompts derived from the binder read
 - [ ] **P3.1** — QR encode/decode of batch id + recipe id + schema version
