@@ -93,7 +93,16 @@ Suite green at 114 passed / 0 failed.
    made minting a property of the save path, and P0.6's guards already landed
    in P0.3's cut. Both remainders are pure UI, so P0.6 should land WITH the
    redesign rather than before it. P0.4
-   and P0.7 are unblocked by identity but still gated on the binder read.
+   and P0.7 are now FULLY unblocked — identity landed and the binder read is
+   done. **P0.4 is DESIGNED** (`.planning/p0.4-batch-schema.md`, decisions
+   15–24, tasks B1–B6); P0.7 couples to it, since the print is what creates the
+   batch record. The binder read also CUT scope: the three-tier return path
+   loses tier 3 (no prose parsing — photograph, attach, search, stop) and no
+   defect taxonomy gets built, because six of the ten changes that actually
+   altered the next batch came from prose rather than marks. And it RESEQUENCED:
+   the parent-version pointer (#16) and the type-range check (#15) move ahead of
+   the batch entity — each is ~an hour and either would have caught the binder's
+   one silent regression.
 
    **Next at the merge boundary:** file the ten `[REDESIGN-INDEPENDENT]` items
    as issues, run `/code-review` at medium over the whole diff (the ONE full
@@ -114,10 +123,32 @@ Suite green at 114 passed / 0 failed.
    written wrong twice in one session, caught both times by review rather than
    by the suite.
 
-**Waiting on the maintainer:** read the binder — twenty batches, one evening,
-no code. It produces the churn sheet's real schema and answers what counts as
-a batch (gates P0.4 and P0.7). The identity-sync design question is ANSWERED;
-T3/T4 are unblocked code. Ingredient onboarding (#6–#10) also remains open.
+**THE BINDER READ IS DONE (2026-08-14) and it was the last gate on P0.4/P0.7.**
+The maintainer delivered a 29-page audit of their own churn logs, preserved at
+`.planning/binder-audit.md`; the code-checkable claims are verified in
+`.planning/binder-audit-verification.md`; the schema it produced is
+`.planning/p0.4-batch-schema.md` (decisions 15–24). **Nothing is now waiting on
+the maintainer** except the two items under "Open" below.
+
+The headline: **14 of 29 churned batches produced no recorded result, and
+silence is ambiguous** between "it was fine" and "the evening ended" — so those
+14 are holes, not weak data. It is not inattention (one page carries ink
+corrections to ingredient amounts and no result — the pen was at the bench);
+across three print generations in two years **every field the app gained was a
+planning field and the outcome side never gained one.** Hence the schema's
+core: the batch record is created AT PRINT in state `planned`, and "no verdict"
+is a value (`nothing to note` vs `not evaluated`), never a blank.
+
+Two verified findings worth not rediscovering. **The dextrose PAC/POD change
+across print generations is real, but the coefficient never changed** — 342.3/180
+still gives the textbook 190/70; what changed is that PAC and POD are now scaled
+by the ingredient's sugar fraction (~87.5 %, likely from the USDA import). One
+number in the live ingredient library closes it. And **`buildRecipeContainer`
+already snapshots every ingredient's full definition into each saved record**, so
+recipes carry the coefficients they were computed with — the audit's "version the
+ingredient database" ask is already satisfied, better than a version stamp would.
+
+Ingredient onboarding (#6–#10) remains open.
 
 ### Do these at the start of a session
 
@@ -198,9 +229,19 @@ recipe; identity in a separate object store.
 
 **Open, not blocking:**
 
-3. Is a reprint a new batch or the same batch? Is a cancelled print a record?
-   Gates P0.4 and P0.7. **Answerable from the binder.**
-4. Are photos portable or local-only? Gates P3.3 only.
+3. ~~Is a reprint a new batch or the same batch?~~ **CLOSED 2026-08-14.** A batch
+   is a churn event; a reprint reuses the existing `planned` batch. A cancelled
+   print is undetectable from the browser, so it leaves a `planned` batch that
+   the `not churned` state clears in one tap.
+   ~~Is ingredient order meaningful in the diff?~~ **CLOSED: no** (maintainer).
+   The diff is keyed by ingredient name, no move operations.
+4. **Are photos portable or local-only? NOW LOAD-BEARING, no longer P3.3-only.**
+   Decision 20 withdrew the prose return path — prose gets photographed,
+   attached and full-text searched rather than parsed — which makes the
+   photograph the storage medium for the highest-value 20 % of the record.
+   Decision 22 keeps it off P0.4's critical path (photos are attachments; a
+   batch without its photo is still a batch), but it must be answered before
+   prose is trusted to the system.
 
 ## Known bugs found but not fixed
 
