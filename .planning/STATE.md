@@ -10,153 +10,58 @@ keep it true; everything below the markers is the detail it points at.
 <!-- BRIEFING:START -->
 ### Where things are
 
-**Shipped:** v0.5.0 (PR #4, merged). USDA ingredient import populates PAC, POD
-and Sugar for the first time — measured 0/11 → 6/11 against the live FDC API,
-Sugar 0/11 → 10/11. `idb` is vendored, so startup no longer depends on a CDN.
-Suite green at 114 passed / 0 failed.
+**Shipped:** v0.5.0 (PR #4). USDA ingredient import populates PAC, POD and
+Sugar for the first time. `idb` is vendored, so startup needs no CDN.
 
-**In flight:** two workstreams.
+**JUST MERGED — PR #11, squash `644a598` (2026-08-15).** Phase 0's identity
+work and the batch-loop design. P0.1, P0.2, P0.3, P0.5 are all DONE. Unit lane
+175, browser suite green. What landed, in one paragraph each:
 
-1. **The batch loop** — linking recipe versions to what happened when they were
-   churned. Design: `.planning/batch-loop-design.md`. Draft PR #11. **P0.1,
-   P0.2, P0.5 are DONE; P0.3 is DESIGNED and two-thirds LANDED.** The identity
-   design (`.planning/p0.3-identity-design.md`, eng-reviewed + outside voice,
-   13 decisions) reversed the separate-store plan: identity lives IN the
-   container behind `SchemaVersion: 2` — `RecipeId` + `SavedAt`, minted only
-   at save, validated OUTSIDE the fail-closed gate so a stripped record warns
-   instead of locking the user out. **T1 (v2 container) and T2 (minting,
-   P0.6's merged guards, adoption on load/import, id-aware overwrite prompts)
-   are landed and five-pass reviewed, and T2.5 (codex outside-voice round,
-   decision 6 amended) plus T2.6 (two applied review rounds: SavedAt guard
-   UTC-anchored, import backup taken after the identity scan, same-name
-   re-import adopts silently, import failures reach ErrorMsg, BackupRecipe
-   honors its arguments) landed on top** — unit lane `npm run test:unit` at
-   113 cases, browser suite green. Round three's five unapplied findings live
-   in `.planning/todos/pending/2026-08-13-t2.6-round3-review-findings.md`
-   for the merge-boundary review. The T1 review also REVERSED a P0.5 pin:
-   typed arrays now refuse at snapshot (JSON backends corrupt them silently).
-   **T3 is LANDED and twice-reviewed** (`js/storage/recipe-sync-join.js` —
-   id-first join, name fallback, `SavedAt` clock, schema guard, fixpoint
-   placement so plans are input-order independent; unit lane at 142, and
-   `decideRecipePush` is ready as pushRecipe's gate). **The codex cross-model
-   round on T3 is CLOSED by decision 14 (maintainer, 2026-08-14): legacy
-   conflicts REJECT — an id-less body never replaces an identified record
-   (`SYNC_WARNINGS.LEGACY_CONFLICT`, both write paths; unit lane at 146);
-   graft-with-warning was withdrawn as over-design for N=1. The
-   identified-winner direction stays open; `scripts/migrate-legacy-recipes.js`
-   (throwaway, console-pasteable) drains the legacy population. The round's
-   two executor rules moved into T4's entry in the design doc; its P2s are
-   banked as items 6–8 of the round-3 todo file.**
-   **T4 is LANDED and full-round reviewed (2026-08-14):**
-   `js/storage/recipe-sync-executor.js` (collect strict listings + bodies →
-   plan → execute; listing failure aborts with no writes; any write failure
-   skips all deletes; `executeGatedPush` is the tested fetch→decide→write
-   path pushRecipe uses) and sync-manager is now a thin wiring layer over
-   it. The review round (testing/maintainability/security specialists +
-   Claude adversarial + codex — the ONE full fan-out for this PR) applied:
-   Drive listing pagination (silent >100-file truncation was the
-   silent-clobber class T4 exists to kill), Drive query-value escaping
-   (apostrophe names created duplicate files every save), anchored filename
-   decode (closes banked item 23 for listings), listRecipes→Strict DRY
-   inversion in both backends, IndexedDB strict listing off the lossy
-   updatedAt index, delete failures fold into sync status + warn, warning
-   batching for the one-slot status bar. Unit lane at 170, browser green.
-   Nine design-level findings banked as items 9–18 of the round-3 todo
-   file — the sharpest is item 9: sync's own rename residue (skipped/failed
-   delete) re-joins as DUPLICATE_ID and stalls until hand-fixed.
-   **T5 is LANDED (2026-08-14), RESCOPED for the UI/UX replacement:**
-   `testContainerRoundTrip` in test-app.js round-trips a
-   `buildRecipeContainer` container through real IndexedDB with 15
-   assertions and ZERO selectors — schema version, RecipeId intact,
-   SavedAt, `containerProblem === null` (the refusal gate accepting what
-   the canonical builder produced, unpinned in both lanes until now),
-   hydration, detachment from post-build mutation, and decision 7's
-   warn-don't-lock-out with no identity supplied. The original T5 drove
-   the round-trip through the Save/Load buttons; with the UI being
-   replaced and test-app.js carrying ~114 selector-bound sites, that form
-   writes the test twice. Durability item 22 split the same way: its
-   assertion half landed, its Load-button half re-banks as a requirement
-   on the redesign's library surface.
-   **T6 is LANDED (2026-08-14), which closes P0.3 — all of T1–T6 are done.**
-   P0.3's DO-NOT-START is lifted and its entry in batch-loop-design.md now
-   records the separate-store REVERSAL and the deliberately-accepted
-   legacy-strip window. The **Rollout section** of the identity design doc is
-   the deploy contract: verify cache-busting BEFORE announcing, reload every
-   device/tab before anyone saves (the operational closure chosen over code —
-   a v1 client predates the refusal gate and cannot refuse what it does not
-   know), then run `scripts/migrate-legacy-recipes.js` once per device, since
-   decision 14 makes legacy records warn on EVERY sync until drained. Known
-   limit written down: deletes still do not propagate (no tombstones, banked
-   item 14) — identity only changes how resurrection looks, since the record
-   returns carrying its original RecipeId.
-   **P0.6 shrank to the copy button + rename-refusal surface** — decision 6
-   made minting a property of the save path, and P0.6's guards already landed
-   in P0.3's cut. Both remainders are pure UI, so P0.6 should land WITH the
-   redesign rather than before it. P0.4
-   and P0.7 are now FULLY unblocked — identity landed and the binder read is
-   done. **P0.4 is DESIGNED** (`.planning/p0.4-batch-schema.md`, decisions
-   15–24, tasks B1–B6); P0.7 couples to it, since the print is what creates the
-   batch record. The binder read also CUT scope: the three-tier return path
-   loses tier 3 (no prose parsing — photograph, attach, search, stop) and no
-   defect taxonomy gets built, because six of the ten changes that actually
-   altered the next batch came from prose rather than marks. And it RESEQUENCED:
-   the parent-version pointer (#16) and the type-range check (#15) move ahead of
-   the batch entity — each is ~an hour and either would have caught the binder's
-   one silent regression.
+- **Identity (P0.3).** Recipes carry `RecipeId` + author-time `SavedAt` inside
+  the container behind `SchemaVersion: 2` — NOT a separate store, which was
+  reversed because one Drive file is the only atomic unit available. Identity
+  is validated OUTSIDE the fail-closed gate, so a stripped record warns and
+  re-mints instead of locking the user out. Minting happens only at save, under
+  one invariant: at most one record per id.
+- **Sync.** `recipe-sync-join.js` is the pure decision core (id-first join, name
+  fallback, `SavedAt` clock, fixpoint placement so plans are order-independent);
+  `recipe-sync-executor.js` executes (listing failure aborts before any write;
+  any write failure skips all deletes). Legacy conflicts REJECT — an id-less
+  body never replaces an identified record.
+- **The batch loop is DESIGNED, not built.** `.planning/p0.4-batch-schema.md`,
+  decisions 15–24, tasks B1–B6.
 
-   **Next at the merge boundary:** file the ten `[REDESIGN-INDEPENDENT]` items
-   as issues, run `/code-review` at medium over the whole diff (the ONE full
-   fan-out was already spent on T4 — do not re-run it), merge #11, then open
-   the redesign branch with enablers 3+8+18 as its first commits.
+**⚠️ NOT DEPLOYED. The rollout has three ordered steps and skipping them loses
+data or stalls sync** — verify cache-busting BEFORE announcing, reload every
+device and tab before anyone saves, then run
+`scripts/migrate-legacy-recipes.js` once per device. Full text and the reasoning:
+the Rollout section of `.planning/p0.3-identity-design.md`. Known limit written
+down there too: deletes do not propagate across devices.
 
-   **The 18 banked items are now redesign-triaged** (see the tag rubric in
-   `.planning/todos/pending/2026-08-13-t2.6-round3-review-findings.md`):
-   ten `[REDESIGN-INDEPENDENT]` (carrying every `[DATA-LOSS]` tag — file
-   these as issues before the redesign takes over as the focus), three
-   `[REDESIGN-ENABLER]` (items 3, 8, 18 — the `BackupRecipe` design call
-   and a pure `syncOutcome()`; do before the new UI is wired), five
-   `[REDESIGN-DEFER]`. No `[LEGACY]` item remains — decision 14 closed
-   that class.
-2. **Ingredient onboarding** — nine tasks remain after v0.5.0. The durable ones
-   are issues #6–#10. **#7 shrinks to "add ingredient cases"** now that the
-   node lane exists: `firstNutritionValue()` still has zero tests and was
-   written wrong twice in one session, caught both times by review rather than
-   by the suite.
+### What to work on
 
-**THE BINDER READ IS DONE (2026-08-14) and it was the last gate on P0.4/P0.7.**
-The maintainer delivered a 29-page audit of their own churn logs, preserved at
-`.planning/binder-audit.md`; the code-checkable claims are verified in
-`.planning/binder-audit-verification.md`; the schema it produced is
-`.planning/p0.4-batch-schema.md` (decisions 15–24). **Nothing is now waiting on
-the maintainer** except the two items under "Open" below.
+Nothing is waiting on the maintainer. Three live threads, in rough priority:
 
-The headline: **14 of 29 churned batches produced no recorded result, and
-silence is ambiguous** between "it was fine" and "the evening ended" — so those
-14 are holes, not weak data. It is not inattention (one page carries ink
-corrections to ingredient amounts and no result — the pen was at the bench);
-across three print generations in two years **every field the app gained was a
-planning field and the outcome side never gained one.** Hence the schema's
-core: the batch record is created AT PRINT in state `planned`, and "no verdict"
-is a value (`nothing to note` vs `not evaluated`), never a blank.
-
-Two verified findings worth not rediscovering. **The dextrose PAC/POD change
-across print generations is real, but the coefficient never changed** — 342.3/180
-still gives the textbook 190/70; what changed is that PAC and POD are now scaled
-by the ingredient's sugar fraction (~87.5 %, likely from the USDA import). One
-number in the live ingredient library closes it. And **`buildRecipeContainer`
-already snapshots every ingredient's full definition into each saved record**, so
-recipes carry the coefficients they were computed with — the audit's "version the
-ingredient database" ask is already satisfied, better than a version stamp would.
-
-Ingredient onboarding (#6–#10) remains open.
+1. **The UI/UX replacement.** The maintainer is replacing the app's UI; some
+   pages are already redesigned. All banked findings are triaged for it in
+   `.planning/todos/pending/2026-08-13-t2.6-round3-review-findings.md`. Start
+   with the three `[REDESIGN-ENABLER]` items (3, 8, 18 — the `BackupRecipe`
+   design call and a pure `syncOutcome()`), which belong before the new UI is
+   wired. P0.6 (copy button + rename-refusal surface) and P0.4's outcome
+   surface are both pure UI and should land WITH the redesign, not before.
+2. **Batch loop implementation** — B1–B6 in the P0.4 schema. Ahead of them:
+   issues #15 (type-range check) and #16 (parent-version pointer), each ~an
+   hour, each of which alone would have caught the binder's one silent
+   regression.
+3. **Ingredient onboarding** — issues #6–#10.
 
 ### Do these at the start of a session
 
-- **Re-subscribe to PR #11** with `subscribe_pr_activity` — a subscription does
-  not survive a container, and this is the only piece of state that cannot be
-  restored from disk.
 - Tests need a virtual display and the async provisioning hook:
   `./.claude/hooks/wait-for-setup.sh && xvfb-run -a npm test`
+- There is no open PR to re-subscribe to. Open the next one as a DRAFT on its
+  FIRST commit, then `subscribe_pr_activity` — that subscription is the only
+  state no hook can restore.
 
 ### Conventions that are easy to violate by accident
 
@@ -166,19 +71,45 @@ Ingredient onboarding (#6–#10) remains open.
   checklist.
 - Decisions get written down when made — into this file, the PR, or
   `decisions.jsonl` — because the session they were made in will not survive.
+- **Token discipline is in CLAUDE.md and it is load-bearing.** One review round
+  per build step, then bank the rest. The full multi-agent fan-out runs at most
+  ONCE per PR, at the merge boundary. No polling automations.
 <!-- BRIEFING:END -->
 
 ## Open on GitHub
 
+**No open PRs.** #4, #5 and #11 are all merged.
+
+Ingredient onboarding:
+
 | | |
 |---|---|
-| PR #5 | Durable ingredient tasks carried forward (draft) |
-| PR #11 | Batch loop design (draft, live checklist) |
 | #6 | T1 extract shared derivation — P1, gates #7 |
-| #7 | T6 node test lane — **P1, most urgent**, blocked by #6 |
+| #7 | T6 node test lane — **P1**, blocked by #6 |
 | #8 | T7 regression guards — P1, blocked by #7 |
 | #9 | T2b reconciliation — P1, **blocked on the apportionment decision** |
 | #10 | T5 provenance sidecar — P2 |
+
+Known defects and sync follow-ups:
+
+| | |
+|---|---|
+| #12 | Silent cloud-save failure |
+| #13 | XSS family: Notes and names reach innerHTML unsanitized |
+| #14 | Notes carry stale into the next recipe version — **live defect, from the binder audit** |
+| #15 | PAC/POD type range never checked (Error row measures the recipe's own target) |
+| #16 | No parent-version pointer — version strings do not encode lineage |
+| #17 | Unit-free temperature fields (already cost a silent 5 °C error) |
+| #18 | Ingredient composition metadata re-derived every few months |
+| #19 | Sync loads and deletes by mutable name, not store id — `[DATA-LOSS]` |
+| #20 | Rename residue stalls as DUPLICATE_ID forever |
+| #21 | Deletes never propagate across devices (no tombstones) — `[DATA-LOSS]` |
+| #22 | Two sync join classification edges |
+| #23 | Sync housekeeping: op constants, fixture dedup |
+| #24 | Legacy records push/pull alternate forever (fallback clock is re-stamped) |
+
+#15 and #16 are the two that would each independently have caught the binder's
+one silent regression, and each is about an hour.
 
 Branch: `claude/batch-loop-design`. The old
 `claude/garry-tan-gstack-install-lp58z2` is merged and its remote ref still
@@ -271,8 +202,9 @@ recipe; identity in a separate object store.
 | `.claude/hooks/session-start.sh` on `startup\|resume` | Restores the mirror into `~/.gstack`, installs the toolchain, authenticates codex. Async. |
 | GitHub issues and the PR checklist | Anything that must outlive the branch. |
 
-**The one thing none of that covers** is the PR activity subscription, which is
-why it is the first line of the briefing.
+**The one thing none of that covers** is the PR activity subscription. There is
+no open PR right now; the briefing says to re-arm it on the first commit of the
+next one, because that is the moment it can be lost again.
 
 ### Surviving compaction, specifically
 
