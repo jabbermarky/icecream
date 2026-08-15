@@ -16,3 +16,21 @@ package-lock.json
 
 # SessionStart hook state (per-checkout, not shared)
 .claude/.session-start-status
+
+# PreCompact recovery digest (container-local, describes work in flight).
+# Wildcard: the briefing hook consumes the digest by renaming it to
+# .recovery-digest.read, which must stay ignored too.
+.claude/.recovery-digest*
+
+# Cross-hook memory lock (flock target; per-checkout, never committed)
+.claude/.memory.lock
+
+# Atomic-copy staging files inside the mirror. They exist for milliseconds
+# between cp and rename, but a concurrently running Stop hook can sample
+# git status in that window and report phantom untracked files (observed:
+# stop-hook-git-check raced mirror-memory.sh). Ignored, they are invisible
+# to git at every instant, and `git add -- <mirror>` can never stage one.
+.planning/gstack-memory/*.tmp.*
+.planning/gstack-memory/.*.merge.*
+.planning/gstack-memory/reviews/*.tmp.*
+.planning/gstack-memory/**/*.tmp.*

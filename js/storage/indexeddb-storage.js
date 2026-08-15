@@ -61,21 +61,49 @@ export const IndexedDBStorage = {
 
   /**
    * List all recipes in IndexedDB
+   * Swallow-to-[] contract for UI callers where an empty view is an
+   * acceptable degradation. One implementation: this delegates to
+   * listRecipesStrict so the mapping and ordering cannot diverge.
    * @returns {Promise<Array<{name, updatedAt}>>} Array of recipe summaries
    */
   async listRecipes() {
     try {
-      if (!this.db) {
-        console.error('IndexedDB not initialized');
-        return [];
-      }
-      const records = await this.db.getAllFromIndex(STORE_NAME, 'updatedAt');
-      // Return in reverse order (most recent first)
-      return records.reverse().map(r => ({ name: r.name, updatedAt: r.updatedAt }));
+      return await this.listRecipesStrict();
     } catch (error) {
       console.error('Failed to list recipes:', error);
       return [];
     }
+  },
+
+  /**
+   * List all recipes, surfacing failure instead of swallowing it.
+   *
+   * Sync planning MUST tell "no recipes" apart from "listing failed":
+   * a falsely-empty local listing makes every cloud record look cloud-only,
+   * and the resulting pulls clobber newer local records with no clock
+   * comparison. listRecipes() above keeps its swallow-to-[] contract for
+   * UI callers where an empty library view is an acceptable degradation.
+   * @returns {Promise<Array<{name, updatedAt}>>}
+   * @throws when the database is unavailable or the read fails
+   */
+  async listRecipesStrict() {
+    if (!this.db) {
+      throw new Error('IndexedDB not initialized');
+    }
+    // getAll on the store, NOT getAllFromIndex('updatedAt'): an index
+    // silently omits any record whose indexed key is missing or invalid,
+    // and an incomplete listing here makes the sync planner treat the
+    // unlisted record's counterpart as one-sided (the silent-clobber class
+    // this method exists to prevent). Sort most-recent-first in JS instead;
+    // unparseable timestamps sort last.
+    const records = await this.db.getAll(STORE_NAME);
+    const ms = (v) => {
+      const t = Date.parse(v);
+      return Number.isFinite(t) ? t : -Infinity;
+    };
+    return records
+      .sort((a, b) => ms(b.updatedAt) - ms(a.updatedAt))
+      .map(r => ({ name: r.name, updatedAt: r.updatedAt }));
   },
 
   /**
@@ -212,6 +240,7 @@ export async function initIndexedDBStorage() {
       async saveRecipe() { console.error('Storage not available'); return false; },
       async loadRecipe() { console.error('Storage not available'); return null; },
       async listRecipes() { console.error('Storage not available'); return []; },
+      async listRecipesStrict() { throw new Error('Storage not available'); },
       async deleteRecipe() { console.error('Storage not available'); return false; },
       async hasRecipe() { console.error('Storage not available'); return false; }
     });

@@ -33,13 +33,16 @@
         import { showRecipeLibrary } from './ui/recipe-library.js';
         import { initTools, initPACPODCalculator, initGMolCalculator, initYolkCalculator, Sugars, eggTypes, cEgg } from './utils/tools.js';
         import { initModels, Targets, cRecipe } from './models/core.js';
+        import { createLibraryRecipeLoader } from './features/recipe-library-load.js';
         import {
             initRecipeManager,
             initRecipeButtons,
+            setCurrentRecipeIdentity,
             SetRecipeModified,
             DisplayRecipe,
             DisplayBackupList,
             getRecipeBackup,
+            setRecipeBackup,
             getRecipeStack,
             UpdateRecipeSums,
             UpdateRecipeInfo
@@ -111,7 +114,22 @@
 
         // Initialize sync manager with local storage (listens for auth changes)
         initSyncManager(recipeStorage, {
-            onSyncStatusChange: setSyncStatus
+            onSyncStatusChange: setSyncStatus,
+            // Sync skip/refusal warnings (SYNC_WARNINGS vocabulary) are
+            // user-actionable — each message says what was left untouched
+            // and how to resolve it by hand. The status bar is a single
+            // slot (each Warning replaces the previous), so batch multiple
+            // warnings into one message and put the full list on the
+            // console where nothing overwrites it.
+            onSyncWarnings: (warnings) => {
+                warnings.forEach(w => console.warn(`Sync warning [${w.code}] ${w.name}: ${w.message}`));
+                if (warnings.length === 1) {
+                    Warning(warnings[0].message);
+                } else {
+                    Warning(`${warnings.length} recipes need attention after sync — ` +
+                        `first: ${warnings[0].message} (all ${warnings.length} in the browser console)`);
+                }
+            }
         });
 
         // --- Recipe -----------------------------------------------------------
@@ -269,33 +287,25 @@
         // Wire up Recipe Library button
         document.getElementById('btnRecipeLibrary').onclick = () => {
             showRecipeLibrary(recipeStorage, {
-                onLoad: (name) => {
-                    recipeStorage.loadRecipe(name).then(data => {
-                        if (data) {
-                            // Import ingredients from stored recipe
-                            importIngredients(
-                                data.data.Ingredients,
-                                false,
-                                "This recipe was saved with different ingredient values than your current library. The library reflects your latest research.",
-                                { current: "Library", imported: "Recipe" },
-                                { keep: "Keep Library", replace: "Use Recipe" }
-                            );
-                            // Create new recipe and copy properties
-                            const newRecipe = new cRecipe("");
-                            for (const key in newRecipe) {
-                                if (data.data.Recipe.hasOwnProperty(key)) {
-                                    newRecipe[key] = data.data.Recipe[key];
-                                }
-                            }
-                            Recipe = newRecipe;
-                            DisplayRecipe();
-                            SetRecipeModified(false);
-                            Info(`Loaded "${name}" from library`);
-                        } else {
-                            Warning(`Recipe "${name}" not found`);
-                        }
-                    });
-                },
+                // The handler itself lives in js/features/recipe-library-load.js
+                // so the unit lane can drive it — this wiring had zero coverage
+                // while guarding the silent-truncation path (P0.5, item 16).
+                onLoad: createLibraryRecipeLoader({
+                    storage: recipeStorage,
+                    setRecipe: (r) => { Recipe = r; },
+                    setRecipeIdentity: setCurrentRecipeIdentity,
+                    clearRecipeBackup: () => {
+                        setRecipeBackup([]);
+                        const btn = document.getElementById("btnRestoreRecipe");
+                        if (btn) btn.disabled = true;
+                    },
+                    importIngredients,
+                    DisplayRecipe,
+                    SetRecipeModified,
+                    Info,
+                    Warning,
+                    ErrorMsg
+                }),
                 onDelete: async (name) => {
                     const success = await recipeStorage.deleteRecipe(name);
                     if (success) {

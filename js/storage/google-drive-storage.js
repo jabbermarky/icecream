@@ -111,48 +111,68 @@ export const GoogleDriveStorage = {
 
   /**
    * List all recipes in Google Drive
+   * Swallow-to-[] contract for UI callers where an empty view is an
+   * acceptable degradation. One implementation: this delegates to
+   * listRecipesStrict so the query and name decoding cannot diverge.
    * @returns {Promise<Array<{name, updatedAt}>>} Array of recipe summaries
    */
   async listRecipes() {
     try {
-      if (!isSignedIn()) {
-        console.error('Not signed in to Google');
-        return [];
-      }
-
-      // Ensure we have the folder ID
-      const folderId = await getOrCreateAppFolder();
-      if (!folderId) {
-        return [];
-      }
-
-      // Query for all recipe files in the app folder
-      const query = `'${folderId}' in parents and name contains '${RECIPE_PREFIX}' and mimeType='${MIME_TYPE}' and trashed=false and appProperties has { key='app' and value='icecream' }`;
-
-      const response = await gapi.client.drive.files.list({
-        q: query,
-        fields: 'files(id, name, modifiedTime)',
-        orderBy: 'modifiedTime desc'
-      });
-
-      const files = response.result.files || [];
-
-      // Parse file metadata to extract recipe info
-      return files.map(file => {
-        // Extract recipe name from filename: recipe-{name}.json -> {name}
-        const recipeName = file.name
-          .replace(RECIPE_PREFIX, '')
-          .replace('.json', '');
-
-        return {
-          name: recipeName,
-          updatedAt: file.modifiedTime
-        };
-      });
+      return await this.listRecipesStrict();
     } catch (error) {
       console.error('Failed to list recipes from Drive:', error);
       return [];
     }
+  },
+
+  /**
+   * List all recipes, surfacing failure instead of swallowing it.
+   *
+   * Sync planning MUST tell "no recipes" apart from "listing failed": a
+   * falsely-empty cloud listing makes every local record look local-only and
+   * re-uploads them, and the reverse direction clobbers newer records with
+   * no clock comparison. listRecipes() above keeps its swallow-to-[]
+   * contract for callers where an empty view is an acceptable degradation.
+   * @returns {Promise<Array<{name, updatedAt}>>}
+   * @throws when not signed in, the app folder is unreachable, or the query fails
+   */
+  async listRecipesStrict() {
+    if (!isSignedIn()) {
+      throw new Error('Not signed in to Google');
+    }
+    const folderId = await getOrCreateAppFolder();
+    if (!folderId) {
+      throw new Error('Google Drive app folder is unavailable');
+    }
+    const query = `'${folderId}' in parents and name contains '${RECIPE_PREFIX}' and mimeType='${MIME_TYPE}' and trashed=false and appProperties has { key='app' and value='icecream' }`;
+    // Follow nextPageToken to the end. Drive returns at most one page per
+    // call (default 100 files) with NO error for the rest; a truncated
+    // listing here would make every unlisted cloud record look local-only
+    // to the sync planner — the same silent-clobber class as a falsely
+    // empty listing, just past file 100 instead of at file 0.
+    const files = [];
+    let pageToken;
+    do {
+      const response = await gapi.client.drive.files.list({
+        q: query,
+        fields: 'nextPageToken, files(id, name, modifiedTime)',
+        orderBy: 'modifiedTime desc',
+        pageSize: 1000,
+        ...(pageToken ? { pageToken } : {})
+      });
+      files.push(...(response.result.files || []));
+      pageToken = response.result.nextPageToken;
+    } while (pageToken);
+    // Decode recipe-{name}.json anchored at both ends, so a name that
+    // itself contains ".json" or the prefix survives the round-trip.
+    return files.map(file => {
+      let recipeName = file.name;
+      if (recipeName.startsWith(RECIPE_PREFIX)) {
+        recipeName = recipeName.slice(RECIPE_PREFIX.length);
+      }
+      recipeName = recipeName.replace(/\.json$/, '');
+      return { name: recipeName, updatedAt: file.modifiedTime };
+    });
   },
 
   /**
@@ -343,6 +363,19 @@ async function getOrCreateAppFolder() {
 }
 
 /**
+ * Escape a value for interpolation inside a single-quoted Drive query string.
+ * A recipe name like "O'Brien's Vanilla" otherwise breaks the query: gapi
+ * throws, the catch below returns null, and "lookup failed" becomes
+ * indistinguishable from "absent" — which makes saveRecipe CREATE a duplicate
+ * file on every save instead of updating the existing one.
+ * @param {string} value
+ * @returns {string}
+ */
+function escapeQueryValue(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+/**
  * Find a file in Drive by exact name (within app folder)
  * @param {string} name - Exact filename to search for
  * @returns {Promise<Object|null>} File metadata or null if not found
@@ -356,7 +389,7 @@ async function findFileByName(name) {
     }
 
     // Search within the app folder using appProperties
-    const query = `'${folderId}' in parents and name='${name}' and mimeType='${MIME_TYPE}' and trashed=false and appProperties has { key='app' and value='icecream' }`;
+    const query = `'${folderId}' in parents and name='${escapeQueryValue(name)}' and mimeType='${MIME_TYPE}' and trashed=false and appProperties has { key='app' and value='icecream' }`;
 
     const response = await gapi.client.drive.files.list({
       q: query,

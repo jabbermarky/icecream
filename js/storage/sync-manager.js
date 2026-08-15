@@ -3,6 +3,7 @@
 
 import { isSignedIn, onAuthStateChange } from './google-auth.js';
 import { initGoogleDriveStorage, clearFolderCache } from './google-drive-storage.js';
+import { runRecipeSync, executeGatedPush } from './recipe-sync-executor.js';
 
 // Module state
 let localStorage = null;      // IndexedDB storage instance
@@ -12,16 +13,22 @@ let lastSyncTime = null;
 
 // Sync status callback for UI updates
 let onSyncStatusChange = null;
+// Sync warnings callback: receives the join's warning objects ({code, side,
+// name, message} — SYNC_WARNINGS vocabulary) for user-facing display
+let onSyncWarnings = null;
 
 /**
  * Initialize sync manager with local storage reference
  * @param {Object} indexedDBStorage - IndexedDB storage instance
  * @param {Object} options - Optional configuration
  * @param {Function} options.onSyncStatusChange - Callback for sync status changes
+ * @param {Function} options.onSyncWarnings - Callback receiving an array of
+ *   sync warning objects whenever a sync or push skips or refuses something
  */
 export function initSyncManager(indexedDBStorage, options = {}) {
   localStorage = indexedDBStorage;
   onSyncStatusChange = options.onSyncStatusChange || null;
+  onSyncWarnings = options.onSyncWarnings || null;
 
   // Subscribe to auth state changes
   onAuthStateChange(handleAuthStateChange);
@@ -39,16 +46,20 @@ async function handleAuthStateChange(signedIn) {
     cloudStorage = initGoogleDriveStorage();
     console.log('Cloud storage connected');
 
-    // Trigger initial full sync
+    // Trigger initial full sync. syncAll sets the final status itself
+    // ('synced'/'error'), so don't overwrite it here — and a 'not signed
+    // in'/'already syncing' short-circuit is not an error state: auth
+    // listeners can fire in bursts, and painting the UI red for a
+    // concurrent sync that is still running would be a lie.
     notifyStatus('syncing');
     const result = await syncAll();
 
     if (result.success) {
       console.log('Initial sync complete:', result);
-      notifyStatus('synced');
+    } else if (result.reason) {
+      console.log('Initial sync skipped:', result.reason);
     } else {
       console.error('Initial sync failed');
-      notifyStatus('error');
     }
   } else {
     // Clear cloud storage reference and folder cache
@@ -81,10 +92,18 @@ export async function syncAll() {
     // Update last sync time
     lastSyncTime = new Date().toISOString();
     isSyncing = false;
-    notifyStatus('synced');
+
+    // A failed write means the two sides still disagree; a failed or skipped
+    // delete leaves stale rename residue that the next sync will NOT retry
+    // (it re-joins as a duplicate id, which the planner refuses to touch).
+    // Both are incomplete syncs, not a synced state — and the moment the
+    // user can still act on a failed delete is now, so say so.
+    const complete = recipesResult.writeFailures.length === 0 &&
+      recipesResult.deleteFailures.length === 0;
+    notifyStatus(complete ? 'synced' : 'error');
 
     return {
-      success: true,
+      success: complete,
       recipes: recipesResult,
       ingredients: ingredientsResult,
       syncTime: lastSyncTime
@@ -98,79 +117,45 @@ export async function syncAll() {
 }
 
 /**
- * Sync recipes between local and cloud storage
- * @returns {Promise<Object>} Stats about recipes synced
+ * Sync recipes between local and cloud storage.
+ *
+ * Thin wrapper over the executor module: collect (strict listings + bodies),
+ * plan (recipe-sync-join), execute (writes then deletes, with the failed-
+ * write → skip-deletes rule). A failed LISTING throws before any write —
+ * syncAll's catch turns that into an error status with no changes made.
+ *
+ * @returns {Promise<Object>} join stats + execution counts + failures
  */
 async function syncRecipes() {
-  const stats = { pushed: 0, pulled: 0, conflicts: 0 };
-
-  try {
-    // Get both lists
-    const localList = await localStorage.listRecipes();
-    const cloudList = await cloudStorage.listRecipes();
-
-    // Create lookup maps
-    const localMap = new Map(localList.map(r => [r.name, r]));
-    const cloudMap = new Map(cloudList.map(r => [r.name, r]));
-
-    // Push local recipes not in cloud
-    for (const local of localList) {
-      if (!cloudMap.has(local.name)) {
-        // Local only - push to cloud
-        const recipe = await localStorage.loadRecipe(local.name);
-        if (recipe) {
-          await cloudStorage.saveRecipe({ name: local.name, data: recipe.data });
-          stats.pushed++;
-          console.log(`Pushed recipe to cloud: ${local.name}`);
-        }
-      } else {
-        // Exists in both - check for conflicts
-        const cloud = cloudMap.get(local.name);
-        const localTime = new Date(local.updatedAt).getTime();
-        const cloudTime = new Date(cloud.updatedAt).getTime();
-
-        if (localTime > cloudTime) {
-          // Local is newer - push to cloud
-          const recipe = await localStorage.loadRecipe(local.name);
-          if (recipe) {
-            await cloudStorage.saveRecipe({ name: local.name, data: recipe.data });
-            stats.pushed++;
-            stats.conflicts++;
-            console.log(`Conflict resolved (local newer): ${local.name}`);
-          }
-        } else if (cloudTime > localTime) {
-          // Cloud is newer - pull to local
-          const recipe = await cloudStorage.loadRecipe(local.name);
-          if (recipe) {
-            await localStorage.saveRecipe({ name: local.name, data: recipe.data });
-            stats.pulled++;
-            stats.conflicts++;
-            console.log(`Conflict resolved (cloud newer): ${local.name}`);
-          }
-        }
-        // If equal timestamps, no action needed
-      }
-    }
-
-    // Pull cloud recipes not in local
-    for (const cloud of cloudList) {
-      if (!localMap.has(cloud.name)) {
-        // Cloud only - pull to local
-        const recipe = await cloudStorage.loadRecipe(cloud.name);
-        if (recipe) {
-          await localStorage.saveRecipe({ name: cloud.name, data: recipe.data });
-          stats.pulled++;
-          console.log(`Pulled recipe from cloud: ${cloud.name}`);
-        }
-      }
-    }
-
-    console.log('Recipe sync complete:', stats);
-    return stats;
-  } catch (error) {
-    console.error('Recipe sync error:', error);
-    throw error;
+  const { plan, execution } = await runRecipeSync({
+    localStore: localStorage,
+    cloudStore: cloudStorage,
+  });
+  surfaceWarnings(plan.warnings);
+  if (execution.deleteFailures.length > 0) {
+    // A failed stale-rename delete will NOT be retried by the next sync
+    // (the leftover re-joins as a duplicate id and gets blocked), so tell
+    // the user while deleting by hand is still the easy fix.
+    surfaceWarnings(execution.deleteFailures.map((d) => ({
+      code: 'delete-failed', side: d.target, name: d.name,
+      message: `The old copy of "${d.name}" (${d.target}) could not be removed after its ` +
+        `rename synced; delete it by hand or future syncs will keep warning about it.`,
+    })));
   }
+  console.log('Recipe sync complete:', plan.stats, execution);
+  return {
+    // What actually happened (execution), not what was planned (plan.stats):
+    // the two differ exactly when a write failed.
+    pushed: execution.pushed,
+    pulled: execution.pulled,
+    deleted: execution.deleted,
+    unchanged: plan.stats.unchanged,
+    skipped: plan.stats.skipped,
+    warnings: plan.warnings,
+    writeFailures: execution.writeFailures,
+    deleteFailures: execution.deleteFailures,
+    deletesSkipped: execution.deletesSkipped,
+  };
 }
 
 /**
@@ -231,6 +216,14 @@ function mergeIngredients(local, cloud) {
 /**
  * Push a recipe to cloud storage (fire-and-forget)
  * Called after local save operations
+ *
+ * Gated through executeGatedPush (fetch → decideRecipePush → write), the
+ * same guards the full sync applies: it refuses to overwrite an identified
+ * cloud record with an id-less body, a different identity, an unreadable
+ * body, or a newer-schema record. The gate is best-effort, not atomic —
+ * the known windows (item 20's fetch-to-write race, #12's read-error-as-
+ * absent conflation) are documented on executeGatedPush itself.
+ *
  * @param {Object} recipe - Recipe object with name and data
  */
 export async function pushRecipe(recipe) {
@@ -239,9 +232,20 @@ export async function pushRecipe(recipe) {
   }
 
   try {
-    await cloudStorage.saveRecipe(recipe);
-    console.log(`Pushed recipe to cloud: ${recipe.name}`);
-    notifyStatus('synced');
+    const result = await executeGatedPush(cloudStorage, recipe);
+    if (result.warning) {
+      console.warn(`Push refused for "${recipe.name}":`, result.warning.message);
+      surfaceWarnings([result.warning]);
+      notifyStatus('error');
+    } else if (result.pushed) {
+      console.log(`Pushed recipe to cloud: ${recipe.name}`);
+      notifyStatus('synced');
+    } else {
+      // The backend reports failure by returning false, not throwing;
+      // discarding that false was #12's bug at this call site.
+      console.error(`Failed to push recipe to cloud: ${recipe.name}`);
+      notifyStatus('error');
+    }
   } catch (error) {
     console.error('Failed to push recipe to cloud:', error);
     notifyStatus('error');
@@ -305,5 +309,18 @@ export function getSyncStatus() {
 function notifyStatus(status) {
   if (typeof onSyncStatusChange === 'function') {
     onSyncStatusChange(status);
+  }
+}
+
+/**
+ * Surface sync warnings to the registered callback, console otherwise.
+ * @param {Array<{code: string, side: string, name: string, message: string}>} warnings
+ */
+function surfaceWarnings(warnings) {
+  if (!warnings || warnings.length === 0) return;
+  if (typeof onSyncWarnings === 'function') {
+    onSyncWarnings(warnings);
+  } else {
+    for (const w of warnings) console.warn(`Sync warning [${w.code}] ${w.name}: ${w.message}`);
   }
 }

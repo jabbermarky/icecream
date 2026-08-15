@@ -10,6 +10,10 @@ import { GetIdealPAC, Fitness } from './calculations.js';
 import { DrawFreezingGraph } from '../ui/graph.js';
 import { getCSS } from '../ui/components.js';
 import { saveToFile, parseRecipeFile } from '../utils/file-io.js';
+import {
+    buildRecipeContainer, hydrateRecipe, containerProblem, invalidContainerMessage,
+    containerRecipeId, containerIdentityWarning, isNewerSchema, containerSchemaVersion
+} from '../models/recipe-serialization.js';
 
 // Module-level state
 let RecipeBackup = [];  // backups recipe states on optimization
@@ -49,6 +53,33 @@ let recipeStorage = null;
 
 // Cloud sync callback (injected via initRecipeButtons)
 let pushRecipeToCloud = null;
+
+// P0.3: the OPEN recipe's identity — its record's RecipeId, or null for a new
+// or legacy recipe that has not been saved since identity shipped. Module
+// state and deliberately NOT a cRecipe field: off the recipe it is out of
+// reach of the declared-fields hydrator and of copyFrom's Object.assign, so a
+// copy can never inherit an id by accident (design decision 10). Set by the
+// load paths (library load via the injected setter, .ier import directly),
+// cleared by New Recipe, advanced by a successful save, and carried through
+// the backup stack (T2.5 — restore used to leave the CURRENT id in place,
+// which could silently assign an imported recipe's id to a restored backup;
+// outside-voice finding 7 showed the earlier "lineage breaks" note here
+// understated that).
+let currentRecipeId = null;
+
+/**
+ * Set the open recipe's identity. Wired into the library-load handler by
+ * app.js; .ier import calls it from inside this module.
+ * @param {string|null} id
+ */
+export function setCurrentRecipeIdentity(id) {
+    currentRecipeId = id;
+}
+
+/** The open recipe's identity, or null. Exported for wiring and tests. */
+export function getCurrentRecipeIdentity() {
+    return currentRecipeId;
+}
 
 /**
  * Initialize recipe manager module with dependencies
@@ -111,32 +142,49 @@ export function IsRecipeModified() {
  * Backup the current recipe to the stack
  */
 export function BackupCurrentRecipe() {
-    if (BackupRecipe(getRecipe()))
+    if (BackupRecipe(getRecipe(), currentRecipeId))
         DisplayBackupList();
 }
 
 /**
- * Backup a specific recipe to the stack
- * @param {cRecipe} recipe - Recipe to backup
+ * Backup a specific recipe to the stack. Everything the entry records is
+ * taken as an argument (T2.5/T2.6 reviews): the old body re-read
+ * getRecipe() and module identity state, so a caller passing any other
+ * recipe would have backed up the current one under the current id — the
+ * identity-hijack class finding 7 closed. The passed object is never
+ * mutated: an empty-named recipe gets its generated name on the stacked
+ * COPY only.
+ * @param {cRecipe} recipe - Recipe to backup (left untouched)
+ * @param {?string} identity - The RecipeId this recipe is known by, or null
+ *     (an identity-less entry restores as null and mints at its next save —
+ *     the safe direction)
+ * @param {boolean} modified - Whether this recipe carries unsaved edits;
+ *     defaults to the editor's flag, which is right for the on-screen recipe
  * @returns {boolean} True if backup was successful
  */
-export function BackupRecipe(recipe) {
-    const Recipe = getRecipe();
-    if (Recipe.Ingredients.length == 0)
+export function BackupRecipe(recipe, identity = null, modified = IsRecipeModified()) {
+    if (recipe.Ingredients.length == 0)
         return false;
-    if (Recipe.Name == "") {
+    const copy = cRecipe.copyFrom(recipe);
+    if (copy.Name == "") {
         const sample = array => {
             return array[Math.floor(Math.random() * array.length)];
         };
         do {
-            Recipe.Name = sample(["The ", ""]) + sample(["Incredible", "Great", "Tasty", "Wonderful", "Fantastic", "Outstanding", "Delicious", "Yummy", "Extraordinary", "Palatable", "Savory", "Flavorful", "Flavorsome", "Toothsome", "Relishable", "Sapid", "Pleasant-Tasting"])
-                + " " + (["Gelato", "Sorbet", "Sherbet"].includes(Recipe.Type) ? Recipe.Type : "Ice Cream");
-        } while (RecipeStack.hasOwnProperty(Recipe.Name))
+            copy.Name = sample(["The ", ""]) + sample(["Incredible", "Great", "Tasty", "Wonderful", "Fantastic", "Outstanding", "Delicious", "Yummy", "Extraordinary", "Palatable", "Savory", "Flavorful", "Flavorsome", "Toothsome", "Relishable", "Sapid", "Pleasant-Tasting"])
+                + " " + (["Gelato", "Sorbet", "Sherbet"].includes(copy.Type) ? copy.Type : "Ice Cream");
+        } while (RecipeStack.hasOwnProperty(copy.Name))
     }
 
-    RecipeStack[Recipe.Name] = {
-        'Recipe': cRecipe.copyFrom(Recipe),
-        'Modified': IsRecipeModified()
+    RecipeStack[copy.Name] = {
+        'Recipe': copy,
+        'Modified': modified,
+        // P0.3 (T2.5, outside-voice finding 7): identity travels WITH the
+        // backup. Without this, restore left whatever id the CURRENT recipe
+        // had — after an import, a restored backup could be silently
+        // ASSIGNED the imported recipe's id, and its next save would hijack
+        // that lineage.
+        'Identity': identity
     };
     return true;
 }
@@ -177,10 +225,14 @@ export function DisplayBackupList() {
  * @param {string} recipeName - Name of recipe to restore
  */
 export function RestoreBackup(recipeName) {
-    BackupRecipe(getRecipe());
+    BackupRecipe(getRecipe(), currentRecipeId);
     sortBy = null;
 
     setRecipe(cRecipe.copyFrom(RecipeStack[recipeName].Recipe));
+    // Identity is restored WITH the recipe (T2.5). Entries written before the
+    // field existed restore as null — an unidentified recipe that mints at
+    // its next save, which is the safe direction.
+    currentRecipeId = RecipeStack[recipeName].Identity ?? null;
     DisplayRecipe();
     SetRecipeModified(RecipeStack[recipeName].Modified);
     delete RecipeStack[recipeName];
@@ -1120,6 +1172,10 @@ function handleNewRecipe() {
     BackupCurrentRecipe();
     const newRecipe = new cRecipe("");
     setRecipe(newRecipe);
+    // A new recipe has no identity until its first save mints one (P0.3
+    // decision 4). Without this line the new recipe would inherit the
+    // previous record's id and its first save would hijack that lineage.
+    currentRecipeId = null;
     RecipeBackup = [];
     sortBy = null;
     DisplayRecipe();
@@ -1179,6 +1235,88 @@ function handleStoreAsIngredient() {
 }
 
 /**
+ * Take the one immutable snapshot every save path persists, or report why not.
+ *
+ * P0.5's canonical build: library save and .ier export both come through here,
+ * so a recipe becomes bytes in exactly one place and every destination writes
+ * the same detached, frozen object. See js/models/recipe-serialization.js for
+ * why the snapshot is detached (the fire-and-forget cloud write serializes
+ * after a network round trip) and why it is frozen.
+ *
+ * @param {cRecipe} recipe - The live recipe to snapshot
+ * @param {Object} ingredients - The ingredient library
+ * @returns {Object|null} The frozen container, or null after reporting the failure
+ */
+function snapshotForSave(recipe, ingredients, identity) {
+    try {
+        return buildRecipeContainer(recipe, ingredients, Warning, identity);
+    } catch (error) {
+        // Reported rather than rethrown, for BOTH callers: handleSaveRecipe is
+        // async, so an uncaught throw is an unhandled rejection; handleExport
+        // is sync, so it would reach the console and nowhere else. Either way
+        // the user sees the button do nothing at all — the same silent no-op
+        // the library-load path was fixed for.
+        //
+        // The causes are distinct and the message says which (review finding —
+        // one sentence used to blame the user's data for all of them). The
+        // shared guarantee is appended once so the three branches cannot
+        // drift apart on the one sentence that matters.
+        console.error('Failed to snapshot recipe for saving:', error);
+        const NOTHING_WRITTEN = ' Nothing was saved or exported.';
+        if (error instanceof RangeError) {
+            ErrorMsg('This recipe is nested too deeply to be stored.' + NOTHING_WRITTEN);
+        } else if (typeof structuredClone !== 'function') {
+            ErrorMsg('This browser is missing a feature Ice Ed needs to save recipes (structuredClone).' + NOTHING_WRITTEN + ' Try a newer browser version.');
+        } else {
+            ErrorMsg('This recipe could not be prepared because it holds a value that cannot be stored.' + NOTHING_WRITTEN);
+        }
+        return null;
+    }
+}
+
+/**
+ * Clear the unsaved-work indicator, but ONLY if the recipe still matches what
+ * was actually persisted.
+ *
+ * Review finding, and a regression this change introduced rather than
+ * inherited. Before the snapshot, the container held the live recipe, so an
+ * edit landing during the save window still reached storage — inconsistently
+ * between backends, which was the bug P0.5 set out to fix. Now the snapshot
+ * provably excludes that edit. Clearing the flag unconditionally would turn
+ * "inconsistent but captured" into "discarded and reported clean", and
+ * ModifiedIndicator is the ONLY signal of outstanding work in this app — there
+ * is no beforeunload guard and no undo for it.
+ *
+ * The comparison is on the serialized snapshot, not object identity: the
+ * container is a detached clone, so it never shares references with the live
+ * recipe. Cheap at recipe scale (measured in the tens of microseconds).
+ *
+ * @param {cRecipe} liveRecipe - The recipe as it stands now
+ * @param {Object} container - The frozen snapshot that was persisted
+ */
+function clearModifiedIfUnchanged(liveRecipe, container) {
+    // STALE-BINDING GUARD (red-team finding): liveRecipe is the object the
+    // save handler captured, but SetRecipeModified is one global flag
+    // describing whichever recipe is CURRENT. If the recipe was swapped during
+    // the save's await windows (New Recipe, Restore, a completing library
+    // load) and the user has edited the new one, comparing the OLD object to
+    // its own snapshot would pass — and clear the flag for a different
+    // recipe whose edits were never saved. The flag belongs to the current
+    // recipe, so only clear it while the saved recipe IS the current one.
+    if (getRecipe() !== liveRecipe) return;
+    let unchanged;
+    try {
+        unchanged = JSON.stringify(liveRecipe) === JSON.stringify(container.Recipe);
+    } catch {
+        // A recipe that will not serialize cannot be proven unchanged. Keep the
+        // flag set: a false "modified" costs a redundant save, a false "saved"
+        // costs the user's work.
+        unchanged = false;
+    }
+    if (unchanged) SetRecipeModified(false);
+}
+
+/**
  * Handle save recipe button click
  * Saves current recipe to library (IndexedDB)
  */
@@ -1192,46 +1330,223 @@ async function handleSaveRecipe() {
         return;
     }
 
-    // Build container with recipe and its ingredients
-    var container = {
-        Recipe: Recipe,
-        Ingredients: {}
-    };
-    for (const ingredient of Recipe.Ingredients)
-        if (Ingredients.hasOwnProperty(ingredient.Name)) {
-            container.Ingredients[ingredient.Name] = Ingredients[ingredient.Name].copy();
-            for (const key in container.Ingredients[ingredient.Name])
-                if (container.Ingredients[ingredient.Name][key] == 0.0)
-                    delete container.Ingredients[ingredient.Name][key];
-        } else
-            Warning("Recipe is using undefined ingredient " + ingredient.Name);
+    // Snapshot BEFORE the awaits below, deliberately: this pins the record to
+    // what was on screen when the user clicked Save, rather than to whatever it
+    // has become by the time hasRecipe resolves.
+    const container = snapshotForSave(Recipe, Ingredients);
+    if (!container) return;
 
-    // Check if recipe already exists and prompt for overwrite
+    // The KEY comes from the snapshot too, not from the live recipe (review
+    // finding, reproduced). edRecipeName.oninput writes straight to Recipe.Name
+    // on every keystroke, and the event loop is free while hasRecipe resolves,
+    // so re-reading Recipe.Name after that await sampled a DIFFERENT name than
+    // the snapshot carries. Three failures came out of that, all silent:
+    //   - the record was stored under one name while its payload claimed another
+    //   - the existence check asked about the old name while the write targeted
+    //     the new one, so IndexedDB's unconditional put could replace a
+    //     different saved recipe with no "already exists" prompt
+    //   - the local write and the fire-and-forget cloud write read the name
+    //     independently, so the two backends could be keyed differently
+    // One read, used everywhere. Renaming is routine here (Mango V2.1 -> V2.2),
+    // so this window is not exotic.
+    const savedName = container.Recipe.Name;
+
+    // Identity is read ONCE, at click time — the P0.5 discipline applied to
+    // the new field: everything downstream derives from values captured
+    // before the awaits, so a mid-save load/new/import cannot re-key this
+    // save.
+    const idAtClick = currentRecipeId;
+
     if (recipeStorage) {
-        const exists = await recipeStorage.hasRecipe(Recipe.Name);
-        if (exists) {
-            if (!confirm(`Recipe "${Recipe.Name}" already exists. Overwrite?`)) {
+        // The whole target record, not just existence: the overwrite decision
+        // needs the target's identity (P0.3 decision 6).
+        const target = await recipeStorage.loadRecipe(savedName);
+        if (target) {
+            // A record this build cannot read must not be overwritten by it —
+            // the same never-truncate rule the load gate enforces, applied to
+            // the one local path that writes without loading.
+            //
+            // Newer-schema and DAMAGED must not share a message. containerSchemaVersion
+            // maps a garbage version to Infinity (fail closed, deliberately), so
+            // isNewerSchema alone is true for corruption too — and telling a user
+            // with a corrupted record to "update the app" is the same lie
+            // invalidContainerMessage was created to stop. Both still refuse: we
+            // cannot read either one, so we overwrite neither.
+            if (containerProblem(target.data)) {
+                ErrorMsg(isNewerSchema(target.data) && Number.isFinite(containerSchemaVersion(target.data))
+                    ? `Recipe "${savedName}" was saved by a newer version of Ice Ed. ` +
+                      `Overwriting it here would destroy fields this version cannot read, ` +
+                      `so nothing was saved. Rename your recipe, or update the app.`
+                    : `Recipe "${savedName}" is damaged or has an unrecognized shape, so ` +
+                      `nothing was saved — overwriting it could destroy data this version ` +
+                      `cannot read. Save under a different name to keep your work.`);
+                return;
+            }
+            const targetId = containerRecipeId(target.data);
+            if (targetId && targetId !== idAtClick) {
+                // Name collision with a DIFFERENT identified recipe — and
+                // "different" includes an UNIDENTIFIED recipe replacing an
+                // identified one (outside-voice finding 1a: requiring both
+                // ids gave the weak prompt exactly when an identified
+                // recipe's history was about to be destroyed by a nameless
+                // one). The old name-only prompt let this read as a routine
+                // overwrite while it silently destroyed another recipe's
+                // identity and history (review finding).
+                if (!confirm(`Recipe "${savedName}" already exists and is a DIFFERENT recipe ` +
+                    `with its own identity and history. Overwriting will permanently ` +
+                    `replace that recipe. Overwrite anyway?`)) {
+                    return;
+                }
+            } else if (!confirm(`Recipe "${savedName}" already exists. Overwrite?`)) {
                 return;
             }
         }
 
-        // Save to library
-        const success = await recipeStorage.saveRecipe({ name: Recipe.Name, data: container });
+        // Decide the record's id (mint on save, decision 4/6), then stamp it
+        // onto the snapshot. The spread copies the frozen container's fields —
+        // payload and SavedAt stay EXACTLY the click-time snapshot (the nested
+        // objects are the same frozen ones); only the identity is added.
+        const finalId = await resolveIdentityForSave(idAtClick, target, savedName);
+        const record = Object.freeze({ ...container, RecipeId: finalId });
+
+        // Both backends write the SAME frozen snapshot under the SAME key. That
+        // is the point of P0.5: the cloud copy and the local copy can no longer
+        // diverge, because neither is reading live state.
+        const success = await recipeStorage.saveRecipe({ name: savedName, data: record });
         if (success) {
             // Push to cloud if signed in (fire-and-forget)
             if (pushRecipeToCloud) {
-                pushRecipeToCloud({ name: Recipe.Name, data: container });
+                pushRecipeToCloud({ name: savedName, data: record });
             }
-            Info(`Saved "${Recipe.Name}" to library`);
-            SetRecipeModified(false);
+            // The open recipe is now "the record we just wrote" — adopt its id
+            // — but only while the saved recipe IS still the open one (the
+            // same stale-binding guard as clearModifiedIfUnchanged).
+            if (getRecipe() === Recipe) currentRecipeId = finalId;
+            Info(`Saved "${savedName}" to library`);
+            clearModifiedIfUnchanged(Recipe, container);
         } else {
             ErrorMsg('Failed to save recipe. Please try again.');
         }
     } else {
-        // Fallback to file download if storage not available
-        saveToFile(container, Recipe.Name + ".ier", "IER", 1);
-        SetRecipeModified(false);
+        // Fallback to file download if storage not available. Mint-on-save
+        // applies here too; with no library to scan, keeping an existing id
+        // is always safe (no local record can collide) and minting covers the
+        // rest.
+        const finalId = idAtClick || mintRecipeId();
+        const record = Object.freeze({ ...container, RecipeId: finalId });
+        saveToFile(record, savedName + ".ier", "IER", 1);
+        if (getRecipe() === Recipe) currentRecipeId = finalId;
+        clearModifiedIfUnchanged(Recipe, container);
     }
+}
+
+/**
+ * Which id the record being saved under savedName should carry (P0.3
+ * decisions 4 and 6). The invariant this protects: after every save, at most
+ * one record carries any given id.
+ *
+ *  - No current identity → MINT. First identified save of a new or legacy
+ *    recipe.
+ *  - The target record carries my id → KEEP. Re-saving my own record.
+ *  - Another record (different name) still carries my id → MINT. This save is
+ *    a COPY: the save-as-new-name flow (Mango V2.1 → V2.2) leaves the old
+ *    record holding the id, so the new record needs its own — otherwise one
+ *    id lands on two records and the lineage is corrupt before sync ever
+ *    joins on it (review finding, the P0.6-guards-merge decision).
+ *  - Nobody else carries it → KEEP, even when the save overwrote a target
+ *    carrying a different id (that record's identity died with it either
+ *    way). The identity arrived by .ier import or sync and this is its first
+ *    local save; keeping it is what makes identity round-trip across
+ *    devices, keeps future batch history attached, and lets the id-first
+ *    sync join converge instead of manufacturing duplicates. Decision 6 was
+ *    AMENDED to this wording (T2.5, cross-model KEEP verdict): a save mints
+ *    when keeping the id would put it on two local records; otherwise
+ *    identity follows the recipe.
+ *
+ * The scan is a record walk (the design dropped the index deliberately);
+ * dozens of records, local reads only. Failures fail toward MINT — a fresh id
+ * can never duplicate an existing one, while wrongly keeping could.
+ *
+ * @param {string|null} idAtClick - currentRecipeId captured at click time
+ * @param {?Object} target - The record currently stored under savedName
+ * @param {string} savedName - The snapshot-derived record key
+ * @returns {Promise<string>}
+ */
+async function resolveIdentityForSave(idAtClick, target, savedName) {
+    if (!idAtClick) return mintRecipeId();
+    if (target && containerRecipeId(target.data) === idAtClick) return idAtClick;
+    // SCAN INTEGRITY (review finding): the catch below is nearly unreachable
+    // with the real backends — both catch internally and return []/null
+    // instead of throwing — so "failures fail toward MINT" needed detectable
+    // inconsistency checks, not just a try/catch:
+    //   - a listed record that loadRecipe cannot read → the scan is blind to
+    //     a possible carrier → MINT;
+    //   - an empty list while the target lookup just RETURNED a record → the
+    //     list is lying → MINT.
+    // The residual undetectable case (list [] AND target null while a carrier
+    // exists) requires storage that fails reads but still accepts the write
+    // that follows; a full outage fails the save itself, writing nothing.
+    const scan = await scanForIdentityCarrier(idAtClick, savedName);
+    if (scan.unverifiable) return mintRecipeId();
+    if (scan.carrier) return mintRecipeId();
+    if (target && scan.listWasEmpty) return mintRecipeId(); // list lied: it just returned a record
+    return idAtClick;
+}
+
+/**
+ * Find which record (if any) other than excludeName carries the given id.
+ * Shared by the save-time mint decision and the import-time same-recipe
+ * prompt (decision 11), so the two scans cannot drift apart.
+ *
+ * Returns { carrier: name|null, listWasEmpty, unverifiable }. "Unverifiable"
+ * means a record was LISTED but could not be read — the scan is blind to a
+ * possible carrier — or the scan itself threw. Callers decide the fail-safe
+ * direction (the mint decision mints; the import prompt skips the prompt and
+ * lets the save-side guards catch it).
+ * @param {string} id
+ * @param {?string} excludeName
+ * @returns {Promise<{carrier: ?string, listWasEmpty: boolean, unverifiable: boolean}>}
+ */
+async function scanForIdentityCarrier(id, excludeName) {
+    try {
+        // STRICT, not the lenient listRecipes: that one swallows a backend
+        // failure to [], which this scan would read as "the library is empty,
+        // nobody carries this id" and KEEP the id — landing one id on two
+        // local records, which the planner then blocks forever. The strict
+        // listing throws instead, the catch below reports unverifiable, and
+        // the mint decision fails toward MINT. Same falsely-empty-listing
+        // class T4 closed on the sync side.
+        const list = await recipeStorage.listRecipesStrict();
+        for (const entry of list) {
+            if (entry.name === excludeName) continue;
+            const rec = await recipeStorage.loadRecipe(entry.name);
+            if (!rec) return { carrier: null, listWasEmpty: false, unverifiable: true };
+            if (containerRecipeId(rec.data) === id)
+                return { carrier: entry.name, listWasEmpty: false, unverifiable: false };
+        }
+        return { carrier: null, listWasEmpty: list.length === 0, unverifiable: false };
+    } catch (error) {
+        console.error('Identity scan failed:', error);
+        return { carrier: null, listWasEmpty: false, unverifiable: true };
+    }
+}
+
+/**
+ * Mint a fresh RecipeId. crypto.randomUUID exists only in SECURE contexts
+ * (https / localhost); served over plain http on a LAN it is undefined, and
+ * the resulting TypeError inside the async save handler would die as an
+ * unhandled rejection — Save silently doing nothing, the exact failure class
+ * this branch keeps closing (review finding). getRandomValues exists in every
+ * context; the fallback emits the same UUIDv4 shape so ids mix freely.
+ * @returns {string}
+ */
+function mintRecipeId() {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    const b = crypto.getRandomValues(new Uint8Array(16));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
 /**
@@ -1248,20 +1563,18 @@ function handleExportRecipe() {
         return;
     }
 
-    var container = {
-        Recipe: Recipe,
-        Ingredients: {}
-    };
-    for (const ingredient of Recipe.Ingredients)
-        if (Ingredients.hasOwnProperty(ingredient.Name)) {
-            container.Ingredients[ingredient.Name] = Ingredients[ingredient.Name].copy();
-            for (const key in container.Ingredients[ingredient.Name])
-                if (container.Ingredients[ingredient.Name][key] == 0.0)
-                    delete container.Ingredients[ingredient.Name][key];
-        } else
-            Warning("Recipe is using undefined ingredient " + ingredient.Name);
+    // Export CARRIES identity but never mints it (P0.3 decision 4: ids are
+    // born at save, in one place). An unsaved recipe exports as v2-with-no-id,
+    // which warns on import — honest: the exported thing has no identity yet.
+    const container = snapshotForSave(Recipe, Ingredients,
+        currentRecipeId ? { RecipeId: currentRecipeId } : undefined);
+    if (!container) return;
 
-    saveToFile(container, Recipe.Name + ".ier", "IER", 1);
+    // The filename comes from the SNAPSHOT, matching handleSaveRecipe's rule
+    // (review finding): export is sync today so there is no live-read race,
+    // but one future await between snapshot and write would ship a file whose
+    // name and payload disagree — the exact fork the save path just closed.
+    saveToFile(container, container.Recipe.Name + ".ier", "IER", 1);
 }
 
 /**
@@ -1278,64 +1591,181 @@ function handleLoadRecipeFile(event) {
             return;
         }
 
-        function loadRecipe() {
-            importIngredients(
-                dataObj.data.Ingredients,
-                false,
-                "This recipe was saved with different ingredient values than your current library. The library reflects your latest research.",
-                { current: "Library", imported: "Recipe" },
-                { keep: "Keep Library", replace: "Use Recipe" }
-            );
-
-            RecipeBackup = [];
-            const newRecipe = new cRecipe("");
-            setRecipe(newRecipe);
-            sortBy = null;
-
-            const Recipe = getRecipe();
-            for (const key in Recipe) {
-                if (dataObj.data.Recipe.hasOwnProperty(key)) {
-                    Recipe[key] = dataObj.data.Recipe[key];
-                }
-            }
-            DisplayRecipe();
-            SetRecipeModified(false);
+        // The one refusal gate, BEFORE any mutation — before the recipe backup
+        // and before importIngredients touches the library. Covers newer
+        // schema (would truncate on next save) and damaged shapes (would
+        // crash mid-load or hydrate a blank recipe), each with its own
+        // truthful message. See js/models/recipe-serialization.js.
+        const problem = containerProblem(dataObj.data);
+        if (problem) {
+            ErrorMsg(problem);
+            return;
         }
 
-        BackupCurrentRecipe();
-        if (RecipeStack.hasOwnProperty(dataObj.data.Recipe.Name)) {
-            if (!RecipeStack[dataObj.data.Recipe.Name].Modified) {
-                delete RecipeStack[dataObj.data.Recipe.Name];
-                DisplayBackupList();
-                loadRecipe();
-            } else {
-                var div = document.createElement("div");
-                div.style = "display: table; table-layout: fixed;";
-                div.innerHTML += "<h3>Confirm</h3><strong>" + dataObj.data.Recipe.Name + "</strong> is already loaded"
-                    + (RecipeStack[dataObj.data.Recipe.Name].Modified ? " and modified" : "")
-                    + ".<br>Do you want to replace it?";
+        // DECISION 11 (T2.5): if the file's identity already lives in the
+        // library under some name, this file IS that recipe — say so, keyed
+        // by id, and let the user choose continuity or an independent copy.
+        // Two T2.5-review rules govern this helper:
+        // - The scan is the import path's ONLY await, and it runs BEFORE the
+        //   backup and every other mutation below, so everything that
+        //   touches state executes synchronously after the last await. The
+        //   old shape backed up first and awaited later, which opened a
+        //   window where edits made during the scan were captured nowhere —
+        //   neither in the backup nor in the loaded recipe.
+        // - A carrier with the FILE'S OWN name is the trivially-same recipe
+        //   (re-importing your own export); prompting there was noise, and
+        //   its Cancel branch armed the destructive different-id overwrite
+        //   prompt against the user's own record. Adopt silently instead.
+        async function resolveImportIdentity(fileId) {
+            const scan = await scanForIdentityCarrier(fileId, null);
+            if (scan.carrier && scan.carrier !== dataObj.data.Recipe.Name) {
+                if (!confirm(`This file is the same recipe as "${scan.carrier}" already in ` +
+                    `your library (same identity). OK: load it AS that recipe — saving ` +
+                    `under "${scan.carrier}" will update it. Cancel: load it as an ` +
+                    `independent copy with its own new identity.`)) {
+                    return null;   // copy semantics: mint at the next save
+                }
+            }
+            // Unverifiable scans skip the prompt: the save-side guards
+            // (mint-on-unverifiable) are the enforcement; this prompt is
+            // only advisory UX.
+            return fileId;
+        }
 
-                var buttonBar = document.createElement("div");
-                var buttons = [...nGenerator(2, () => { return document.createElement('button'); })];
-                buttons[0].innerText = "Keep Current";
-                buttons[0].onclick = () => {
-                    RestoreBackup(dataObj.data.Recipe.Name);
-                    hideModal();
-                };
-                buttons[1].innerText = "Continue Loading";
-                buttons[1].onclick = function () {
+        function finishLoad(adoptedId) {
+            // State mutations first, and a failure here is REPORTED (T2.5
+            // review): the backup stack has already changed by this point,
+            // so a silent console line left the user watching the file
+            // picker close with nothing happening.
+            try {
+                // Hydrate FIRST, before anything is mutated (T2.6 review):
+                // the sibling loader recipe-library-load.js deliberately
+                // builds the recipe before touching the library, so a
+                // hydrate failure leaves no half-imported state. Shared
+                // declared-fields hydrator; containerProblem already passed
+                // above, so null cannot happen here — guarded anyway so a
+                // future code motion cannot reintroduce silent truncation.
+                const newRecipe = hydrateRecipe(dataObj.data);
+                if (!newRecipe) {
+                    ErrorMsg(containerProblem(dataObj.data) || invalidContainerMessage());
+                    return;
+                }
+                // Empty-map fallback: absent Ingredients passes the gate
+                // (legal), but importIngredients throws on undefined
+                // (Object.entries) — review finding, same fix as
+                // recipe-library-load.js.
+                importIngredients(
+                    dataObj.data.Ingredients || {},
+                    false,
+                    "This recipe was saved with different ingredient values than your current library. The library reflects your latest research.",
+                    { current: "Library", imported: "Recipe" },
+                    { keep: "Keep Library", replace: "Use Recipe" }
+                );
+
+                RecipeBackup = [];
+                setRecipe(newRecipe);
+                // P0.3: the recipe on screen IS this record now — adopt its
+                // identity (null for legacy/no-id files, or when the user
+                // chose copy semantics at the decision-11 prompt above;
+                // mint-on-save covers both at the next save). Adopted with
+                // the recipe so a later render throw cannot leave recipe and
+                // identity pointing at different records.
+                currentRecipeId = adoptedId;
+            } catch (err) {
+                console.error('Failed to apply the imported recipe:', err);
+                ErrorMsg('The recipe could not be imported: ' + (err && err.message ? err.message : err)
+                    + '. Your previous recipe is in Recent Recipes.');
+                return;
+            }
+            // Render refresh second, console-only on failure: the recipe DID
+            // load; a display hiccup in an exotic environment (or the node
+            // test lane's stub DOM) is not an import failure.
+            try {
+                const idWarning = containerIdentityWarning(dataObj.data);
+                if (idWarning) Warning(idWarning);
+                sortBy = null;
+                DisplayRecipe();
+            } catch (err) {
+                console.error('Imported, but the display failed to refresh:', err);
+            } finally {
+                // Cleared AFTER the render, unconditionally: DisplayRecipe
+                // drives the sliders' oninput handlers, which mark the
+                // recipe modified, so the codebase-wide clear-after-display
+                // ordering is load-bearing (a clear placed BEFORE the render
+                // leaves the flag true — found by the browser suite). The
+                // finally keeps the T2.6-review guarantee too: a render
+                // throw cannot leave the imported recipe wearing a stale
+                // flag, which would spuriously route the next same-name
+                // import through the destructive replace modal.
+                SetRecipeModified(false);
+            }
+        }
+
+        // Fully synchronous once the identity is resolved — the backup below
+        // is taken AFTER the scan's awaits, so it snapshots the recipe as it
+        // is at mutation time.
+        function applyImportedFile(adoptedId) {
+            BackupCurrentRecipe();
+            if (RecipeStack.hasOwnProperty(dataObj.data.Recipe.Name)) {
+                if (!RecipeStack[dataObj.data.Recipe.Name].Modified) {
                     delete RecipeStack[dataObj.data.Recipe.Name];
                     DisplayBackupList();
-                    loadRecipe();
-                    hideModal();
-                };
-                for (const button of buttons)
-                    buttonBar.appendChild(button);
-                showModal(div, buttonBar);
-            }
-        } else
-            loadRecipe();
+                    finishLoad(adoptedId);
+                } else {
+                    var div = document.createElement("div");
+                    div.style = "display: table; table-layout: fixed;";
+                    div.innerHTML += "<h3>Confirm</h3><strong>" + dataObj.data.Recipe.Name + "</strong> is already loaded"
+                        + (RecipeStack[dataObj.data.Recipe.Name].Modified ? " and modified" : "")
+                        + ".<br>Do you want to replace it?";
 
+                    var buttonBar = document.createElement("div");
+                    var buttons = [...nGenerator(2, () => { return document.createElement('button'); })];
+                    buttons[0].innerText = "Keep Current";
+                    buttons[0].onclick = () => {
+                        RestoreBackup(dataObj.data.Recipe.Name);
+                        hideModal();
+                    };
+                    buttons[1].innerText = "Continue Loading";
+                    buttons[1].onclick = function () {
+                        delete RecipeStack[dataObj.data.Recipe.Name];
+                        DisplayBackupList();
+                        finishLoad(adoptedId);
+                        hideModal();
+                    };
+                    for (const button of buttons)
+                        buttonBar.appendChild(button);
+                    showModal(div, buttonBar);
+                }
+            } else
+                finishLoad(adoptedId);
+        }
+
+        // One reporter for BOTH paths (T2.6 review): a throw in
+        // applyImportedFile outside finishLoad's own try (the backup, the
+        // stack dance, the replace modal) must not reproduce the silent
+        // pick-a-file-and-nothing-happens failure, and the async and sync
+        // paths must not disagree about it. No backup claim in the message —
+        // the throw may have been the backup itself.
+        const reportApplyFailure = (err) => {
+            console.error('Failed to apply the imported recipe:', err);
+            ErrorMsg('The recipe could not be imported: ' + (err && err.message ? err.message : err));
+        };
+
+        const fileId = containerRecipeId(dataObj.data);
+        if (fileId && recipeStorage) {
+            // Identified file with a library to scan: async, but read-only
+            // until applyImportedFile. The scan itself never rejects
+            // (storage failures come back as unverifiable), so this catch
+            // only guards the synchronous application.
+            resolveImportIdentity(fileId).then(applyImportedFile).catch(reportApplyFailure);
+        } else {
+            // Id-less (legacy) files keep the fully synchronous path.
+            try {
+                applyImportedFile(fileId || null);
+            } catch (err) {
+                reportApplyFailure(err);
+            }
+        }
     };
     reader.readAsText(event.target.files[0]);
 }
