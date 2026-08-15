@@ -3,29 +3,7 @@
 ## Project Overview
 Ice Ed is an ice cream recipe formulation tool. It helps users create balanced ice cream recipes by calculating properties like PAC (freezing point depression), POD (sweetening power), fat content, and more.
 
-## Key Documentation
-
-**Live status is `.planning/STATE.md`.** The SessionStart hook injects its
-BRIEFING block, so you have already read it. Design docs sit beside it in
-`.planning/`.
-
-### The modularization refactor is DONE — do not restart it
-
-The single-file app was decomposed in nine steps. All nine landed: `js/app.js` is
-464 lines of wiring with zero top-level functions, down from 2,694, and every
-planned module exists. Closed 2026-08-15.
-
-**The project record is the GSD milestone, not the root plan docs.** Steps 7–9
-ran under Get Shit Done: `.planning/milestones/v1.0-ROADMAP.md` (v1.0
-Modularization, Phases 7–9, shipped 2026-01-13) plus PLAN/SUMMARY pairs in
-`.planning/phases/07-extract-tools/`, `08-extract-models/` and
-`09-extract-recipe-manager/`. Steps 1–6 predate GSD and live only in
-`MODULARIZATION_PLAN.md`.
-
-One criterion from that plan is still unmet: *no file exceeds 600 lines*.
-`js/features/recipe-manager.js` is 1,837 and `js/features/ingredients.js` is 862.
-The first grew during P0.3, which pushed identity, minting and the save guards
-into it — so the breach is recent, not left over from the refactor.
+Project history, milestones and the document map: `GSD.md`.
 
 ## Working in GitHub — plan visibly, not retroactively
 
@@ -51,9 +29,8 @@ Rules:
    which is exactly how work gets lost here. Do not file an issue per session
    step; that is how issue trackers rot.
 
-Planning documents live in `.planning/`. Deferred work lives in
-`.planning/todos/pending/` **or** as an issue — issues for anything that must
-survive a change of focus.
+Deferred work lives in `.planning/todos/pending/` **or** as an issue — issues for
+anything that must survive a change of focus.
 
 ## Session state — capture on the way through, not on the way out
 
