@@ -5,13 +5,22 @@ Ice Ed is an ice cream recipe formulation tool. It helps users create balanced i
 
 ## Key Documentation
 
-### Modularization
-- **MODULARIZATION_PLAN.md** - Detailed plan for extracting js/app.js into focused modules
-- **WORKFLOW.md** - Step-by-step workflow for safe code extraction with testing
+**Live status is `.planning/STATE.md`.** The SessionStart hook injects its
+BRIEFING block, so you have already read it. Design docs sit beside it in
+`.planning/`.
 
-### Current Status
-- Step 1 complete: Helper functions extracted to `js/utils/helpers.js`
-- Next: Steps 2-3 focus on ingredients (JSON data file + module)
+### The modularization refactor is DONE — do not restart it
+
+The single-file app was decomposed in nine steps (`MODULARIZATION_PLAN.md`,
+`WORKFLOW.md`). All nine landed: `js/app.js` is 464 lines of wiring with zero
+top-level functions, down from 2,694, and every planned module exists.
+**Both of those documents still describe the refactor mid-flight — their status
+headers are stale. Trust the code.**
+
+One criterion from that plan is still unmet: *no file exceeds 600 lines*.
+`js/features/recipe-manager.js` is 1,837 and `js/features/ingredients.js` is 862.
+The first grew during P0.3, which pushed identity, minting and the save guards
+into it — so the breach is recent, not left over from the refactor.
 
 ## Working in GitHub — plan visibly, not retroactively
 
