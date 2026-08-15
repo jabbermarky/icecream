@@ -31,12 +31,35 @@ work and the batch-loop design. P0.1, P0.2, P0.3, P0.5 are all DONE. Unit lane
 - **The batch loop is DESIGNED, not built.** `.planning/p0.4-batch-schema.md`,
   decisions 15–24, tasks B1–B6.
 
-**⚠️ NOT DEPLOYED. The rollout has three ordered steps and skipping them loses
-data or stalls sync** — verify cache-busting BEFORE announcing, reload every
-device and tab before anyone saves, then run
-`scripts/migrate-legacy-recipes.js` once per device. Full text and the reasoning:
-the Rollout section of `.planning/p0.3-identity-design.md`. Known limit written
-down there too: deletes do not propagate across devices.
+**✅ THE CODE IS LIVE — verified 2026-08-15 against the running site.** Earlier
+STATE.md said "NOT DEPLOYED"; that was wrong. GitHub Pages serves the repo
+directly with no build step or workflow, so **merging #11 to main WAS the
+deploy**. `https://www.marklummus.com/icecream/js/models/recipe-serialization.js`
+serves `RECIPE_SCHEMA_VERSION = 2`, and every P0.3/T4 file returns 200. The live
+`recipe-manager.js` is byte-identical to `origin/main` and carries the
+merge-boundary fixes. (`jabbermarky.github.io/icecream` 301s to the custom
+domain — over plain http, which is a downgrade worth fixing separately.)
+
+**⚠️ THE ROLLOUT IS NOT DONE, and step 1 FAILS.** Two of the three steps are
+device actions only the maintainer can take:
+
+1. **Verify cache-busting — THERE IS NONE.** `index.html` loads
+   `css/styles.css` and `js/app.js` with bare paths, and `app.js` imports every
+   module by unversioned relative path. Cloudflare serves
+   `cache-control: max-age=14400` (4 h). So a device that loaded the app within
+   the last 4 hours can serve **stale JS from browser cache on an ordinary
+   reload**. No service worker exists, which is the one piece of good luck here.
+   **Mitigation for this rollout: HARD reload** (Cmd/Ctrl+Shift+R), or wait out
+   the 4-hour TTL. Tracked as an issue for future deploys.
+2. **Reload every device and tab before anyone saves** — and make it a hard
+   reload, per step 1.
+3. **Run `scripts/migrate-legacy-recipes.js` once per device** (it is live and
+   console-pasteable at `/icecream/scripts/migrate-legacy-recipes.js`).
+   Decision 14 makes unmigrated legacy records warn on EVERY sync until drained.
+
+Full text and reasoning: the Rollout section of
+`.planning/p0.3-identity-design.md`. Known limit recorded there too: deletes do
+not propagate across devices.
 
 ### What to work on
 
