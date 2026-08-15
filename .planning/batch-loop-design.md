@@ -530,9 +530,23 @@ batch entity are prerequisites, not features, so they moved into Phase 0.
       built container through real IndexedDB. `loadRecipeById` was dropped with
       the store that motivated it — the join reads ids out of bodies it already
       downloads. Unit lane 170, browser suite green.
-- [ ] **P0.4** — batch record entity and its storage: object store, indexes,
-      deletion behaviour, and what happens to batches when a recipe is deleted
-      (`app.js:299` currently defines nothing).
+- [ ] **P0.4 — DESIGNED 2026-08-14 from the binder read.** Full schema, the diff
+      definition, and decisions 15–24: `.planning/p0.4-batch-schema.md`. Batch
+      record entity and its storage: object store, indexes, deletion behaviour,
+      and what happens to batches when a recipe is deleted (`app.js:299`
+      currently defines nothing).
+      **The headline that drove the schema:** 14 of 29 churned batches produced
+      no recorded result, and silence is ambiguous between "it was fine" and
+      "the evening ended," so those 14 are holes rather than weak data. Across
+      three print generations in two years, every field the app gained was a
+      planning field; **the outcome side never gained a single structured
+      field.** So the batch record's job is to ASK — it is created at print in
+      state `planned`, and "no verdict" is a value (`nothing to note` vs `not
+      evaluated`) rather than a blank.
+      **Two things this cut:** the prose return path (tier 3) is withdrawn —
+      photograph, attach, full-text search, stop; and no defect taxonomy, since
+      the open field is where diagnoses live and six of the ten changes that
+      actually altered the next batch came from prose, not marks.
 - [x] **P0.5 — DONE.** One canonical save path on an immutable
       `structuredClone`. `buildRecipeContainer` returns a detached, deeply
       frozen clone instead of a view onto the live recipe, and library save and
@@ -641,12 +655,18 @@ open below. The plan is now internally consistent and its dependencies are
 acyclic, which was not true of either previous revision.
 
 **UNRESOLVED DECISIONS:**
-- **Is a reprint a new batch, or the same batch?** And is a cancelled print a
-  record at all? The QR identifies a batch, but "batch" currently conflates a
-  printed sheet with an actual churn. A version can be printed twice and churned
-  once, or printed once and churned twice. This gates P0.4 and P0.7. Answerable
-  from the binder read: if a reprinted sheet was ever filed alongside the
-  original, they are different things.
+- ~~**Is a reprint a new batch, or the same batch?**~~ — **DECIDED 2026-08-14
+  from the binder read** (`.planning/p0.4-batch-schema.md`, decisions 15–17). A
+  batch is a **churn event**; a reprint is not one and reuses the existing
+  `planned` batch. The record is created **at print, in state `planned`** — not
+  when an outcome is entered, because outcome-time creation is exactly what the
+  binder does and it produced 14 churned batches with no trace. A cancelled
+  print is not detectable from the browser, so it leaves a `planned` batch that
+  the `not churned` state clears in one tap.
+- ~~**Is ingredient order meaningful in the diff?**~~ — **DECIDED 2026-08-14
+  (maintainer): NO.** The diff is a keyed comparison over ingredient names;
+  reordering produces an empty diff and there are no move operations. What a
+  diff *does* contain is now defined in full in `p0.4-batch-schema.md`.
 - **Are photos portable, or explicitly local-only?** A reference that syncs
   without its Blob produces broken records on every other device. Either photos
   are declared local-only and never advertised as portable, or binary Drive
