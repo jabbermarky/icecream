@@ -398,14 +398,15 @@ export function containerIdentityWarning(container) {
  * record, so the container is already a private, mutable copy. An in-memory
  * build→hydrate round-trip (a future undo or duplicate feature) is the case
  * that breaks, because P0.5 makes buildRecipeContainer return a DEEPLY FROZEN
- * snapshot. On the .ier-IMPORT ordering (recipe-manager.js) the first
- * casualty is not this function: importIngredients runs before hydration and
- * write-backs into its argument (ingredients.js: `dataObj[key] =
- * Object.assign(...)`), so a frozen container.Ingredients throws there first.
- * Library load hydrates FIRST (two-phase, P0.5 review), so there hydration is
- * the first casualty: the recipe takes the frozen Ingredients array as its
- * own and the next addIngredient throws. Clone at both points if this becomes
- * a call pattern.
+ * snapshot. BOTH load paths now hydrate FIRST — library load by construction
+ * (two-phase, P0.5 review) and .ier import since T2.6 inverted its ordering to
+ * match (recipe-manager.js: hydrateRecipe at ~1630, importIngredients at
+ * ~1639). So on both paths this function is the first casualty: the recipe
+ * takes the frozen Ingredients array as its own and the next addIngredient
+ * throws. (Before T2.6, .ier import ran importIngredients first and died
+ * earlier, inside its write-back — `dataObj[key] = Object.assign(...)` in
+ * ingredients.js. That is no longer the ordering.) Clone here if an in-memory
+ * build→hydrate round-trip becomes a call pattern.
  *
  * @param {Object} container - A {SchemaVersion?, SavedAt?, RecipeId?, Recipe,
  *   Ingredients} container (identity fields are container-level and are
