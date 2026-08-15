@@ -59,9 +59,26 @@ Nothing is waiting on the maintainer. Three live threads, in rough priority:
 
 - Tests need a virtual display and the async provisioning hook:
   `./.claude/hooks/wait-for-setup.sh && xvfb-run -a npm test`
-- There is no open PR to re-subscribe to. Open the next one as a DRAFT on its
-  FIRST commit, then `subscribe_pr_activity` — that subscription is the only
+- **PR #25 is open (draft)** — the P0.4 schema revision after the codex GATE
+  FAIL. Re-arm `subscribe_pr_activity` on it; that subscription is the only
   state no hook can restore.
+- **The Plan Room is a published artifact, and it is NOT in this repo:**
+  `https://claude.ai/code/artifact/a8207f87-a919-45a0-8cf7-1d32b985f39e`
+  A live status page for the batch loop — the plan, what is blocking, the
+  review ledger, a glossary of both vocabularies, and the workstream risks.
+  **Update it in place by passing that URL**; publishing without it creates a
+  duplicate and orphans the maintainer's link. Favicon 🍦 — keep it stable.
+  It is regenerated from `.planning/`, so it goes stale whenever STATE.md,
+  the design docs, or the issue list move.
+
+### Artifacts are session state too — write them down HERE
+
+An artifact lives outside the repo, so no hook mirrors it, no commit records
+it, and a compaction takes every trace of it with the turn that made it. This
+already happened once: the Plan Room was published, recorded nowhere, and a
+later session had to rediscover it with `Artifact list` — and could not recover
+the favicon it had itself chosen. **Publishing an artifact is not done until
+its URL is in this file.**
 
 ### Conventions that are easy to violate by accident
 
