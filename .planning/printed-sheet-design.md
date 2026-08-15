@@ -3,8 +3,9 @@
 **Status:** DESIGNED 2026-08-15, from a working session with the maintainer. Not implemented.
 **Covers:** P0.7 (print persists a snapshot), P2.1/P2.2 (print surface and churn sheet),
 P3.1 (QR mechanism), and the parts of P0.4 the session changed.
-**Evidence:** `.planning/binder-audit.md` (29 Ice Ed sheets, Aug 2024 – Apr 2026) and a
-five-page olive-oil sheet in a different format, photographed 2026-08-15
+**Evidence:** `.planning/binder-audit.md` (29 Ice Ed sheets, Aug 2024 – Apr 2026), a
+five-page olive-oil sheet in a different format, and three web recipe printouts (Serious
+Eats, Epicurious, and one from 2012) — all photographed 2026-08-15
 (`IMG_2485`–`IMG_2489`, continuing the binder's series). Raw photos are deliberately not
 committed — the binder precedent is to transcribe findings, not to carry 27 MB of JPEG.
 **Related:** `p3.1-qr-mechanism.md`, `p0.4-decision16-amendment.md`, `p0.4-data-model.mmd`.
@@ -87,6 +88,55 @@ performed.** Here that is the first step of the method.
 
 Also observed, and already covered by the as-made overlay: `45 seconds → 60`, milk
 `~250 g → 263`, cream `252.8 → 241`, whole milk `370.4 → 383`.
+
+### The binder is heterogeneous by origin — and half of it is unmodeled
+
+Three more sheets photographed 2026-08-15 are **web recipe printouts**: Serious Eats
+(Falkowitz, banana bread), Epicurious/Bon Appétit December 1997 (rum-raisin), and one from
+December 2012 (brown sugar–bourbon). Added to the 29 Ice Ed printouts and the five-page
+olive-oil format, this establishes that **"the binder" is not a format — it is whatever the
+source produced.** The app models only the case where the recipe originated in the app.
+
+**They are volumetric, and that breaks the balance model.** `1 cup whole milk`, `2/3 cup dark
+rum`, `8 large egg yolks`, `1 pound very ripe bananas`. Every Ice Ed sheet is gravimetric.
+An imported web recipe either takes lossy conversion or lives outside PAC/POD as
+reference-only — and *"8 large egg yolks"* has no mass at all, only an estimate. **Nothing in
+the design has taken this fork.**
+
+**Lineage can point outside the app.** Issue #16's parent pointer must accept a URL plus a
+retrieval date, not only a `RecipeId`. Provenance survives only by accident today: the
+Epicurious sheet carries its URL and print timestamp because the browser's print footer put
+them there; the other two carry an author name or nothing.
+
+**The hole punch destroys third-party content.** On the banana-bread sheet the punch ate part
+of `sugar` in an ingredient line and part of the `Special Equipment` heading. Ice Ed's own
+layout can honour the 25 mm dead zone; a recipe site's cannot.
+
+**Printed checkboxes went unused.** The brown-sugar sheet prints `□` beside every ingredient
+and all are empty, while on the olive-oil sheet the maintainer drew his own ✓ marks. One
+sheet is thin evidence, but it hints the check-off habit attaches to *weighing* rather than
+to measuring by volume.
+
+### The annotation taxonomy, from the external sheets
+
+On Ice Ed sheets the ink is mostly as-made override. On adopted recipes it is **editing
+someone else's work**, and four distinct kinds appear:
+
+| Kind | Evidence |
+|---|---|
+| Verdict | *"Too eggy"* · *"Too Sweet – Too small"* |
+| Method edit | `stir over ~~medium~~ low heat`; a whole sentence struck out |
+| Method insertion | *"Add Pinch of Kosher Salt + Pinch of Nutmeg"* · *"Churn 20 minutes, then Add Raisins"* |
+| **Proposed delta, unapplied** | *"try 7"* · *"Try with 4 TBS rum in mix"* |
+
+The last row validates `DELTA_GROUP.applied` and `applied_in_recipe_id` directly: intent for
+next time, recorded on the sheet before it has been acted on.
+
+**Strikethrough is the maintainer's consistent notation for "not this,"** across all three
+formats — `medium` struck here, process step 1 struck on the olive-oil sheet,
+`Sweetness ~~Good~~ Perfect` in the binder. **The method editor should mark a step removed
+rather than delete it**, because the record of what was rejected is wanted. Same argument as
+no-verdict-being-a-value.
 
 ### Churn is recorded as a series, not a scalar
 
@@ -269,6 +319,12 @@ nudge is a `print_dismissed` event, not a field update.
 
 ## Open questions
 
+0. **Adopted external recipes — modelled or not?** A third of the binder originates on the
+   web, volumetric and unbalanceable. Either the app imports and converts (lossy, and egg
+   yolks have no mass), or external recipes are a reference-only record type that carries
+   annotations and lineage but no PAC/POD. This is the largest unanswered question here and
+   it is upstream of the sheet format, since an adopted recipe still gets printed, made and
+   annotated.
 1. **Duplex or two simplex pages** — binder economy versus unclip-flip at the bench.
 2. **Half-steps on the signed marks scale** — the maintainer wrote 4.5 on a 5-point scale.
 3. **Where the churn timeline lives** — a series of time-stamped observations, not a scalar.
