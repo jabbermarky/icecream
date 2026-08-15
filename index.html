@@ -228,6 +228,24 @@ The above copyright notice and this permission notice shall be included in all c
                 <p id="AboutContent"></p>
             </b>
 
+            <h3>This build</h3>
+            <p id="BuildVerdict"></p>
+            <table class="layout" id="tblBuildInfo">
+                <tr><td>App version</td><td><span id="biVersion"></span></td></tr>
+                <tr><td>Recipe format this build writes</td><td><span id="biSchema"></span></td></tr>
+                <tr><td>Ingredients in your library</td><td><span id="biIngredients"></span></td></tr>
+            </table>
+
+            <h3>Your recipes on this device</h3>
+            <table class="layout" id="tblDataInfo">
+                <tr><td>Stored here</td><td><span id="biTotal"></span></td></tr>
+                <tr><td>With an identity</td><td><span id="biIdentified"></span></td></tr>
+                <tr><td>Older format, no identity yet</td><td><span id="biLegacy"></span></td></tr>
+                <tr><td>Unreadable</td><td><span id="biUnreadable"></span></td></tr>
+                <tr><td>Saved by a newer version</td><td><span id="biNewer"></span></td></tr>
+            </table>
+            <p><button id="btnRefreshBuildInfo" type="button">Recheck</button></p>
+
             <h3>FAQ</h3>
             <p><b>What do I have to consider when creating a recipe?</b><br>Actually not much, just set the desired
                 target type, serving temperature and hardness to configure the target parameters. Then add the
