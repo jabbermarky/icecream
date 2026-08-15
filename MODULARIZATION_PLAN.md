@@ -1,6 +1,35 @@
 # Ice Ed JavaScript Modularization Plan - Incremental Approach
 
-## Current State
+> # ✅ PROJECT COMPLETE — closed 2026-08-15
+>
+> **All nine extraction steps landed.** `js/app.js` is **464 lines of wiring
+> with zero top-level functions**, down from 2,694. Every planned module exists,
+> and the tree grew past the plan: 21 modules rather than the 10 forecast, plus
+> a node unit lane (`tests/unit/`, 175 cases) the plan never anticipated.
+>
+> **This document is history. Do not restart it, and do not trust the step
+> statuses below** — Steps 2, 3, 7, 8 and 9 were completed but never marked, so
+> the checkmarks under-report. The code is the authority. Live status is
+> `.planning/STATE.md`.
+>
+> **One success criterion was NOT met, and is now a live concern rather than a
+> refactor leftover:** *no file exceeds 600 lines* (see Success Criteria below).
+> `js/features/recipe-manager.js` is **1,837** and `js/features/ingredients.js`
+> is **862**. recipe-manager breached the bound *after* the refactor, during
+> P0.3, which pushed identity, minting, adoption and the save guards into it.
+> Splitting it is unscheduled work, not unfinished work.
+
+## Current State — as of project close (2026-08-15)
+
+| | Planned | Actual |
+|---|---|---|
+| `js/app.js` | thin wiring | **464 lines, no top-level functions** (was 2,694) |
+| Modules | 10 focused files | **21** under `js/` |
+| Largest file | ≤ 600 lines | **1,837** (`recipe-manager.js`) ❌ |
+| Test lane | Playwright only | Playwright **+ 175-case node unit lane** |
+
+Historical state at the time this section was last accurate (Step 6):
+
 ✅ HTML: 377 lines (clean structure)
 ✅ CSS: 455 lines in `css/styles.css`
 ✅ **Step 1 COMPLETE:** Helper functions extracted to `js/utils/helpers.js` (127 lines)
@@ -438,14 +467,17 @@ Modules that currently rely on global variables (Recipe, Ingredients, etc.) will
 
 ---
 
-## Success Criteria
+## Success Criteria — final scoring (2026-08-15)
 
 ✅ Each extraction is testable independently
 ✅ App remains functional after every step
 ✅ Clear rollback point (backup before each extraction)
-✅ All 2,694 lines eventually split into 10 focused files
-✅ No file exceeds 600 lines
-✅ Foundation for future enhancements
+✅ All 2,694 lines eventually split into 10 focused files — **exceeded, 21 modules**
+❌ **No file exceeds 600 lines** — `recipe-manager.js` 1,837, `ingredients.js` 862.
+   The only miss. recipe-manager broke the bound after this project closed, by
+   absorbing P0.3's identity work; ingredients.js has been over since Step 3,
+   when it was extracted at 749 lines and grew from there.
+✅ Foundation for future enhancements — P0.1–P0.5 were built on it directly
 
 ---
 

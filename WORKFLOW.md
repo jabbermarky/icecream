@@ -1,5 +1,13 @@
 # Modularization Workflow - Quick Reference
 
+> # ✅ PROJECT COMPLETE — closed 2026-08-15
+>
+> The nine extractions this workflow governed are all done; see
+> `MODULARIZATION_PLAN.md`. **Kept as a method, not as a live task list** — the
+> test-first loop below (baseline → extract → verify → commit) is still the
+> house pattern for any risky change, and it is what the P0.1–P0.5 work
+> followed. Nothing here is waiting to be executed.
+
 ## Test-First Approach
 
 For each extraction step, follow this exact workflow:
