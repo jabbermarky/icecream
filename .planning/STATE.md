@@ -63,6 +63,17 @@ Full text and reasoning: the Rollout section of
 `.planning/p0.3-identity-design.md`. Known limit recorded there too: deletes do
 not propagate across devices.
 
+**The app can now tell you which build it is running — PR #28, merged
+2026-08-15.** `js/features/build-info.js` + the Info & FAQ panel report the
+version, the recipe schema version, and this device's record counts
+(identified / legacy / unreadable / **newer**). `VERSION` had been hardcoded at
+`"0.4.0 beta"` while package.json said 0.5.0; a unit test now pins `APP_VERSION`
+to package.json. The version is a **bundle constant on purpose** — a fetched
+package.json would report the server's version while the browser ran stale JS,
+which is the one case the panel exists for. `newer > 0` is the stale-cache
+detector step 1 above cannot otherwise provide: it means another device is ahead
+of this tab, so the verdict names the hard reload.
+
 ### What to work on
 
 Nothing is waiting on the maintainer. Three live threads, in rough priority:
