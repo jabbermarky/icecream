@@ -38,7 +38,9 @@ deploy**. `https://www.marklummus.com/icecream/js/models/recipe-serialization.js
 serves `RECIPE_SCHEMA_VERSION = 2`, and every P0.3/T4 file returns 200. The live
 `recipe-manager.js` is byte-identical to `origin/main` and carries the
 merge-boundary fixes. (`jabbermarky.github.io/icecream` 301s to the custom
-domain — over plain http, which is a downgrade worth fixing separately.)
+domain over plain **http**, with no HSTS to upgrade it — **issue #27**. It is a
+settings fix, not a code fix: GitHub's Enforce HTTPS is almost certainly greyed
+out because Cloudflare proxying blocks certificate provisioning.)
 
 **⚠️ THE ROLLOUT IS NOT DONE, and step 1 FAILS.** Two of the three steps are
 device actions only the maintainer can take:
