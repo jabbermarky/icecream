@@ -11,11 +11,16 @@ BRIEFING block, so you have already read it. Design docs sit beside it in
 
 ### The modularization refactor is DONE — do not restart it
 
-The single-file app was decomposed in nine steps (`MODULARIZATION_PLAN.md`,
-`WORKFLOW.md`). All nine landed: `js/app.js` is 464 lines of wiring with zero
-top-level functions, down from 2,694, and every planned module exists.
-**Both of those documents still describe the refactor mid-flight — their status
-headers are stale. Trust the code.**
+The single-file app was decomposed in nine steps. All nine landed: `js/app.js` is
+464 lines of wiring with zero top-level functions, down from 2,694, and every
+planned module exists. Closed 2026-08-15.
+
+**The project record is the GSD milestone, not the root plan docs.** Steps 7–9
+ran under Get Shit Done: `.planning/milestones/v1.0-ROADMAP.md` (v1.0
+Modularization, Phases 7–9, shipped 2026-01-13) plus PLAN/SUMMARY pairs in
+`.planning/phases/07-extract-tools/`, `08-extract-models/` and
+`09-extract-recipe-manager/`. Steps 1–6 predate GSD and live only in
+`MODULARIZATION_PLAN.md`.
 
 One criterion from that plan is still unmet: *no file exceeds 600 lines*.
 `js/features/recipe-manager.js` is 1,837 and `js/features/ingredients.js` is 862.

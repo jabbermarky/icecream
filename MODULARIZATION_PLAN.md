@@ -7,10 +7,37 @@
 > and the tree grew past the plan: 21 modules rather than the 10 forecast, plus
 > a node unit lane (`tests/unit/`, 175 cases) the plan never anticipated.
 >
-> **This document is history. Do not restart it, and do not trust the step
-> statuses below** — Steps 2, 3, 7, 8 and 9 were completed but never marked, so
-> the checkmarks under-report. The code is the authority. Live status is
+> ## ⚠️ This document is NOT the project record. The GSD records are.
+>
+> Steps 7–9 were executed under the **Get Shit Done** methodology and tracked in
+> `.planning/`, not here. That is why this file reads as stalled at Step 6: it
+> was superseded mid-project and never updated, not abandoned.
+>
+> **The authoritative history, in order of usefulness:**
+>
+> | Record | What it holds |
+> |---|---|
+> | `.planning/milestones/v1.0-ROADMAP.md` | The milestone. *"Status: SHIPPED 2026-01-13 · Phases: 7-9 · Total Plans: 6."* Per-phase goals, dependencies, and what each extraction actually did. |
+> | `.planning/phases/07-extract-tools/` | `07-01` PLAN + SUMMARY |
+> | `.planning/phases/08-extract-models/` | `08-01` PLAN + SUMMARY |
+> | `.planning/phases/09-extract-recipe-manager/` | `09-01`…`09-04`, four PLAN + SUMMARY pairs — recipe-manager was the one extraction that needed splitting |
+>
+> Those 13 files carry detail that exists nowhere else. Phase 7's summary, for
+> example: *"Reduced js/app.js by 302 lines (from 1668 to 1366) … Fixed
+> pre-existing undeclared variable bugs exposed by extraction."*
+>
+> **Steps 1–6 predate GSD adoption** and have no phase directories — nothing in
+> `.planning/` references phases 01–06. Those six steps are documented only in
+> this file, which is the one job it still does.
+>
+> **Do not restart any of it.** The code is the authority on the result; the GSD
+> records are the authority on how it was done. Live status is
 > `.planning/STATE.md`.
+>
+> One target worth knowing: v1.0's stated goal was reducing `app.js` to **~150
+> lines** of orchestration. It is 464. That is not a v1.0 miss — phases 10–20
+> (storage interface, library UI, cloud sync) added wiring after v1.0 shipped —
+> but 150 is the bar the original plan set, if it is ever worth meeting.
 >
 > **One success criterion was NOT met, and is now a live concern rather than a
 > refactor leftover:** *no file exceeds 600 lines* (see Success Criteria below).
