@@ -50,8 +50,12 @@
         import { initIndexedDBStorage } from './storage/indexeddb-storage.js';
         import { initCloudSync, setSyncStatus } from './ui/cloud-sync.js';
         import { initSyncManager, pushRecipe, pushIngredients, deleteRecipeFromCloud } from './storage/sync-manager.js';
+        import { APP_VERSION, collectBuildInfo, buildInfoVerdict } from './features/build-info.js';
 
-        const VERSION = "0.4.0 beta";
+        // Single source is package.json; build-info.js re-exports it and a unit
+        // test pins the two together. This was "0.4.0 beta" while package.json
+        // said 0.5.0 -- two releases of silent drift.
+        const VERSION = APP_VERSION;
 
         // Module-level variable to hold storage instance
         let recipeStorage = null;
@@ -434,6 +438,50 @@
 
         // --- About ------------------------------------------------------------------
         document.getElementById("Version").innerText = "Version: " + VERSION;
+
+        {   // Build + data diagnostics. Answers "what am I actually running, and
+            // is my data in the shape this build expects" -- which a deployed app
+            // could not previously tell you.
+            const setText = (id, value) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = String(value);
+            };
+
+            const refreshBuildInfo = async () => {
+                setText("BuildVerdict", "Checking…");
+                const info = await collectBuildInfo({
+                    storage: recipeStorage,
+                    getIngredients: () => Ingredients,
+                });
+                const verdict = buildInfoVerdict(info);
+
+                setText("biVersion", info.version);
+                setText("biSchema", info.schemaVersion);
+                setText("biIngredients", info.ingredients === null ? "unknown" : info.ingredients);
+
+                const unknown = info.listingFailed || !info.storageAvailable;
+                setText("biTotal", unknown ? "unknown" : info.recipes.total);
+                setText("biIdentified", unknown ? "unknown" : info.recipes.identified);
+                setText("biLegacy", unknown ? "unknown" : info.recipes.legacy);
+                setText("biUnreadable", unknown ? "unknown" : info.recipes.unreadable);
+                setText("biNewer", unknown ? "unknown" : info.recipes.newer);
+
+                const v = document.getElementById("BuildVerdict");
+                if (v) {
+                    v.textContent = verdict.message;
+                    v.style.color = verdict.level === "warn" ? "#a5342b"
+                        : verdict.level === "ok" ? "#2f7a55" : "";
+                }
+            };
+
+            const btn = document.getElementById("btnRefreshBuildInfo");
+            if (btn) btn.onclick = () => { refreshBuildInfo().catch(err => console.error(err)); };
+            // Storage initialises asynchronously, so the first pass runs after it
+            // settles rather than at script time -- otherwise every count reads
+            // "unknown" on a cold load.
+            refreshBuildInfo().catch(err => console.error(err));
+            window.refreshBuildInfo = refreshBuildInfo;
+        }
 
         {   // add TOC
             var content = document.getElementById("AboutContent");
