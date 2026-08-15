@@ -34,3 +34,6 @@ package-lock.json
 .planning/gstack-memory/.*.merge.*
 .planning/gstack-memory/reviews/*.tmp.*
 .planning/gstack-memory/**/*.tmp.*
+
+# Codex CLI session id (machine-local, per-container; see /codex consult mode)
+.context/
