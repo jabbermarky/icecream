@@ -55,9 +55,18 @@ device actions only the maintainer can take:
    the 4-hour TTL. Tracked as an issue for future deploys.
 2. **Reload every device and tab before anyone saves** — and make it a hard
    reload, per step 1.
-3. **Run `scripts/migrate-legacy-recipes.js` once per device** (it is live and
-   console-pasteable at `/icecream/scripts/migrate-legacy-recipes.js`).
-   Decision 14 makes unmigrated legacy records warn on EVERY sync until drained.
+3. **Sync, then tap "Give older recipes an identity" on Info & FAQ — once per
+   device.** Decision 14 makes unmigrated legacy records warn on EVERY sync
+   until drained. **Sync FIRST:** the migration mints fresh ids, so a local
+   legacy record whose synced copy is already identified would fork into a
+   permanent `DIVERGENT_IDENTITIES` stall; syncing first lets those copies
+   arrive already identified, and the migration then leaves them alone.
+   (Was `scripts/migrate-legacy-recipes.js`, pasted into a console — impossible
+   on an iPad, which has none. PR #29, merged 2026-08-16, deleted the script and
+   moved it into the app. Doing so surfaced four defects the script had carried:
+   it downgraded records from newer builds, restamped the `SavedAt` clock sync
+   orders by, listed with the lossy `listRecipes`, and duplicated
+   `mintRecipeId` — now in `recipe-serialization.js`.)
 
 Full text and reasoning: the Rollout section of
 `.planning/p0.3-identity-design.md`. Known limit recorded there too: deletes do
