@@ -94,19 +94,37 @@ Nothing is waiting on the maintainer. Three live threads, in rough priority:
    design call and a pure `syncOutcome()`), which belong before the new UI is
    wired. P0.6 (copy button + rename-refusal surface) and P0.4's outcome
    surface are both pure UI and should land WITH the redesign, not before.
-2. **Batch loop implementation** — B1–B6 in the P0.4 schema. Ahead of them:
-   issues #15 (type-range check) and #16 (parent-version pointer), each ~an
-   hour, each of which alone would have caught the binder's one silent
-   regression.
+2. **Batch loop implementation — UNBLOCKED 2026-08-16 (`dc26016`, PR #25).**
+   The codex GATE FAIL's 13 P1s and 2 P2s are all resolved and B1 has a text to
+   build against. Most were already answered by the 2026-08-15 session
+   (decisions 25–29 + `p0.4-data-model.mmd`); the stale artifact was the schema
+   *document*. Seven new decisions (30–36) cover what remained: the snapshot is
+   **copied** into the batch not referenced, a batch is never deleted by its
+   recipe, `overall` leaves the signed axis set, deltas group and carry a range,
+   the diff keys on `row_id` and **recomputes** under one coefficient set, and
+   the prose contract splits into typed field / photo / transcribed text with
+   **no OCR in scope**.
+   Revised sequence: B1 → B2 → **B2.5 (event log store — new, not in the
+   original list)** → P0.7+B3 as ONE cut → B5 → P1.1 → B4/P1.2 → B6.
+   Ahead of all of it: issues #15 (type-range check) and #16 (parent-version
+   pointer), each ~an hour, each of which alone would have caught the binder's
+   one silent regression.
+   **Four things stay open and are listed rather than invented:** half-steps on
+   the signed scale, a struck-through process step, the churn timeline, and a
+   pre-churn value for `OBSERVATION.occasion`. None blocks B1. The one that
+   accrues cost while open is the **QR payload format version** — sheets printed
+   against a format that later changes are unrecoverable paper.
 3. **Ingredient onboarding** — issues #6–#10.
 
 ### Do these at the start of a session
 
 - Tests need a virtual display and the async provisioning hook:
   `./.claude/hooks/wait-for-setup.sh && xvfb-run -a npm test`
-- **PR #25 is open (draft)** — the P0.4 schema revision after the codex GATE
-  FAIL. Re-arm `subscribe_pr_activity` on it; that subscription is the only
-  state no hook can restore.
+- **PR #25 is open (draft)** — the P0.4 schema revision, now COMPLETE (all 15
+  findings resolved, `dc26016`). Body carries the live checklist. Re-arm
+  `subscribe_pr_activity` on it; that subscription is the only state no hook can
+  restore. It is docs-only and ready to mark for review whenever the maintainer
+  has read it.
 - **The Plan Room is a published artifact, and it is NOT in this repo:**
   `https://claude.ai/code/artifact/a8207f87-a919-45a0-8cf7-1d32b985f39e`
   A live status page for the batch loop — the plan, what is blocking, the
