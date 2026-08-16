@@ -39,6 +39,7 @@
             initRecipeButtons,
             setCurrentRecipeIdentity,
             SetRecipeModified,
+            IsRecipeModified,
             DisplayRecipe,
             DisplayBackupList,
             getRecipeBackup,
@@ -518,11 +519,27 @@
             } catch { /* no sessionStorage, or unparseable: nothing to report */ }
 
             const runMigration = async () => {
+                // The reload below is unconditional once anything is written, so
+                // unsaved edits would go with it. Refuse rather than warn: this
+                // is a maintenance action with no deadline, and "your edits are
+                // gone" is not a trade the user should be asked to make in a
+                // confirm dialog they are already skimming.
+                if (IsRecipeModified()) {
+                    setVerdictText("MigrationResult", {
+                        level: "warn",
+                        message: "The open recipe has unsaved changes, and this finishes with a page reload. " +
+                            "Save it (or start a new recipe) first, then run this.",
+                    });
+                    return;
+                }
+
                 const proceed = confirm(
                     "Give every older recipe on this device an identity?\n\n" +
-                    "Run this on the device whose recipes are the current ones. If a " +
-                    "recipe's synced copy already has an identity, delete the stale " +
-                    "local copy instead of migrating it.\n\n" +
+                    "SYNC FIRST. This mints a fresh identity for each older recipe, so if " +
+                    "a recipe's synced copy already has a different one, the two stop " +
+                    "merging until you fix it by hand. Syncing first lets those copies " +
+                    "arrive already identified, and they are then left alone.\n\n" +
+                    "Run this on the device whose recipes are the current ones. " +
                     "The page reloads afterwards.");
                 if (!proceed) return;
 
@@ -557,6 +574,9 @@
                     console.error(err);
                     setVerdictText("MigrationResult",
                         { level: "warn", message: "The migration could not be run. Nothing was changed." });
+                    // Re-enable, or a transient failure would leave the only way
+                    // to retry behind the unrelated Recheck button.
+                    refreshBuildInfo().catch(e => console.error(e));
                 });
             };
             // Storage initialises asynchronously, so the first pass runs after it

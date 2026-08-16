@@ -17,8 +17,8 @@
 // exactly as it is, so running it twice is harmless.
 
 import {
-    RECIPE_SCHEMA_VERSION, containerProblem, containerRecipeId,
-    containerSavedAt, isNewerSchema, mintRecipeId
+    RECIPE_SCHEMA_VERSION, containerProblem, containerRecipeId, containerSavedAt,
+    containerSchemaVersion, isNewerSchema, mintRecipeId
 } from '../models/recipe-serialization.js';
 
 /**
@@ -83,7 +83,13 @@ export async function migrateLegacyRecipes({ storage, mint = mintRecipeId, now, 
 
     for (const entry of list) {
         const name = entry && entry.name;
-        if (!name) continue;
+        if (!name) {
+            // Counted, not dropped. A silently skipped entry would let the
+            // verdict say "nothing to do" while the legacy count that enabled
+            // the button stayed non-zero — the panel contradicting itself.
+            summary.skipped.push({ name: '(unnamed record)', reason: 'no usable name — left untouched' });
+            continue;
+        }
 
         let record = null;
         try {
@@ -100,10 +106,21 @@ export async function migrateLegacyRecipes({ storage, mint = mintRecipeId, now, 
         // newer build may use a schema this code cannot read; stamping
         // SchemaVersion 2 onto it would DOWNGRADE it in place and silently
         // drop whatever the newer fields were. The old console script did
-        // exactly that. Garbage SchemaVersion lands here too, since
-        // containerSchemaVersion maps it to Infinity to fail closed.
+        // exactly that.
+        //
+        // The finite check splits the two cases, exactly as build-info.js and
+        // the save path do: containerSchemaVersion maps GARBAGE to Infinity to
+        // fail closed, so without it every corrupt record would be reported as
+        // "written by a newer version" — sending the user to update an app
+        // that is already current, over a record that is simply damaged.
         if (isNewerSchema(data)) {
-            summary.skipped.push({ name, reason: 'written by a newer version of Ice Ed — not touched' });
+            const finite = Number.isFinite(containerSchemaVersion(data));
+            summary.skipped.push({
+                name,
+                reason: finite
+                    ? 'written by a newer version of Ice Ed — not touched'
+                    : 'damaged or unrecognizable record — not touched',
+            });
             continue;
         }
 

@@ -100,15 +100,32 @@ test('REFUSES TO DOWNGRADE a record from a newer build', async () => {
   assert.match(r.skipped[0].reason, /newer version/);
 });
 
-test('a GARBAGE SchemaVersion is skipped, not migrated', async () => {
-  // containerSchemaVersion maps garbage to Infinity to fail closed, so this
-  // rides the same guard as a genuinely newer record.
+test('a GARBAGE SchemaVersion is skipped, and NOT blamed on a newer version', async () => {
+  // containerSchemaVersion maps garbage to Infinity to fail closed, so it
+  // rides the same guard as a genuinely newer record — but reporting it as
+  // "written by a newer version" would send the user to update an app that
+  // is already current, over a record that is simply damaged. Same split the
+  // save path draws between newerSchemaMessage and invalidContainerMessage.
   for (const garbage of [true, {}, '', NaN]) {
     const s = store([{ name: 'G', data: { SchemaVersion: garbage, ...body('G') } }]);
     const r = await migrateLegacyRecipes({ storage: s, mint: seq(), now: () => NOW });
     assert.equal(s.writes.length, 0, `garbage ${JSON.stringify(garbage)} must not be written over`);
     assert.equal(r.skipped.length, 1);
+    assert.match(r.skipped[0].reason, /damaged|unrecognizable/,
+      `garbage ${JSON.stringify(garbage)} must not be reported as a newer version`);
   }
+});
+
+test('a nameless listing entry is COUNTED as skipped, not dropped', async () => {
+  // Dropped silently, the verdict could say "nothing to do" while the legacy
+  // count that enabled the button stayed non-zero.
+  const s = store([]);
+  s.listRecipesStrict = async () => [{ name: '' }, { name: null }, {}];
+  const r = await migrateLegacyRecipes({ storage: s, mint: seq(), now: () => NOW });
+
+  assert.equal(r.skipped.length, 3);
+  assert.equal(r.migrated.length, 0);
+  assert.equal(s.writes.length, 0);
 });
 
 test('keeps an EXISTING SavedAt — it is the clock sync orders by', async () => {
