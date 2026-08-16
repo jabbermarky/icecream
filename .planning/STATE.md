@@ -104,16 +104,25 @@ Nothing is waiting on the maintainer. Three live threads, in rough priority:
    the diff keys on `row_id` and **recomputes** under one coefficient set, and
    the prose contract splits into typed field / photo / transcribed text with
    **no OCR in scope**.
-   Revised sequence: B1 → B2 → **B2.5 (event log store — new, not in the
-   original list)** → P0.7+B3 as ONE cut → B5 → P1.1 → B4/P1.2 → B6.
+   **The tasks are GitHub issues now (2026-08-16), not prose in this file.**
+   That is the point: status lives in a tracker that is live by construction,
+   so it cannot drift from what a document claims. Sequence:
+   **#31** B1 container → **#32** B2 store → **#33** B2.5 event log →
+   **#34** P0.7+B3 as ONE cut → **#35** B5 sync → P1.1 → **#36** B4 diff →
+   **#37** B6 outcome surface. Also filed: **#38** P0.6 (copy button +
+   rename-refusal, held for redesign) and **#39** the QR payload format.
    Ahead of all of it: issues #15 (type-range check) and #16 (parent-version
    pointer), each ~an hour, each of which alone would have caught the binder's
    one silent regression.
+   **#36 is blocked on #30** — decision 35 needs a `coefficient_set_id` and
+   nothing in the ingredient library can produce one.
    **Four things stay open and are listed rather than invented:** half-steps on
    the signed scale, a struck-through process step, the churn timeline, and a
-   pre-churn value for `OBSERVATION.occasion`. None blocks B1. The one that
-   accrues cost while open is the **QR payload format version** — sheets printed
-   against a format that later changes are unrecoverable paper.
+   pre-churn value for `OBSERVATION.occasion`. None blocks B1; the first and
+   last are written into #37. The one that accrues cost while open is
+   **#39, the QR payload format** — it blocks nothing, so it will never surface
+   as a blocker, only as regret. Sheets printed against a format that later
+   changes are unrecoverable paper.
 3. **Ingredient onboarding** — issues #6–#10.
 
 ### Do these at the start of a session
@@ -125,6 +134,15 @@ Nothing is waiting on the maintainer. Three live threads, in rough priority:
   `subscribe_pr_activity` on it; that subscription is the only state no hook can
   restore. It is docs-only and ready to mark for review whenever the maintainer
   has read it.
+- **Status lives in the GitHub Project now, not in a document.** The maintainer
+  created it 2026-08-16 with a table view, a `Backlog` default (renamed from
+  `Todo` rather than deleted, so existing assignments survived) and statuses
+  `Backlog / Next / In progress / Blocked / Held for redesign / Done`. Two
+  built-in workflows carry it: auto-add on `is:issue is:open`, and
+  item-closed → Done. **Do not rebuild a status document.** If a task's state
+  changes, change the issue — one `issue_write` call — and the board follows.
+  Labels are deliberately minimal (`batch-loop`, `phase-0`) and describe the
+  KIND of work; Status carries state, so nothing duplicates it.
 - **The Plan Room is a published artifact, and it is NOT in this repo:**
   `https://claude.ai/code/artifact/a8207f87-a919-45a0-8cf7-1d32b985f39e`
   A live status page for the batch loop — the plan, what is blocking, the
