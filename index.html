@@ -244,7 +244,12 @@ The above copyright notice and this permission notice shall be included in all c
                 <tr><td>Unreadable</td><td><span id="biUnreadable"></span></td></tr>
                 <tr><td>Saved by a newer version</td><td><span id="biNewer"></span></td></tr>
             </table>
-            <p><button id="btnRefreshBuildInfo" type="button">Recheck</button></p>
+            <p>
+                <button id="btnRefreshBuildInfo" type="button">Recheck</button>
+                <button id="btnMigrateLegacy" type="button" disabled>Give older recipes an identity</button>
+            </p>
+            <p id="MigrationResult"></p>
+            <ul id="MigrationSkipped"></ul>
 
             <h3>FAQ</h3>
             <p><b>What do I have to consider when creating a recipe?</b><br>Actually not much, just set the desired

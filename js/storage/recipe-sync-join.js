@@ -34,8 +34,9 @@
 //     does NOT converge: a save mints a FRESH id, which turns this into the
 //     divergent-identities stall.) The other direction stays open — an
 //     identified winner replacing a legacy record is how old records get
-//     carried forward — and scripts/migrate-legacy-recipes.js drains legacy
-//     records that have no identified counterpart.
+//     carried forward — and the Info & FAQ migration
+//     (js/features/legacy-migration.js) drains legacy records that have no
+//     identified counterpart.
 //   - No partial overwrites: a record whose body is missing or malformed
 //     blocks its name on its own side — the other side's same-named record
 //     must not be treated as "only" and clobber what we could not see.
