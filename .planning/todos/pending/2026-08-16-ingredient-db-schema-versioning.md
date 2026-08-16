@@ -12,6 +12,7 @@ files:
 related:
   - .planning/todos/pending/2026-01-14-versioned-recipes-in-library.md
   - .planning/p0.4-batch-schema.md
+  - issue #30 (sync silently discards local ingredient edits — filed from this todo)
   - issue #19 (sync loads and deletes recipes by mutable name)
   - issue #21 (deletes never propagate)
 ---
@@ -76,8 +77,10 @@ knows "dextrose" the stale cloud value overwrites your edit — and then
 `syncIngredients()` writes the merged result **back to both sides** (`:185-186`),
 so the edit is gone from local storage too. No warning, no conflict surfaced.
 
-This is worth separating out as a bug in its own right rather than leaving it
-inside a design discussion. **It probably wants its own issue.**
+**Filed as issue #30**, since it is a live data-loss defect rather than a design
+question. The fix may still wait on this discussion: if the store is
+restructured to per-ingredient records with an author-time clock, #30 gets the
+recipe join's treatment wholesale instead of a bespoke merge patch.
 
 ### 4. Deleted ingredients resurrect
 
