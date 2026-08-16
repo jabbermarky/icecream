@@ -39,6 +39,7 @@
             initRecipeButtons,
             setCurrentRecipeIdentity,
             SetRecipeModified,
+            IsRecipeModified,
             DisplayRecipe,
             DisplayBackupList,
             getRecipeBackup,
@@ -51,6 +52,7 @@
         import { initCloudSync, setSyncStatus } from './ui/cloud-sync.js';
         import { initSyncManager, pushRecipe, pushIngredients, deleteRecipeFromCloud } from './storage/sync-manager.js';
         import { APP_VERSION, collectBuildInfo, buildInfoVerdict } from './features/build-info.js';
+        import { migrateLegacyRecipes, migrationVerdict, MIGRATION_SUMMARY_KEY } from './features/legacy-migration.js';
 
         // Single source is package.json; build-info.js re-exports it and a unit
         // test pins the two together. This was "0.4.0 beta" while package.json
@@ -447,6 +449,8 @@
                 if (el) el.textContent = String(value);
             };
 
+            const migrateBtn = document.getElementById("btnMigrateLegacy");
+
             const refreshBuildInfo = async () => {
                 setText("BuildVerdict", "Checking…");
                 const info = await collectBuildInfo({
@@ -472,10 +476,109 @@
                     v.style.color = verdict.level === "warn" ? "#a5342b"
                         : verdict.level === "ok" ? "#2f7a55" : "";
                 }
+
+                // The migration has something to do only when this device
+                // actually holds legacy records, and only when the counts are
+                // real -- offering it against an "unknown" listing would invite
+                // a write on a device whose storage just failed to read.
+                if (migrateBtn) migrateBtn.disabled = unknown || info.recipes.legacy === 0;
+            };
+
+            const setVerdictText = (id, verdict) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.textContent = verdict.message;
+                el.style.color = verdict.level === "warn" ? "#a5342b"
+                    : verdict.level === "ok" ? "#2f7a55" : "";
+            };
+
+            // textContent only, and one <li> per skip built with createElement:
+            // record names are user input, and this panel must not become the
+            // injection surface issue #13 already tracks elsewhere.
+            const renderMigration = (summary) => {
+                setVerdictText("MigrationResult", migrationVerdict(summary));
+                const list = document.getElementById("MigrationSkipped");
+                if (!list) return;
+                list.replaceChildren();
+                for (const s of (summary.skipped || [])) {
+                    const li = document.createElement("li");
+                    li.textContent = `${s.name}: ${s.reason}`;
+                    list.appendChild(li);
+                }
+            };
+
+            // A summary parked by the pre-reload stash below. Read once and
+            // cleared, so it reports the migration that just happened and not
+            // one from an earlier visit.
+            try {
+                const parked = sessionStorage.getItem(MIGRATION_SUMMARY_KEY);
+                if (parked) {
+                    sessionStorage.removeItem(MIGRATION_SUMMARY_KEY);
+                    renderMigration(JSON.parse(parked));
+                }
+            } catch { /* no sessionStorage, or unparseable: nothing to report */ }
+
+            const runMigration = async () => {
+                // The reload below is unconditional once anything is written, so
+                // unsaved edits would go with it. Refuse rather than warn: this
+                // is a maintenance action with no deadline, and "your edits are
+                // gone" is not a trade the user should be asked to make in a
+                // confirm dialog they are already skimming.
+                if (IsRecipeModified()) {
+                    setVerdictText("MigrationResult", {
+                        level: "warn",
+                        message: "The open recipe has unsaved changes, and this finishes with a page reload. " +
+                            "Save it (or start a new recipe) first, then run this.",
+                    });
+                    return;
+                }
+
+                const proceed = confirm(
+                    "Give every older recipe on this device an identity?\n\n" +
+                    "SYNC FIRST. This mints a fresh identity for each older recipe, so if " +
+                    "a recipe's synced copy already has a different one, the two stop " +
+                    "merging until you fix it by hand. Syncing first lets those copies " +
+                    "arrive already identified, and they are then left alone.\n\n" +
+                    "Run this on the device whose recipes are the current ones. " +
+                    "The page reloads afterwards.");
+                if (!proceed) return;
+
+                if (migrateBtn) migrateBtn.disabled = true;
+                setVerdictText("MigrationResult", { level: "", message: "Working…" });
+
+                const summary = await migrateLegacyRecipes({ storage: recipeStorage });
+
+                if (summary.migrated.length === 0) {
+                    // Nothing was written, so the open recipe's identity cannot
+                    // be stale: report in place and leave the page alone.
+                    renderMigration(summary);
+                    await refreshBuildInfo();
+                    return;
+                }
+
+                // RELOAD IS REQUIRED, not cosmetic. The open recipe's in-memory
+                // identity is still null for a record that just gained one, and
+                // a save from that state would mint a SECOND id for it. Park the
+                // summary first so the reload does not eat the only report of
+                // what happened -- including which records were skipped.
+                try {
+                    sessionStorage.setItem(MIGRATION_SUMMARY_KEY, JSON.stringify(summary));
+                } catch { /* the reload still matters more than the report */ }
+                location.reload();
             };
 
             const btn = document.getElementById("btnRefreshBuildInfo");
             if (btn) btn.onclick = () => { refreshBuildInfo().catch(err => console.error(err)); };
+            if (migrateBtn) migrateBtn.onclick = () => {
+                runMigration().catch(err => {
+                    console.error(err);
+                    setVerdictText("MigrationResult",
+                        { level: "warn", message: "The migration could not be run. Nothing was changed." });
+                    // Re-enable, or a transient failure would leave the only way
+                    // to retry behind the unrelated Recheck button.
+                    refreshBuildInfo().catch(e => console.error(e));
+                });
+            };
             // Storage initialises asynchronously, so the first pass runs after it
             // settles rather than at script time -- otherwise every count reads
             // "unknown" on a cold load.

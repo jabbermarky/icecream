@@ -314,6 +314,30 @@ export function isValidRecipeId(v) {
 }
 
 /**
+ * Mint a fresh RecipeId. crypto.randomUUID exists only in SECURE contexts
+ * (https / localhost); served over plain http on a LAN it is undefined, and
+ * the resulting TypeError inside an async save handler would die as an
+ * unhandled rejection — Save silently doing nothing, the exact failure class
+ * P0.3's review kept closing. getRandomValues exists in every context; the
+ * fallback emits the same UUIDv4 shape so ids mix freely.
+ *
+ * Lives HERE rather than in recipe-manager because minting is a property of
+ * the identity model, not of the save button. It was module-local in
+ * recipe-manager, which forced the legacy-migration path to carry a second
+ * copy — two implementations of the one function that decides whether two
+ * records are the same recipe.
+ * @returns {string}
+ */
+export function mintRecipeId() {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    const b = crypto.getRandomValues(new Uint8Array(16));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+/**
  * The container's RecipeId, or null when it has none worth trusting.
  * Identity exists from IDENTITY_SCHEMA_VERSION on — an id on a v1/legacy
  * container is ignored (review finding: honoring it was wider than decision 1
