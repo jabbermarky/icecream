@@ -28,19 +28,30 @@ next year, it belongs here.
 
 ```
 .planning/
-├── PROJECT.md            # GSD project definition — "Ice Ed Modularization", created 2026-01-13
-├── ROADMAP.md            # milestone index + per-phase progress
-├── MILESTONES.md         # milestone log
-├── ISSUES.md             # enhancements found during execution, deferred not dropped
-├── STATE.md              # LIVE status (see above) — BRIEFING block is hook-injected
-├── milestones/           # one roadmap per shipped milestone
+├── STATE.md              # agent briefing — BRIEFING block is hook-injected
+├── designs/              # a chosen shape and why; a record, never a plan
+├── evidence/             # findings about the world; cannot go stale
+├── gsd-archive/          # the GSD-era status documents, superseded by GitHub
+├── milestones/           # one roadmap per shipped milestone (v1.0–v1.4)
 ├── phases/NN-name/       # NN-MM-PLAN.md paired with NN-MM-SUMMARY.md
 ├── codebase/             # codebase analysis, from /gsd:map-codebase
-├── todos/pending|done/   # deferred work not worth an issue
+├── todos/pending|done/   # deferred work not yet triaged into issues
 ├── golden-masters/       # oracle vectors for the Sprinkles port (stack decision D2)
 ├── prototype/            # Sprinkles balance-engine prototype
 └── gstack-memory/        # mirror of ~/.gstack, written by the Stop hook
 ```
+
+**`gsd-archive/` holds `PROJECT.md`, `ROADMAP.md`, `MILESTONES.md`, `ISSUES.md`
+and `STRICT-MODE-AUDIT.md`** — all last touched 2026-01-15, all describing the
+modularization project. Three of them are markdown asserting current status,
+which is now GitHub's job: `ISSUES.md` was an issue log, `MILESTONES.md` and
+`ROADMAP.md` were milestone lists, and `PROJECT.md` still says *"Status: v1.4
+Complete"*. They are kept because the reasoning in them is real history, and
+archived because nothing should read them as current.
+
+References to these files from inside `phases/` and `milestones/` were
+**deliberately not rewritten**. Those are records of what a plan said at the
+time; repointing them would falsify the record rather than fix it.
 
 The phase convention is one directory per phase, and inside it a **PLAN** before
 the work and a **SUMMARY** after. The summaries are where the real detail lives —
@@ -62,7 +73,7 @@ Note the two numbering systems: these are **GSD milestones**, while the app's ow
 version in `package.json` is **0.5.0**. They are unrelated sequences.
 
 Work since v1.4 — the batch loop and ingredient onboarding — is tracked as design
-docs plus GitHub issues rather than as GSD phases. `ROADMAP.md` lists v1.0 in its
+docs plus GitHub issues rather than as GSD phases. `gsd-archive/ROADMAP.md` lists v1.0 in its
 milestone index but its per-phase detail section starts at v1.1; Phases 7–9 were
 collapsed into the milestone file when it shipped.
 
