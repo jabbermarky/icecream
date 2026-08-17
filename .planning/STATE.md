@@ -141,8 +141,35 @@ Nothing is waiting on the maintainer. Three live threads, in rough priority:
   built-in workflows carry it: auto-add on `is:issue is:open`, and
   item-closed → Done. **Do not rebuild a status document.** If a task's state
   changes, change the issue — one `issue_write` call — and the board follows.
-  Labels are deliberately minimal (`batch-loop`, `phase-0`) and describe the
-  KIND of work; Status carries state, so nothing duplicates it.
+  **The maintainer's objection is the reason this exists** and is worth not
+  re-litigating: `.planning/` sprawl means THEY cannot see what is happening.
+  `.planning/` is agent memory, read by a session with no context; the Project
+  is human-readable state. Different readers, not duplicates. Issue bodies are
+  written LONG on purpose, carrying the reasoning inline, so the board is
+  readable without opening a design doc.
+- **The label taxonomy (2026-08-16), 8 labels, all 36 issues covered.** Seven
+  describe the KIND of work — `batch-loop`, `phase-0`, `sync`, `ingredients`,
+  `binder-audit`, `deploy`, `security` — plus one type label per issue
+  (`bug` / `feature` / `task`) and `data-loss` as the one severity marker that
+  cuts across. **Nothing encodes state**, so nothing competes with the Status
+  field. `labels` REPLACES on update, so always send the full intended set.
+- **Filed since #39:** **#40** hosting move to Cloudflare Pages (closes #26 and
+  #27; do it AFTER the device rollout), **#41** the batch-loop parent with
+  #31–#35 as sub-issues (live 0/5 count, no document maintains it), and
+  **#42–#45** — P0.1, P0.2, P0.3, P0.5 retro-filed as CLOSED so Done is visible
+  and future milestone bars are honest.
+- **Milestones are PROPOSED, not created** — the maintainer creates them, then
+  Claude assigns. v0.5.1 (#40, #15, #17 — batch them so they share one reload
+  ritual, which #40 then ends), v0.6 (#39 + #41's five children — the loop
+  closes), v0.7 (#30, #36, #16 — the diff answers the question). No due dates.
+  A milestone contains its own blockers; absence of a milestone means
+  not-yet-committed.
+- **TOOL TRAP, hit twice: a success response does NOT mean the field was
+  written.** `type` and `state: closed`-on-create were both silently discarded
+  by `issue_write` while returning 200. Verify after writing. Also unavailable:
+  Projects v2 (no tool — status moves are the maintainer's), issue types (404,
+  org-only), custom issue fields (need an org), issue dependencies (readable
+  via `issue_dependencies_summary`, not writable).
 - **The Plan Room is a published artifact, and it is NOT in this repo:**
   `https://claude.ai/code/artifact/a8207f87-a919-45a0-8cf7-1d32b985f39e`
   A live status page for the batch loop — the plan, what is blocking, the
