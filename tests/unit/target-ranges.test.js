@@ -117,6 +117,23 @@ test('an in-range verdict carries no marker', () => {
     assert.equal(verdictMarker(rangeVerdict(150, { min: 130, max: 170 })), '');
 });
 
+test('a MISSING RANGE never destroys a known value', () => {
+    // Regression. An earlier cut nulled the value alongside the range, so the
+    // panel rendered "0 PAC (—) not checked" for a recipe whose PAC was fine
+    // and whose ideal merely could not be computed — losing a number the
+    // hardcoded fiction had at least printed correctly.
+    for (const noRange of [null, undefined, {}, { min: 5 }]) {
+        const v = rangeVerdict(261, noRange);
+        assert.equal(v.state, 'unknown');
+        assert.equal(v.value, 261, `value lost with range ${JSON.stringify(noRange)}`);
+    }
+});
+
+test('an unusable VALUE yields a null value, since there is nothing to show', () => {
+    assert.equal(rangeVerdict(NaN, { min: 1, max: 2 }).value, null);
+    assert.equal(rangeVerdict(undefined, null).value, null);
+});
+
 // --- Formatting ---
 
 test('formatRange prints a real range and a placeholder for none', () => {

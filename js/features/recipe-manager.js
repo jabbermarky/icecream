@@ -840,11 +840,6 @@ export function UpdateRecipeSums() {
  * @param {number} num - Value to normalize
  * @returns {number} Normalized value
  */
-function Normalize(sums, num) {
-    if (sums.Amount > 0) return Math.round(1000 / sums.Amount * num);
-    else return 0;
-}
-
 /**
  * The PAC this recipe needs for the hardness it is set to, at the serving
  * temperature it is set to — per gram, ready for `pacRangeFromIdeal`.
@@ -856,7 +851,12 @@ function Normalize(sums, num) {
  */
 function idealPacPerGram(Recipe, sums) {
     const tgtType = Targets[tgtSelection.value];
-    if (!tgtType || !(sums.Water > 0) || !(sums.Amount > 0)) return NaN;
+    // GetIdealPAC divides by `Water * (1 - Hardness)`, so Hardness of exactly 1
+    // divides by zero and a high hardness at a warm serving temperature can
+    // drive the result NEGATIVE (review finding). Both are legitimate slider
+    // positions, so guard here rather than letting Infinity or a negative reach
+    // the range builder.
+    if (!tgtType || !(sums.Water > 0) || !(sums.Amount > 0) || !(Recipe.Hardness < 1)) return NaN;
     return GetIdealPAC(Recipe, tgtType, sums) / sums.Amount;
 }
 

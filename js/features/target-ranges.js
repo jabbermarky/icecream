@@ -101,12 +101,19 @@ export function pacRangeFromIdeal(idealPacPerGram) {
  * @returns {{state: 'unknown'|'ok'|'below'|'above', value: ?number, range: ?Object}}
  */
 export function rangeVerdict(value, range) {
-    if (!Number.isFinite(value) || !range
+    // The value and the range are INDEPENDENT facts. An earlier cut nulled the
+    // value whenever the range was missing, so a recipe with a perfectly good
+    // PAC reading but no computable ideal rendered as "0 PAC (—) not checked"
+    // — losing the true number, which the fiction it replaced at least printed
+    // correctly (review finding). A missing range means "not checked", never
+    // "no value".
+    const known = Number.isFinite(value) ? value : null;
+    if (known === null || !range
         || !Number.isFinite(range.min) || !Number.isFinite(range.max)) {
-        return { state: 'unknown', value: null, range: null };
+        return { state: 'unknown', value: known, range: null };
     }
-    const state = value < range.min ? 'below' : value > range.max ? 'above' : 'ok';
-    return { state, value, range };
+    const state = known < range.min ? 'below' : known > range.max ? 'above' : 'ok';
+    return { state, value: known, range };
 }
 
 /**
