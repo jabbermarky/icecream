@@ -7,6 +7,9 @@ import { toFloat, round, nGenerator, filterPosNumberInput, clickOn } from '../ut
 import { cRecipe, cTargetValue, Targets } from '../models/core.js';
 import { IngredientNames, IngredientDataFields, cIngredient, importIngredients, syncIngredientsToStorage } from './ingredients.js';
 import { GetIdealPAC, Fitness } from './calculations.js';
+import {
+    toPerKilo, podRangeForType, pacRangeFromIdeal, rangeVerdict, formatRange, verdictMarker
+} from './target-ranges.js';
 import { DrawFreezingGraph } from '../ui/graph.js';
 import { getCSS } from '../ui/components.js';
 import { saveToFile, parseRecipeFile } from '../utils/file-io.js';
@@ -843,6 +846,39 @@ function Normalize(sums, num) {
 }
 
 /**
+ * The PAC this recipe needs for the hardness it is set to, at the serving
+ * temperature it is set to — per gram, ready for `pacRangeFromIdeal`.
+ *
+ * Read-only on purpose. `UpdateRecipeSums` computes the same quantity and
+ * ASSIGNS it onto the shared `Targets[type]` object, which mutates module-level
+ * state during a render; this path deliberately does not join in.
+ * @returns {number} NaN when the recipe cannot imply a target
+ */
+function idealPacPerGram(Recipe, sums) {
+    const tgtType = Targets[tgtSelection.value];
+    if (!tgtType || !(sums.Water > 0) || !(sums.Amount > 0)) return NaN;
+    return GetIdealPAC(Recipe, tgtType, sums) / sums.Amount;
+}
+
+/**
+ * One "value LABEL (range)" line for the Info block, with an out-of-range
+ * marker when there is one.
+ *
+ * The marker is a WORD, not a colour. This block is printed on the churn sheet
+ * (decision 28 makes the sheet the primary capture surface), and colour is the
+ * first thing a monochrome printer discards — the signal has to survive paper.
+ */
+function rangeLine(label, value, range, sums) {
+    const verdict = rangeVerdict(toPerKilo(value, sums.Amount), range);
+    const shown = verdict.value === null ? 0 : verdict.value;
+    const marker = verdictMarker(verdict);
+    return "<span><br>" + shown + "&nbsp;" + label
+        + "&nbsp;(" + formatRange(range) + ")"
+        + (marker ? "&nbsp;<b>" + marker + "</b>" : "")
+        + "</span>";
+}
+
+/**
  * Update the recipe info panel with calculated values
  * @param {Object|null} sums - Recipe sums object, or null to recalculate
  */
@@ -865,8 +901,8 @@ export function UpdateRecipeInfo(sums = null) {
             + round(total) + "&nbsp;L&nbsp;Ice&nbsp;Cream"
             /*         +"<span class='noprint'><br>" + Math.round(scoops) + "&nbsp;Scoops</span><br>" */
             + "<br>"
-            + "<span><br>" + Normalize(sums, sums.PAC) + "&nbsp;PAC (220 - 230)</span>"
-            + "<span><br>" + Normalize(sums, sums.POD) + "&nbsp;POD (110 - 120)</span>"
+            + rangeLine("PAC", sums.PAC, pacRangeFromIdeal(idealPacPerGram(Recipe, sums)), sums)
+            + rangeLine("POD", sums.POD, podRangeForType(tgtSelection.value), sums)
             + "<span><br>" + (sums.PAC / sums.POD).toFixed(2) + "&nbsp;PAC : POD</span><br>"
             + "<span><br>" + (sums.Solids / sums.Amount * 100).toFixed(1) + "%&nbsp;Solids</span>"
             + "<span><br>" + (sums.Water / sums.Amount * 100).toFixed(1) + "%&nbsp;Water</span>"
