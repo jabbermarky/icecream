@@ -148,7 +148,12 @@ Nothing is waiting on the maintainer. Three live threads, in rough priority:
    **Four things stay open and are listed rather than invented:** half-steps on
    the signed scale, a struck-through process step, the churn timeline, and a
    pre-churn value for `OBSERVATION.occasion`. None blocks B1; the first and
-   last are written into #37. The one that accrues cost while open is
+   last are written into #37, **the middle two are now #49** (2026-08-17) —
+   they had no tracker outside PR #25's body, and a merged PR is not a status
+   surface. **P0.4 itself never got an issue**: its deliverable was a document,
+   so its review lived in PR #25 while everything downstream was filed by
+   build-step name under #41. `label:phase-0` silently omitted it until #41
+   picked the label up. The one that accrues cost while open is
    **#39, the QR payload format** — it blocks nothing, so it will never surface
    as a blocker, only as regret. Sheets printed against a format that later
    changes are unrecoverable paper.
