@@ -53,3 +53,10 @@
 {"skill":"context-save","event":"completed","branch":"claude/batch-loop-design","outcome":"success","duration_s":"76","session":"3394-1786879324","ts":"2026-08-16T11:23:20.124Z"}
 {"skill":"context-restore","event":"completed","branch":"claude/batch-loop-design","outcome":"success","duration_s":"120","session":"10405-1786879695","ts":"2026-08-16T11:39:40.192Z"}
 {"skill":"context-save","event":"completed","branch":"claude/batch-loop-design","outcome":"success","duration_s":"2871","session":"3394-1786879324","ts":"2026-08-16T12:09:56.066Z"}
+{"skill":"plan-eng-review","event":"completed","branch":"claude/batch-loop-design","outcome":"unknown","source":"stop-hook","session":"per3","ts":"2026-08-17T03:38:26.857Z"}
+{"skill":"review","event":"completed","branch":"claude/batch-loop-design","outcome":"unknown","source":"stop-hook","session":"2010-1786561279","ts":"2026-08-17T03:38:26.857Z"}
+{"skill":"context-restore","event":"completed","branch":"claude/batch-loop-design","outcome":"unknown","source":"stop-hook","session":"1994-1786568616","ts":"2026-08-17T03:38:26.857Z"}
+{"skill":"review","event":"completed","branch":"claude/batch-loop-design","outcome":"unknown","source":"stop-hook","session":"6924-1786573158","ts":"2026-08-17T03:38:26.857Z"}
+{"skill":"context-save","event":"completed","branch":"claude/batch-loop-design","outcome":"unknown","source":"stop-hook","session":"2000-1786706924","ts":"2026-08-17T03:38:26.857Z"}
+{"skill":"context-restore","event":"completed","branch":"claude/batch-loop-design","outcome":"unknown","source":"stop-hook","session":"3272-1786707183","ts":"2026-08-17T03:38:26.857Z"}
+{"skill":"context-save","event":"completed","branch":"claude/batch-loop-design","outcome":"unknown","source":"stop-hook","session":"3040-1786711638","ts":"2026-08-17T03:38:26.857Z"}
