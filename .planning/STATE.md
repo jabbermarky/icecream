@@ -49,10 +49,13 @@ re-raise it.
 
 Two consequences worth carrying:
 
-- **Legacy records should now be drained**, so decision 14's
-  `SYNC_WARNINGS.LEGACY_CONFLICT` should stop firing. If it fires again, that
-  is new information — a record was missed or a device was — not the known
-  backlog.
+- **Legacy records ARE drained — every device reported ZERO skips.** Nothing
+  unreadable, nothing from a newer build, nothing needing hand-attention. So
+  identity is uniform across the whole library, which is the precondition the
+  batch loop needs before it writes anything keyed on `RecipeId`. Decision 14's
+  `SYNC_WARNINGS.LEGACY_CONFLICT` should now never fire; **if it does, it is
+  unambiguously new information** — a device that was missed, or a record
+  arriving from somewhere unexpected — not residue from the backlog.
 - **The rollout's step 1 still FAILS as a general property.** There is no
   cache-busting (**#26**): bare unversioned paths in `index.html`, unversioned
   relative module imports in `app.js`, and a 4-hour Cloudflare TTL. This
