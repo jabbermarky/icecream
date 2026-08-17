@@ -34,3 +34,6 @@ package-lock.json
 .planning/gstack-memory/.*.merge.*
 .planning/gstack-memory/reviews/*.tmp.*
 .planning/gstack-memory/**/*.tmp.*
+
+# Machine-local codex session id; stale on container reclaim
+.context/
