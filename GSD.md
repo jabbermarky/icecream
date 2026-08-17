@@ -49,6 +49,13 @@ which is now GitHub's job: `ISSUES.md` was an issue log, `MILESTONES.md` and
 Complete"*. They are kept because the reasoning in them is real history, and
 archived because nothing should read them as current.
 
+`RESEARCH-LLM-INTEGRATION.md` is archived alongside them for a different
+reason: it was never finished, and its framing — how to add an LLM *without*
+running a backend — was overtaken by the Sprinkles stack decision to build one
+anyway (D10). Its provider CORS and proxy findings are still usable background,
+and `designs/sprinkles-stack-decisions.md` points at them; its Cloudflare free-tier
+numbers are from January 2026 and should be re-checked before anyone relies on them.
+
 References to these files from inside `phases/` and `milestones/` were
 **deliberately not rewritten**. Those are records of what a plan said at the
 time; repointing them would falsify the record rather than fix it.
