@@ -113,7 +113,18 @@ Nothing is waiting on the maintainer. Three live threads, in rough priority:
    **#34** P0.7+B3 as ONE cut → **#35** B5 sync → P1.1 → **#36** B4 diff →
    **#37** B6 outcome surface. Also filed: **#38** P0.6 (copy button +
    rename-refusal, held for redesign) and **#39** the QR payload format.
-   Ahead of all of it: **#16** (parent-version pointer), ~an hour.
+   **#16 is NOT ahead of anything — it is batch-loop work in milestone 3.**
+   The audit put it and #15 ahead of the queue on the grounds that each was
+   ~an hour and either alone would have caught the binder's one silent
+   regression. Both halves expired: the estimate was a guess (reading the save
+   path puts #16 at 2–3 hours — it touches the builder, both load paths,
+   import, and module state, because the container is rebuilt every save so
+   lineage must be carried forward explicitly), and #15 turned out to be
+   measured against a fiction, so only one guardrail ever applied. **#16 also
+   closes P1.1**, which the sequence above still lists separately.
+   Milestone order stands: **1** hosting (#40) → **2** the loop closes
+   (#39 then #31–#35) → **3** the diff (#30, #36, #16) → **4** guardrails
+   (#15 done, #17 left).
    **#15 is DONE and merged (PR #46, squash `3f3b29f`, deployed and verified
    live).** It did NOT go the way the audit predicted, and the correction is
    load-bearing: **`(220 - 230)` was never the type's range.** There is no
