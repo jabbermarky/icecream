@@ -113,9 +113,25 @@ Nothing is waiting on the maintainer. Three live threads, in rough priority:
    **#34** P0.7+B3 as ONE cut → **#35** B5 sync → P1.1 → **#36** B4 diff →
    **#37** B6 outcome surface. Also filed: **#38** P0.6 (copy button +
    rename-refusal, held for redesign) and **#39** the QR payload format.
-   Ahead of all of it: issues #15 (type-range check) and #16 (parent-version
-   pointer), each ~an hour, each of which alone would have caught the binder's
-   one silent regression.
+   Ahead of all of it: **#16** (parent-version pointer), ~an hour.
+   **#15 is DONE and merged (PR #46, squash `3f3b29f`, deployed and verified
+   live).** It did NOT go the way the audit predicted, and the correction is
+   load-bearing: **`(220 - 230)` was never the type's range.** There is no
+   per-type PAC range anywhere in the codebase — `cTarget` carries Fat, MSNF,
+   Solids, POD, Stabilizer and never PAC. The band was the upstream author's
+   numbers for gelato, inherited verbatim from `IceEd.html:1743` and compared
+   to nothing. POD needed no new data (the per-type range existed all along;
+   ×1000 puts it on the display scale, and NO type is 110–120). PAC now uses
+   the derived `GetIdealPAC` ideal, which is type-sensitive via
+   `Target.MSNF.Mean`.
+   **So Cranberry v1.2's "347 PAC" was not a spec violation.** The Error row
+   was right and the band was the wrong yardstick — `binder-audit.md:590` and
+   `p0.4-batch-schema.md:736` both assert otherwise and need amending
+   (**#48**). **#16 is undisturbed**: its evidence is that v1.2 is
+   formula-identical to v1.0, found by diffing tables, not by reading the band.
+   Banked from the same review: **#47**, `UpdateRecipeSums` mutating the shared
+   `Targets` registry during a render, plus two different tolerance bands
+   (−2%/+3% display vs ±5% optimizer) on one quantity.
    **#36 is blocked on #30** — decision 35 needs a `coefficient_set_id` and
    nothing in the ingredient library can produce one.
    **Four things stay open and are listed rather than invented:** half-steps on
