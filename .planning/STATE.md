@@ -42,31 +42,30 @@ domain over plain **http**, with no HSTS to upgrade it — **issue #27**. It is 
 settings fix, not a code fix: GitHub's Enforce HTTPS is almost certainly greyed
 out because Cloudflare proxying blocks certificate provisioning.)
 
-**⚠️ THE ROLLOUT IS NOT DONE, and step 1 FAILS.** Two of the three steps are
-device actions only the maintainer can take:
+**✅ THE ROLLOUT IS DONE — maintainer confirmed 2026-08-17.** All three steps
+ran on every device: hard reload, sync, then the Info & FAQ migration button.
+P0.3 is closed end to end — designed, built, deployed AND rolled out. Do not
+re-raise it.
 
-1. **Verify cache-busting — THERE IS NONE.** `index.html` loads
-   `css/styles.css` and `js/app.js` with bare paths, and `app.js` imports every
-   module by unversioned relative path. Cloudflare serves
-   `cache-control: max-age=14400` (4 h). So a device that loaded the app within
-   the last 4 hours can serve **stale JS from browser cache on an ordinary
-   reload**. No service worker exists, which is the one piece of good luck here.
-   **Mitigation for this rollout: HARD reload** (Cmd/Ctrl+Shift+R), or wait out
-   the 4-hour TTL. Tracked as an issue for future deploys.
-2. **Reload every device and tab before anyone saves** — and make it a hard
-   reload, per step 1.
-3. **Sync, then tap "Give older recipes an identity" on Info & FAQ — once per
-   device.** Decision 14 makes unmigrated legacy records warn on EVERY sync
-   until drained. **Sync FIRST:** the migration mints fresh ids, so a local
-   legacy record whose synced copy is already identified would fork into a
-   permanent `DIVERGENT_IDENTITIES` stall; syncing first lets those copies
-   arrive already identified, and the migration then leaves them alone.
-   (Was `scripts/migrate-legacy-recipes.js`, pasted into a console — impossible
-   on an iPad, which has none. PR #29, merged 2026-08-16, deleted the script and
-   moved it into the app. Doing so surfaced four defects the script had carried:
-   it downgraded records from newer builds, restamped the `SavedAt` clock sync
-   orders by, listed with the lossy `listRecipes`, and duplicated
-   `mintRecipeId` — now in `recipe-serialization.js`.)
+Two consequences worth carrying:
+
+- **Legacy records should now be drained**, so decision 14's
+  `SYNC_WARNINGS.LEGACY_CONFLICT` should stop firing. If it fires again, that
+  is new information — a record was missed or a device was — not the known
+  backlog.
+- **The rollout's step 1 still FAILS as a general property.** There is no
+  cache-busting (**#26**): bare unversioned paths in `index.html`, unversioned
+  relative module imports in `app.js`, and a 4-hour Cloudflare TTL. This
+  rollout worked because the steps were performed by hand. **Every future
+  deploy has the same problem** until #26 is fixed, which is part of what
+  **#40** (move to Cloudflare Pages) exists to close.
+
+The migration itself was `scripts/migrate-legacy-recipes.js`, pasted into a
+console — impossible on an iPad, which has none. PR #29 deleted the script and
+moved it into the app, which surfaced four defects it had carried: it
+downgraded records from newer builds, restamped the `SavedAt` clock sync orders
+by, listed with the lossy `listRecipes`, and duplicated `mintRecipeId` (now in
+`recipe-serialization.js`).
 
 Full text and reasoning: the Rollout section of
 `.planning/p0.3-identity-design.md`. Known limit recorded there too: deletes do
