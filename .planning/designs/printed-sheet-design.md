@@ -1,8 +1,11 @@
 # The printed sheet — capture instrument, physical constraints, machine-readable band
 
-**Status:** DESIGNED 2026-08-15, from a working session with the maintainer. Not implemented.
-**Covers:** P0.7 (print persists a snapshot), P2.1/P2.2 (print surface and churn sheet),
-P3.1 (QR mechanism), and the parts of P0.4 the session changed.
+*A record of a decision, not a plan. Current work: **#34** (print persists the
+snapshot) and **#37** (the outcome surface).*
+
+**Designed** 2026-08-15, from a working session with the maintainer. Not implemented.
+**Covers:** print persisting a snapshot, the print surface and the churn sheet,
+the QR mechanism (#39), and the parts of the batch schema the session changed.
 **Evidence:** `.planning/evidence/binder-audit.md` (29 Ice Ed sheets, Aug 2024 – Apr 2026), a
 five-page olive-oil sheet in a different format, and three web recipe printouts (Serious
 Eats, Epicurious, and one from 2012) — all photographed 2026-08-15
@@ -21,7 +24,7 @@ the more important half.
 
 **The sheet is the primary capture surface. The app screen is transcription.** Writing
 happens at the bench, on paper, with cold hands; typing happens afterward, sometimes never.
-That inverts P0.4's assumption that the outcome instrument is an app screen (task B6). The
+That inverts the batch schema's assumption that the outcome instrument is an app screen (#37). The
 paper form's ergonomics should drive the schema's, because paper is where the data is born.
 
 ---
@@ -75,7 +78,7 @@ need a decision.
 ### Tasting axes are partly per-recipe
 
 The sheet's axes are `oil character`, `bitterness`, `sweetness`. The first two are
-meaningless for Mango. P0.4 specifies a fixed nine axes; the evidence says **a default set
+meaningless for Mango. The batch schema specifies a fixed nine axes; the evidence says **a default set
 plus recipe-specific axes**. `OBSERVATION.axis` in the data model is already a string, so the
 model supports it — the design did not.
 
@@ -297,7 +300,7 @@ is the opposite of the instinct that a new version gets new everything.
 coefficients. There is no `SNAPSHOT_METHOD_STEP`. A batch that records what was made must
 freeze the method too, or it says exactly what went in and nothing about what was done to it.
 
-**Sequencing:** do not fold method into P0.4 — that schema is already gate-failed with 13 P1s
+**Scope:** do not fold method into the batch schema — that schema was already gate-failed with 13 P1s
 and adding an entity to a design under revision stops it converging. But **design the sheet
 as though method exists**, now. Paper is cheap to reprint; uncollected data is gone. Labelled
 blank lines capture structured-enough method from the first sheet, and `METHOD_STEP` absorbs
@@ -320,11 +323,11 @@ them* — rather than a `nudge_state` to keep consistent across devices.
 
 **Sync constraint, and it is hard.** The log cannot be one file that gets appended to.
 Sync is last-write-wins on whole records, so two devices appending means one device's events
-are silently overwritten — the silent-clobber class T4 exists to prevent. **One immutable
+are silently overwritten — the silent-clobber class the sync executor was built to prevent. **One immutable
 record per event, individually keyed.** Written once, never updated, so LWW has nothing to
 resolve and sync is a union.
 
-This also clears the objection that killed the separate identity store in P0.3. That store
+This also clears the objection that killed the separate identity store in #44. That store
 was rejected because identity must stay atomically consistent with the recipe. **Events do
 not need that** — an event is a fact about the past, so a partial sync leaves you with fewer
 facts, not wrong ones.

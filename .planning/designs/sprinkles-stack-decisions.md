@@ -3,7 +3,7 @@
 **Written:** 2026-08-07, from a working session that started as "resolve the react/jsx decision" and ended up deciding the full frontend and backend stack, plus the editing/versioning/AI-chat model.
 **Revised:** 2026-08-07, after an external architecture review pressure-tested D1–D12. Several decisions changed as a result (D7, D8) and one new foundational decision was added (D13). Where the review's reasoning was rejected, that's noted explicitly rather than silently dropped.
 **Revised again:** 2026-08-07 (second review session). D7/D8A refined — optimistic revision checks now apply only to explicit Save, and non-primary devices are viewers by default. New D14 (connectivity + account model) decided: anonymous-first via invisible Supabase account, verified-email gates. Golden-master validation added to D2. Backend consolidation onto Supabase Edge Functions recommended (not yet locked). Kitchen/churn mode requirements captured.
-**Read this first if you're picking up implementation.** It captures what's locked, why, and what's still genuinely open.
+*A record of a decision, not a plan.* It captures what's locked, why, and what's still genuinely open. **This is the Sprinkles rewrite, a separate project from the Ice Ed app** — none of the issues in this repo track it.
 
 ---
 

@@ -239,7 +239,7 @@ Rationale:
   `usda:sr-legacy`, `derived`, `estimated`, `manual`, later `llm`), FDC ID where
   applicable, and date. Additive sidecar; unannotated entries read as `manual`.
   Not "done" until provenance is visible in the ingredient editor.
-- **B1 — sort comparator.** `distances.sort()` (`:673`) sorts lexicographically,
+- **B1 — sort comparator (#58).** `distances.sort()` (`:673`) sorts lexicographically,
   so the `minDistance` threshold (`:674`) is miscalibrated and the filter
   (`:675-678`) keeps and discards the wrong candidates. Fix:
   `.sort((a, b) => a - b)`. Independently testable; worth doing regardless.
