@@ -114,7 +114,7 @@ shipped.
 
 | Doc | What it is |
 |---|---|
-| `batch-loop-design.md` | The active stream: linking recipe versions to what happened when churned. 13 phases, P0–P3. |
+| `designs/batch-loop-design.md` | **Archived record.** The original batch-loop plan, in the retired P0–P3 phase vocabulary. Kept for its reasoning; the live plan is the epic (#41) and the milestones. |
 | `p0.3-identity-design.md` | Recipe identity. 14 decisions, and **the Rollout section is the deploy contract** — three ordered steps. |
 | `p0.4-batch-schema.md` | The batch record, the diff definition, decisions 15–24. Currently under revision after a failed review. |
 | `binder-audit.md` | Audit of 29 real churn-log pages. The evidence base for every P0.4 decision. |

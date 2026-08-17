@@ -290,7 +290,7 @@ lands next. That promise is outstanding.
 
 ### 2. The batch loop
 
-Design: `.planning/batch-loop-design.md` — the current source of truth, carrying
+Design: `.planning/designs/batch-loop-design.md` — the current source of truth, carrying
 its own review report.
 
 The maintainer already runs a working manual version-control system: versioned
