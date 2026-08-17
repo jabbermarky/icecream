@@ -154,7 +154,7 @@ the GitHub UI when convenient.
 
 **Shipped:** v0.5.0 (PR #4), then identity and sync (PR #11), build info
 (PR #28), the in-app migration (PR #29), and the range check (PR #46). Node
-lane at 207 tests.
+lane at 224 tests.
 
 Two workstreams, both tracked as issues:
 
