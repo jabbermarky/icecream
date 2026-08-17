@@ -225,7 +225,7 @@ No offline editing, no offline draft writes, no local-first architecture. The ki
 
 ## Doc map
 
-- This file (`.planning/sprinkles-stack-decisions.md`) — architecture decisions.
+- This file (`.planning/designs/sprinkles-stack-decisions.md`) — architecture decisions.
 - `sprinkles-phase3-handoff.md` — ingredients library UI/UX, a parallel design track *(lives outside this repo)*.
 - `.planning/codebase/STACK.md` — current (as of Jan 2026) production stack, vanilla JS.
 - `.planning/RESEARCH-LLM-INTEGRATION.md` — prior LLM-integration research; partially superseded by D10 above (the backend-avoidance framing no longer applies), but the provider CORS/proxy findings are still relevant background.

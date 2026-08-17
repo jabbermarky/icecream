@@ -64,7 +64,7 @@ Failed to initialize Google Auth: Error: Timeout waiting for gapi library
 Two ways to close it, and the second is better:
 
 1. Allow `apis.google.com`. Cheapest, but Drive sync does not carry forward
-   into the rewrite (`.planning/sprinkles-stack-decisions.md:183`), so this
+   into the rewrite (`.planning/designs/sprinkles-stack-decisions.md:183`), so this
    spends policy surface on a feature being retired.
 2. Make Google Auth initialization non-fatal and skip it when `gapi` is
    unreachable. This is the same architectural pattern T0 just fixed: an

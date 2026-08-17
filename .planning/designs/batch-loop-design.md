@@ -332,7 +332,7 @@ done in seven months. This design targets the same space as
 observed failure mode in this repository is not bad planning, it is plans that
 are never executed.
 
-**Attention is elsewhere.** `.planning/sprinkles-stack-decisions.md` was edited 9
+**Attention is elsewhere.** `.planning/designs/sprinkles-stack-decisions.md` was edited 9
 times in the last 30 days; the ingredient design doc, 6. The rewrite is the most
 actively-considered document here, and this design targets the codebase the
 rewrite would replace. Version lineage and the diff model are portable to a
@@ -498,7 +498,7 @@ batch entity are prerequisites, not features, so they moved into Phase 0.
       run the same hydrator. 35 unit cases green, browser suite 114/0.
 - [x] **P0.3 — DONE (2026-08-14). The DO-NOT-START is LIFTED, and the separate
       store was REVERSED.** Full contract and its 14 decisions:
-      `.planning/p0.3-identity-design.md`.
+      `.planning/designs/p0.3-identity-design.md`.
 
       **What this entry used to say** — identity in a *separate object store*
       keyed by recipe name, because a legacy client cannot strip a store it does
@@ -531,7 +531,7 @@ batch entity are prerequisites, not features, so they moved into Phase 0.
       the store that motivated it — the join reads ids out of bodies it already
       downloads. Unit lane 170, browser suite green.
 - [ ] **P0.4 — DESIGNED 2026-08-14 from the binder read.** Full schema, the diff
-      definition, and decisions 15–24: `.planning/p0.4-batch-schema.md`. Batch
+      definition, and decisions 15–24: `.planning/designs/p0.4-batch-schema.md`. Batch
       record entity and its storage: object store, indexes, deletion behaviour,
       and what happens to batches when a recipe is deleted (`app.js:299`
       currently defines nothing).
@@ -596,7 +596,7 @@ batch entity are prerequisites, not features, so they moved into Phase 0.
       "over ordered ingredient occurrences"; the maintainer settled that a
       reordering is not a change, so the diff is a keyed comparison over
       ingredient names with no move operations. What it contains is specified in
-      full in `.planning/p0.4-batch-schema.md` ("What a diff contains") —
+      full in `.planning/designs/p0.4-batch-schema.md` ("What a diff contains") —
       including the two things that were not obvious: quantity changes are
       expressed in concentration rather than grams, and ingredient-definition
       drift between snapshots is reported separately and first.
@@ -664,7 +664,7 @@ acyclic, which was not true of either previous revision.
 
 **UNRESOLVED DECISIONS:**
 - ~~**Is a reprint a new batch, or the same batch?**~~ — **DECIDED 2026-08-14
-  from the binder read** (`.planning/p0.4-batch-schema.md`, decisions 15–17). A
+  from the binder read** (`.planning/designs/p0.4-batch-schema.md`, decisions 15–17). A
   batch is a **churn event**; a reprint is not one and reuses the existing
   `planned` batch. The record is created **at print, in state `planned`** — not
   when an outcome is entered, because outcome-time creation is exactly what the

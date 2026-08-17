@@ -28,7 +28,7 @@ work and the batch-loop design. P0.1, P0.2, P0.3, P0.5 are all DONE. Unit lane
   `recipe-sync-executor.js` executes (listing failure aborts before any write;
   any write failure skips all deletes). Legacy conflicts REJECT — an id-less
   body never replaces an identified record.
-- **The batch loop is DESIGNED, not built.** `.planning/p0.4-batch-schema.md`,
+- **The batch loop is DESIGNED, not built.** `.planning/designs/p0.4-batch-schema.md`,
   decisions 15–24, tasks B1–B6.
 
 **✅ THE CODE IS LIVE — verified 2026-08-15 against the running site.** Earlier
@@ -71,7 +71,7 @@ by, listed with the lossy `listRecipes`, and duplicated `mintRecipeId` (now in
 `recipe-serialization.js`).
 
 Full text and reasoning: the Rollout section of
-`.planning/p0.3-identity-design.md`. Known limit recorded there too: deletes do
+`.planning/designs/p0.3-identity-design.md`. Known limit recorded there too: deletes do
 not propagate across devices.
 
 **The app can now tell you which build it is running — PR #28, merged
@@ -99,7 +99,7 @@ Nothing is waiting on the maintainer. Three live threads, in rough priority:
 2. **Batch loop implementation — UNBLOCKED 2026-08-16 (`dc26016`, PR #25).**
    The codex GATE FAIL's 13 P1s and 2 P2s are all resolved and B1 has a text to
    build against. Most were already answered by the 2026-08-15 session
-   (decisions 25–29 + `p0.4-data-model.mmd`); the stale artifact was the schema
+   (decisions 25–29 + `designs/p0.4-data-model.mmd`); the stale artifact was the schema
    *document*. Seven new decisions (30–36) cover what remained: the snapshot is
    **copied** into the batch not referenced, a batch is never deleted by its
    recipe, `overall` leaves the signed axis set, deltas group and carry a range,
@@ -136,8 +136,8 @@ Nothing is waiting on the maintainer. Three live threads, in rough priority:
    the derived `GetIdealPAC` ideal, which is type-sensitive via
    `Target.MSNF.Mean`.
    **So Cranberry v1.2's "347 PAC" was not a spec violation.** The Error row
-   was right and the band was the wrong yardstick — `binder-audit.md:590` and
-   `p0.4-batch-schema.md:736` both assert otherwise and need amending
+   was right and the band was the wrong yardstick — `evidence/binder-audit.md:590` and
+   `designs/p0.4-batch-schema.md:736` both assert otherwise and need amending
    (**#48**). **#16 is undisturbed**: its evidence is that v1.2 is
    formula-identical to v1.0, found by diffing tables, not by reading the band.
    Banked from the same review: **#47**, `UpdateRecipeSums` mutating the shared
@@ -279,7 +279,7 @@ when convenient.
 
 ### 1. Ingredient onboarding
 
-Design: `.planning/ingredient-onboarding-design.md`
+Design: `.planning/designs/ingredient-onboarding-design.md`
 Carryover: `.planning/todos/pending/2026-08-11-durable-ingredient-tasks-carryover.md`
 
 T0 and T2a shipped. Of the nine remaining, four (T3, T4, T8, T9) are repairs to

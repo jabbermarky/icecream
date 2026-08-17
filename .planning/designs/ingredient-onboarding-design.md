@@ -117,7 +117,7 @@ through `importIngredients` for diff-and-confirm rather than silent overwrite.
   crosses a line the current architecture does not cross.
 - **Vanilla ES6 modules, Playwright tests.** Work lands in the existing app, not
   in the Sprinkles rewrite.
-- **An in-flight rewrite plan exists** (`.planning/sprinkles-stack-decisions.md`)
+- **An in-flight rewrite plan exists** (`.planning/designs/sprinkles-stack-decisions.md`)
   that would replace this codebase. Work here must be justifiable even if the
   rewrite proceeds — see Dependencies.
 

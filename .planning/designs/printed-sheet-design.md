@@ -3,7 +3,7 @@
 **Status:** DESIGNED 2026-08-15, from a working session with the maintainer. Not implemented.
 **Covers:** P0.7 (print persists a snapshot), P2.1/P2.2 (print surface and churn sheet),
 P3.1 (QR mechanism), and the parts of P0.4 the session changed.
-**Evidence:** `.planning/binder-audit.md` (29 Ice Ed sheets, Aug 2024 – Apr 2026), a
+**Evidence:** `.planning/evidence/binder-audit.md` (29 Ice Ed sheets, Aug 2024 – Apr 2026), a
 five-page olive-oil sheet in a different format, and three web recipe printouts (Serious
 Eats, Epicurious, and one from 2012) — all photographed 2026-08-15
 (`IMG_2485`–`IMG_2489`, continuing the binder's series). Raw photos are deliberately not

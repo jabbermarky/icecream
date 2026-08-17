@@ -7,7 +7,7 @@
 // where the node test lane can drive every branch, and sync-manager.js (T4)
 // becomes a thin executor.
 //
-// Design source: .planning/p0.3-identity-design.md decisions 3, 8, 9.
+// Design source: .planning/designs/p0.3-identity-design.md decisions 3, 8, 9.
 //
 // The rules, in order of authority:
 //   - Records join ID-FIRST (identity is the record's name for join

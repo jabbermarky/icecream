@@ -32,7 +32,7 @@ Honest scope, given the constraint that this app has no backend:
 
 The only way to actually conceal it is to proxy the FDC call server-side, which
 this project deliberately avoids today. If a backend ever arrives (see
-`.planning/sprinkles-stack-decisions.md`), route the FDC call through it and the
+`.planning/designs/sprinkles-stack-decisions.md`), route the FDC call through it and the
 key stops being public.
 
 ## Context

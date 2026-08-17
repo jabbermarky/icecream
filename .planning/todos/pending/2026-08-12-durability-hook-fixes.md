@@ -215,7 +215,7 @@ independently verified regardless.**
     **SPLIT 2026-08-14 for the UI/UX replacement:** half (a), assert the
     container shape on the record read back from real IndexedDB, is P0.3's
     rescoped T5 (selector-free, extends `testRecipeStorage`) — see the T5
-    entry in `p0.3-identity-design.md`. Half (b), drive it through the Load
+    entry in `designs/p0.3-identity-design.md`. Half (b), drive it through the Load
     button, is selector-bound and re-banks as a requirement on the redesign's
     library surface. Closing (a) closes the regression-ships-green-in-both-
     lanes hole; (b) only adds coverage of the button wiring.

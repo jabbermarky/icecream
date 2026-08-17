@@ -11,7 +11,7 @@ files:
   - js/models/recipe-serialization.js
 related:
   - .planning/todos/pending/2026-01-14-versioned-recipes-in-library.md
-  - .planning/p0.4-batch-schema.md
+  - .planning/designs/p0.4-batch-schema.md
   - issue #30 (sync silently discards local ingredient edits — filed from this todo)
   - issue #19 (sync loads and deletes recipes by mutable name)
   - issue #21 (deletes never propagate)
@@ -100,7 +100,7 @@ POD on a newer sheet than an older one.
 ## The connection to P0.4, which is why this is urgent now
 
 Decision 35 (2026-08-16) requires the diff to **recompute both sides under one
-coefficient set** rather than only flagging drift. `p0.4-data-model.mmd` gives
+coefficient set** rather than only flagging drift. `designs/p0.4-data-model.mmd` gives
 `INGREDIENT_DEF` and `SNAPSHOT_INGREDIENT_DEF` a `coefficient_set_id` for exactly
 this, and `LIBRARY_INGREDIENT` carries one too.
 
