@@ -3,15 +3,7 @@
 ## Project Overview
 Ice Ed is an ice cream recipe formulation tool. It helps users create balanced ice cream recipes by calculating properties like PAC (freezing point depression), POD (sweetening power), fat content, and more.
 
-## Key Documentation
-
-### Modularization
-- **MODULARIZATION_PLAN.md** - Detailed plan for extracting js/app.js into focused modules
-- **WORKFLOW.md** - Step-by-step workflow for safe code extraction with testing
-
-### Current Status
-- Step 1 complete: Helper functions extracted to `js/utils/helpers.js`
-- Next: Steps 2-3 focus on ingredients (JSON data file + module)
+Project history, milestones and the document map: `GSD.md`.
 
 ## Working in GitHub — plan visibly, not retroactively
 
@@ -37,9 +29,8 @@ Rules:
    which is exactly how work gets lost here. Do not file an issue per session
    step; that is how issue trackers rot.
 
-Planning documents live in `.planning/`. Deferred work lives in
-`.planning/todos/pending/` **or** as an issue — issues for anything that must
-survive a change of focus.
+Deferred work lives in `.planning/todos/pending/` **or** as an issue — issues for
+anything that must survive a change of focus.
 
 ## Session state — capture on the way through, not on the way out
 

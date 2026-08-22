@@ -3,7 +3,7 @@ created: 2026-08-11T23:40
 title: Durable ingredient-onboarding tasks (carried over from v0.5.0)
 area: ingredients
 priority: P1
-source: .planning/ingredient-onboarding-design.md
+source: .planning/designs/ingredient-onboarding-design.md
 files:
   - js/features/ingredients.js
   - js/utils/tools.js

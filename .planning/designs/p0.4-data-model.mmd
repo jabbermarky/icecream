@@ -1,0 +1,186 @@
+erDiagram
+    RECIPE_CONTAINER ||--|{ FORMULA_ROW : "recipe body"
+    RECIPE_CONTAINER ||--|{ INGREDIENT_DEF : "carries its own coefficients"
+    RECIPE_CONTAINER ||--o{ METHOD_STEP : "method - PROPOSED, not in P0.4"
+    RECIPE_CONTAINER ||--o{ BATCH_CONTAINER : "churned as - advisory, never cascades"
+    RECIPE_CONTAINER ||--o{ RECIPE_EVENT : "saved printed batch_recorded deleted"
+    RECIPE_EVENT ||--o| BATCH_CONTAINER : "printed event bound on return by nonce"
+    LIBRARY_INGREDIENT ||--o{ INGREDIENT_DEF : "seeds on create, never back-writes"
+
+    BATCH_CONTAINER ||--|{ SNAPSHOT_ROW : "durable snapshot - fixes blocker 1"
+    BATCH_CONTAINER ||--|{ SNAPSHOT_INGREDIENT_DEF : "frozen coefficients"
+    BATCH_CONTAINER ||--o{ PROCESS_RECORD : "as followed"
+    BATCH_CONTAINER ||--o{ OBSERVATION : "marks and prose"
+    BATCH_CONTAINER ||--o{ DELTA_GROUP : "next-version intent"
+    BATCH_CONTAINER ||--o{ PHOTO_ATTACHMENT : "separate Blob store"
+    DELTA_GROUP ||--|{ DELTA : "coupled constraint"
+
+    RECIPE_CONTAINER {
+        int SchemaVersion
+        uuid RecipeId PK
+        datetime SavedAt "author time"
+        datetime updatedAt "storage clock - lies"
+        string name
+        uuid parent_recipe_id "advisory lineage only"
+        string parent_name_snapshot "advisory, may be stale"
+        string style
+        decimal serving_temp_c
+        string temp_unit "issue 17 - never unit-free"
+        decimal hardness_pct
+        decimal overrun_pct
+        decimal target_pac_min
+        decimal target_pac_max
+        decimal target_pod_min
+        decimal target_pod_max
+        text notes "issue 14 - must not carry to child"
+        boolean rename_locked "true once ever saved"
+    }
+
+    FORMULA_ROW {
+        uuid row_id PK "row identity, not name - fixes blocker 4"
+        uuid RecipeId FK
+        string ingredient_name "diff key, decision 18"
+        int duplicate_ordinal "disambiguates repeated names"
+        decimal grams
+        decimal pct_of_batch "decision 19 comparison basis"
+        string location "base or mixin"
+    }
+
+    INGREDIENT_DEF {
+        uuid RecipeId FK
+        string ingredient_name
+        decimal water
+        decimal sugar
+        decimal fat
+        decimal msnf
+        decimal pac
+        decimal pod
+        decimal kcal
+        decimal stabilizer
+        string coefficient_set_id "for recomputation, decision 23"
+    }
+
+    LIBRARY_INGREDIENT {
+        string name PK
+        json composition "mutable, current"
+        string coefficient_set_id
+    }
+
+    METHOD_STEP {
+        uuid step_id PK
+        uuid RecipeId FK
+        int sort_order
+        string step_type
+        text instruction
+        text purpose "why the step exists"
+        decimal target_temp_c
+        string temp_unit
+        int target_minutes
+        int offset_minutes "mixin added at T plus n"
+    }
+
+    BATCH_CONTAINER {
+        int SchemaVersion
+        uuid BatchId PK
+        uuid RecipeId FK "advisory"
+        datetime SavedAt "was missing from P0.4"
+        datetime updatedAt
+        string print_nonce FK "binds to RECIPE_EVENT on return - batch is authoritative, event advisory"
+        date churn_date "never the print date"
+        decimal batch_multiplier
+        decimal as_made_mass_g
+        string verdict_status "evaluated, nothing_to_note, not_evaluated"
+        int overall_rating "unsigned quality, NOT a signed axis"
+        string orphan_policy "what happens when the recipe is deleted"
+    }
+
+    SNAPSHOT_ROW {
+        uuid BatchId FK
+        uuid source_row_id "copy, not a reference"
+        string ingredient_name
+        int duplicate_ordinal
+        decimal planned_grams
+        decimal actual_grams "as-made override, ink on the sheet"
+        decimal pct_of_batch
+        string location
+    }
+
+    SNAPSHOT_INGREDIENT_DEF {
+        uuid BatchId FK
+        string ingredient_name
+        json composition "immutable at print"
+        string coefficient_set_id
+    }
+
+    PROCESS_RECORD {
+        uuid record_id PK
+        uuid BatchId FK
+        uuid method_step_id "null means improvised"
+        int sort_order
+        decimal actual_temp_c
+        string temp_unit
+        decimal draw_temp_c
+        int actual_minutes
+        string machine_setting
+        int timing_verdict "minus one early, zero right, plus one late"
+        int effort_verdict
+        text prose
+    }
+
+    OBSERVATION {
+        uuid observation_id PK
+        uuid BatchId FK
+        string occasion "at_draw or from_freezer - OPEN - needs a pre-churn base value, Strawberry V2"
+        string axis "sweetness hardness scoopability smoothness dryness gumminess viscosity melt flavor_intensity"
+        string subject_ingredient_name
+        string subject_location
+        int signed_value "minus two to plus two, zero is Good"
+        int quality_value "separate from intensity - fixes blocker 3"
+        boolean perfect_flag
+        uuid compared_to_batch_id
+        text prose "decision 21 - where diagnoses live"
+    }
+
+    DELTA_GROUP {
+        uuid group_id PK
+        uuid BatchId FK
+        text constraint_note "keep PAC, lower POD"
+        boolean applied
+        uuid applied_in_recipe_id
+    }
+
+    DELTA {
+        uuid delta_id PK
+        uuid group_id FK
+        string target_type "formula, method, spec"
+        string operation "add, remove, increase, decrease, replace, retime"
+        string ingredient_name
+        uuid method_step_id
+        text proposed_instruction
+        decimal from_pct_of_batch
+        decimal to_pct_min "range support - fixes blocker 3"
+        decimal to_pct_max
+        text rationale
+    }
+
+    PHOTO_ATTACHMENT {
+        uuid photo_id PK
+        uuid BatchId FK
+        blob image
+        datetime photographed_at
+        text full_text "searched, not parsed - decision 20"
+        string cloud_policy "OPEN QUESTION - portable or local only"
+    }
+
+    RECIPE_EVENT {
+        uuid event_id PK "one immutable record per event - decision 26"
+        string event_type "saved printed batch_recorded deleted print_dismissed"
+        uuid RecipeId FK
+        datetime occurred_at "author time"
+        string device_id
+        uuid print_nonce "printed events - encoded in the sheet QR"
+        string intent "printed events - bench_sheet or reference_copy"
+        json snapshot_payload "printed events - carries the formula between print and return, decision 30"
+        uuid subject_record_id "deleted events - this IS the tombstone, closes issue 21"
+        string subject_record_type "recipe or batch"
+    }

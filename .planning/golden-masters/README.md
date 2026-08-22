@@ -1,6 +1,6 @@
 # Golden-master vectors for the Sprinkles `recipe-domain` port
 
-Per stack decision **D2** (`.planning/sprinkles-stack-decisions.md`): the TS
+Per stack decision **D2** (`.planning/designs/sprinkles-stack-decisions.md`): the TS
 calculation engine is correct when it reproduces recorded oracle outputs, not
 when it looks right. Two oracle sets are planned; this directory holds the
 first.

@@ -1,5 +1,20 @@
 # Modularization Workflow - Quick Reference
 
+> # ✅ PROJECT COMPLETE — closed 2026-08-15
+>
+> The nine extractions this workflow governed are all done. **Kept as a method,
+> not as a live task list** — the test-first loop below (baseline → extract →
+> verify → commit) is still the house pattern for any risky change, and it is
+> what the P0.1–P0.5 work followed. Nothing here is waiting to be executed.
+>
+> **The project record is in `.planning/`, not in this file or in
+> `MODULARIZATION_PLAN.md`.** Steps 7–9 ran under the Get Shit Done methodology:
+> the milestone is `.planning/milestones/v1.0-ROADMAP.md` (v1.0 Modularization,
+> Phases 7–9, shipped 2026-01-13, 6 plans) and the per-step detail is in
+> `.planning/phases/07-extract-tools/`, `08-extract-models/` and
+> `09-extract-recipe-manager/` as PLAN + SUMMARY pairs. Steps 1–6 predate GSD
+> and are documented only in `MODULARIZATION_PLAN.md`.
+
 ## Test-First Approach
 
 For each extraction step, follow this exact workflow:

@@ -3,7 +3,7 @@
 **Written:** 2026-08-07, from a working session that started as "resolve the react/jsx decision" and ended up deciding the full frontend and backend stack, plus the editing/versioning/AI-chat model.
 **Revised:** 2026-08-07, after an external architecture review pressure-tested D1–D12. Several decisions changed as a result (D7, D8) and one new foundational decision was added (D13). Where the review's reasoning was rejected, that's noted explicitly rather than silently dropped.
 **Revised again:** 2026-08-07 (second review session). D7/D8A refined — optimistic revision checks now apply only to explicit Save, and non-primary devices are viewers by default. New D14 (connectivity + account model) decided: anonymous-first via invisible Supabase account, verified-email gates. Golden-master validation added to D2. Backend consolidation onto Supabase Edge Functions recommended (not yet locked). Kitchen/churn mode requirements captured.
-**Read this first if you're picking up implementation.** It captures what's locked, why, and what's still genuinely open.
+*A record of a decision, not a plan.* It captures what's locked, why, and what's still genuinely open. **This is the Sprinkles rewrite, a separate project from the Ice Ed app** — none of the issues in this repo track it.
 
 ---
 
@@ -116,7 +116,7 @@ Typed commands can be schema-validated, domain-validated, logged, tested, simula
 
 **Where the chat tool-execution loop runs:** server-side orchestration, client-side simulation. Hono owns LLM credentials, model selection, auth, rate limits, tool definitions, conversation orchestration, and auditing — it never directly mutates a recipe. The browser receives the LLM's proposed typed commands from Hono, validates and simulates them locally using `recipe-domain` (the same package already trusted to compute PAC/POD for direct edits — no new trust boundary crossed), and builds the `pendingProposal` from the result. This reuses D5's pipeline exactly; Optimize and chat both ultimately produce the same shape of proposal.
 
-**D10 — LLM API key never touches the client.** Confirmed by the January research (`.planning/RESEARCH-LLM-INTEGRATION.md`): any key embedded in client JS is extractable regardless of obfuscation. That research was scoped around avoiding a backend entirely (BYOK, Workers AI free tier) because at the time there was no other reason to run one. That framing is now obsolete — a full backend is being built anyway for auth and storage (D8), so the LLM proxy is one more responsibility of it. BYOK is a poor fit regardless, since chat is meant to be a central feature, not a power-user opt-in.
+**D10 — LLM API key never touches the client.** Confirmed by the January research (`.planning/gsd-archive/RESEARCH-LLM-INTEGRATION.md`): any key embedded in client JS is extractable regardless of obfuscation. That research was scoped around avoiding a backend entirely (BYOK, Workers AI free tier) because at the time there was no other reason to run one. That framing is now obsolete — a full backend is being built anyway for auth and storage (D8), so the LLM proxy is one more responsibility of it. BYOK is a poor fit regardless, since chat is meant to be a central feature, not a power-user opt-in.
 
 **D11 — Save creates an immutable version; it is not continuous autosave.** Save means "mark this as a version I'm happy with" — tied to a real-world batch ("churn"), and the anchor that feedback and troubleshooting attach to. `recipe_versions` (D8): one row per explicit Save, a full snapshot at that moment. `feedback` and `troubleshooting_session` records reference a specific `version_id`, not just the recipe — the workflow (edit → save → churn → troubleshoot → edit → save...) depends on pointing at exactly the version that produced a given real-world result. Immutable versions also provide rollback, comparison, AI context, and debugging history for free. Much smaller than full event-sourcing — this logs only explicit Saves, roughly once per batch, not every keystroke.
 
@@ -218,16 +218,16 @@ No offline editing, no offline draft writes, no local-first architecture. The ki
 - **Kitchen wifi reality check.** If chat-while-churning is a headline feature, kitchen connectivity is a hard dependency no stack choice can compensate for. Check signal where the churning machine actually lives before budgeting the chat-in-kitchen experience.
 - ~~`.planning/codebase/STACK.md` drift check~~ — **verified 2026-08-07 against the live repo.** Core claims hold: still vanilla JS ES6 modules, no framework, no bundler, no node_modules. Drift the audit doesn't capture (from post-audit Phase 16/20 cloud-sync work): three runtime external dependencies now exist — `https://esm.sh/idb@8` (`js/storage/indexeddb-storage.js:4`) and two Google scripts in `index.html` (`apis.google.com/js/api.js`, `accounts.google.com/gsi/client`), plus the whole `js/storage/` sync layer (google-auth, google-drive-storage, sync-manager). None of this affects any decision above (D14b replaces that layer with Supabase), but STACK.md's "no production dependencies" line is stale.
 - ~~`OptimizeRecipe()` still hill-climbing~~ — **verified 2026-08-07.** `js/features/recipe-manager.js:954`: greedy hill-climb exactly as described — ±10% step candidates per adjustable ingredient (filtered to ≥1.5% of mixture and target-relevant), `Fitness()`-scored, accept-on-improvement. `CalcFDP` / `GetIdealPAC` / `Fitness` confirmed in `js/features/calculations.js`. D2's oracle basis stands.
-- Cloudflare specifics in `RESEARCH-LLM-INTEGRATION.md` (free tier limits, CORS support table) are from January 2026 — re-check before relying on exact numbers if the Hono service ever does deploy to Workers.
+- Cloudflare specifics in `gsd-archive/RESEARCH-LLM-INTEGRATION.md` (free tier limits, CORS support table) are from January 2026 — re-check before relying on exact numbers if the Hono service ever does deploy to Workers.
 - D3's "verify with a representative vertical slice" is unfinished — treat React as the default candidate, not a fully closed decision, until that spike runs.
 
 ---
 
 ## Doc map
 
-- This file (`.planning/sprinkles-stack-decisions.md`) — architecture decisions.
+- This file (`.planning/designs/sprinkles-stack-decisions.md`) — architecture decisions.
 - `sprinkles-phase3-handoff.md` — ingredients library UI/UX, a parallel design track *(lives outside this repo)*.
 - `.planning/codebase/STACK.md` — current (as of Jan 2026) production stack, vanilla JS.
-- `.planning/RESEARCH-LLM-INTEGRATION.md` — prior LLM-integration research; partially superseded by D10 above (the backend-avoidance framing no longer applies), but the provider CORS/proxy findings are still relevant background.
+- `.planning/gsd-archive/RESEARCH-LLM-INTEGRATION.md` — prior LLM-integration research; partially superseded by D10 above (the backend-avoidance framing no longer applies), but the provider CORS/proxy findings are still relevant background.
 - `.planning/todos/pending/2026-01-15-llm-chat-recipe-research.md` / `-troubleshooting.md` — the original feature todos that D12 unifies into one mechanism.
 - `icecream-*.jsx` — design mockups, reference only, not shipping code *(live outside this repo)*.

@@ -1,6 +1,6 @@
 # Binder audit — verification against the codebase (2026-08-14)
 
-The audit (`.planning/binder-audit.md`) ends with an 11-item "Verify before
+The audit (`.planning/evidence/binder-audit.md`) ends with an 11-item "Verify before
 sharing" list. Most items need the photographs or the maintainer. Three can be
 checked against this repository. This file records what that check found.
 
